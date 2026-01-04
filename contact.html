@@ -1,0 +1,173 @@
+﻿<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VANA | Kontakt</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <div class="site-wrapper">
+        <div class="cookie-banner" data-cookie-banner>
+            <div class="cookie-card">
+                <div class="cookie-top">
+                    <div>
+                        <strong>Datenschutz-Einstellungen</strong>
+                        <p>Wir nutzen Cookies, um Sicherheit, Funktionalität und die Qualität unserer Inhalte zu gewährleisten. Weitere Informationen finden Sie in der <a href="privacy.html">Datenschutzerklärung</a>. Sie können Ihre Auswahl jederzeit anpassen.</p>
+                    </div>
+                    <div class="cookie-actions">
+                        <button class="btn btn--ghost" type="button" data-cookie-open>Einstellungen</button>
+                        <button class="btn" type="button" data-cookie-accept>Alle akzeptieren</button>
+                    </div>
+                </div>
+                <div class="cookie-panel">
+                    <div class="cookie-options">
+                        <label>
+                            <input type="checkbox" checked disabled>
+                            Notwendige Cookies (immer aktiv)
+                        </label>
+                        <label>
+                            <input type="checkbox" data-cookie-analytics>
+                            Analyse & Performance
+                        </label>
+                        <label>
+                            <input type="checkbox" data-cookie-marketing>
+                            Marketing & Personalisierung
+                        </label>
+                    </div>
+                    <div class="cookie-actions" style="margin-top: 12px;">
+                        <button class="btn btn--ghost" type="button" data-cookie-reject>Nur notwendige</button>
+                        <button class="btn" type="button" data-cookie-save>Auswahl speichern</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <header class="site-header">
+            <div class="container header-inner">
+                <a class="brand" href="index.html" aria-label="VANA Startseite">
+                    <img src="assets/vana-logo.jpg" alt="VANA Logo">
+                    <div>
+                        <span class="brand-name">VANA</span>
+                        <span class="brand-tagline">VANA GROUP</span>
+                    </div>
+                </a>
+                <nav class="site-nav" aria-label="Hauptnavigation">
+                    <a href="about.html">Über</a>
+                    <a href="services.html">Leistungen</a>
+                    <a href="projects.html">Track Record</a>
+                    <a href="contact.html">Kontakt</a>
+                </nav>
+                <a class="btn" href="#kontakt">Beratung anfragen</a>
+            </div>
+        </header>
+
+        <main class="site-content">
+            <section class="hero">
+                <div class="container hero-grid">
+                    <div data-reveal>
+                        <div class="eyebrow">Kontakt</div>
+                        <h1>Starten wir das Gespräch.</h1>
+                        <p class="lead">Wir beantworten Ihre Fragen, erläutern unseren Ansatz und zeigen Ihnen den passenden nächsten Schritt.</p>
+                        <div class="hero-actions">
+                            <a class="btn" href="#kontakt">Kontakt aufnehmen</a>
+                            <a class="btn btn--ghost" href="projects.html">Track Record</a>
+                        </div>
+                    </div>
+                    <div class="hero-media" data-reveal style="--reveal-delay: 120ms;">
+                        <img src="assets/hero.png" alt="VANA Kontakt">
+                        <div class="hero-media-overlay">
+                            <h3>Direkter Kontakt</h3>
+                            <p>Persönlich, schnell und vertraulich.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section section--alt" id="kontakt">
+                <div class="container grid-2">
+                    <div data-reveal>
+                        <div class="eyebrow">VANA Kontakt</div>
+                        <h2>Wenn Sie Beratung wünschen, kontaktieren Sie uns.</h2>
+                        <p>Wir stimmen den weiteren Prozess persönlich ab und melden uns in der Regel innerhalb von 24 Stunden.</p>
+                        <div class="quote">
+                            <p>„Klare Kommunikation und strukturierte Abläufe stehen für uns an erster Stelle.“</p>
+                        </div>
+                        <h3>Direkte Ansprechpartner</h3>
+                        <p>VANA GmbH<br>Musterstraße 12<br>10115 Berlin</p>
+                        <p>info@vana-management.de<br>+49 30 1234 5678</p>
+                    </div>
+                    <div data-reveal style="--reveal-delay: 120ms;">
+                        <form data-contact-form>
+                            <div class="form-grid">
+                                <label>
+                                    Vorname
+                                    <input type="text" name="first_name" required>
+                                </label>
+                                <label>
+                                    Nachname
+                                    <input type="text" name="last_name" required>
+                                </label>
+                                <label>
+                                    E-Mail
+                                    <input type="email" name="email" required>
+                                </label>
+                                <label>
+                                    Telefon
+                                    <input type="tel" name="phone">
+                                </label>
+                                <label>
+                                    Unternehmen
+                                    <input type="text" name="company">
+                                </label>
+                                <label>
+                                    Projektinteresse
+                                    <select name="volume">
+                                        <option value="">Bitte auswählen</option>
+                                        <option>Analyse & Ankauf</option>
+                                        <option>Finanzierung & Strukturierung</option>
+                                        <option>Entwicklung & Sanierung</option>
+                                        <option>Verwertung & Exit</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <label>
+                                Nachricht
+                                <textarea name="message" required></textarea>
+                            </label>
+                            <p class="form-note">Mit dem Absenden bestätigen Sie, dass Sie die <a href="privacy.html">Datenschutzerklärung</a> gelesen haben.</p>
+                            <button class="btn" type="submit">Anfrage senden</button>
+                            <div class="form-message" data-form-message hidden>Vielen Dank. Ihre Anfrage ist bei uns eingegangen.</div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="container footer-grid">
+                <div>
+                    <h3>Standort</h3>
+                    <p>VANA GmbH<br>Musterstraße 12<br>10115 Berlin</p>
+                </div>
+                <div>
+                    <h3>Kontakt</h3>
+                    <p>info@vana-management.de<br>+49 30 1234 5678</p>
+                </div>
+                
+                <div>
+                    <h3>Rechtliches</h3>
+                    <div class="footer-links">
+                        <a href="privacy.html">Datenschutz</a>
+                        <a href="imprint.html">Impressum</a>
+                    </div>
+                </div>
+            </div>
+            <div class="container footer-meta">(c) 2025 VANA. Alle Rechte vorbehalten.</div>
+        </footer>
+    </div>
+</body>
+</html>
+
+
