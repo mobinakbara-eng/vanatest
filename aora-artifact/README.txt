@@ -1,0 +1,1 @@
+Aora Workforce staging deployment artifact. Generated from the tested v4.0.0 source bundle.
