@@ -1,0 +1,344 @@
+import React, { useEffect, useId, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import "./styles.css";
+import {
+  AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays,
+  CalendarRange, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Clock3, Coffee,
+  Copy, Download, Euro, FileText, HardDrive, Home, KeyRound, LayoutDashboard, Lock, LogOut, Mail,
+  MapPin, Megaphone, Menu, Monitor, MoreHorizontal, Pause, Pencil, Play, Plus, RefreshCw, Save, Search, Send,
+  Settings, ShieldCheck, SlidersHorizontal, Trash2, Umbrella, Unlock, Upload, UserRound, Users,
+  WalletCards, X
+} from "lucide-react";
+import {
+  BACKUP_STORAGE_KEY, SESSION_KEY, STORAGE_KEY, addDays, calculateLeaveDays, complianceWarnings,
+  createSeed, dateKey, employeeMetrics, entryMinutes, fmtMinutes, laborSummary, leaveDecisionCheck,
+  mondayOf, minutesBetween, normalizeState, publishGate, reduceAora, requiredBreakForGross,
+  validateShiftDraft
+} from "./domain.mjs";
+import { createRepository } from "./data/repository.mjs";
+
+const LEGACY_STORAGE_KEY = "aora-workforce-final-v1";
+const LOCAL_ADMIN_PIN = "2468";
+const DAY_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const ADMIN_NAV = [
+  ["overview", "Übersicht", LayoutDashboard], ["schedule", "Dienstplan", CalendarDays],
+  ["tracking", "Zeiterfassung", Clock3], ["leave", "Abwesenheiten", Umbrella],
+  ["employees", "Mitarbeiter", Users], ["reports", "Berichte", BarChart3],
+  ["comms", "Team-News", Megaphone], ["kiosks", "Kiosk", Monitor], ["settings", "Einstellungen", Settings],
+];
+const EMPLOYEE_NAV = [
+  ["home", "Start", Home], ["calendar", "Kalender", CalendarDays], ["times", "Zeiten", Clock3],
+  ["leave", "Urlaub", Umbrella], ["more", "Mehr", Menu],
+];
+
+function endOfMonth(key = dateKey()) {
+  const [year, month] = key.split("-").map(Number);
+  return dateKey(new Date(year, month, 0, 12));
+}
+
+function downloadFile(filename, content, type = "text/plain;charset=utf-8") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function downloadCsv(filename, headers, rows) {
+  const encode = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const body = [headers, ...rows].map((row) => row.map(encode).join(";")).join("\n");
+  downloadFile(filename, `\uFEFF${body}`, "text/csv;charset=utf-8");
+}
+
+function loadState() {
+  for (const key of [STORAGE_KEY, LEGACY_STORAGE_KEY, BACKUP_STORAGE_KEY]) {
+    try {
+      const value = localStorage.getItem(key);
+      if (value) return normalizeState(JSON.parse(value));
+    } catch {}
+  }
+  return createSeed();
+}
+
+function loadSession() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    if (["employee", "admin", "kiosk"].includes(value?.role)) return value;
+  } catch {}
+  return null;
+}
+
+function deviceDateParts(date, timezone = "Europe/Berlin") {
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(date).reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {});
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
+
+export default function App() {
+  const repositoryRef = useRef(null);
+  const [state, setState] = useState(null);
+  const [directory, setDirectory] = useState(null);
+  const [session, setSessionState] = useState(null);
+  const [revision, setRevision] = useState(0);
+  const [toast, setToast] = useState(null);
+  const [bootError, setBootError] = useState("");
+  const [recoveryMode, setRecoveryMode] = useState(false);
+
+  const persistSession = (next) => {
+    setSessionState(next);
+    if (next) sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    else sessionStorage.removeItem(SESSION_KEY);
+  };
+
+  const showToast = (message, tone = "success") => {
+    setToast({ message, tone });
+    window.clearTimeout(window.__aoraToast);
+    window.__aoraToast = window.setTimeout(() => setToast(null), 3600);
+  };
+
+  const applyResult = (result) => {
+    setState(result.state);
+    setRevision(Number(result.revision || 0));
+    persistSession(result.session);
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const repository = await createRepository();
+        repositoryRef.current = repository;
+        setRecoveryMode(Boolean(repository.isRecovery));
+        const nextDirectory = await repository.getDirectory();
+        if (!active) return;
+        setDirectory(nextDirectory);
+        if (repository.isRecovery) return;
+        const stored = loadSession();
+        if (stored && (!stored.repositoryMode || stored.repositoryMode === repository.mode)) {
+          try {
+            const result = await repository.load(stored);
+            if (active) applyResult(result);
+          } catch {
+            sessionStorage.removeItem(SESSION_KEY);
+            setSessionState(null);
+          }
+        } else if (repository.restore) {
+          const restored = await repository.restore();
+          if (active && restored) applyResult(restored);
+        }
+      } catch (error) {
+        if (active) setBootError(error.message || "Arbeitsbereich konnte nicht geladen werden.");
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!session || !repositoryRef.current) return undefined;
+    let busy = false;
+    const refresh = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const result = await repositoryRef.current.load(session);
+        setState(result.state);
+        setRevision(Number(result.revision || 0));
+      } catch (error) {
+        if (/expired|invalid|session/i.test(error.message || "")) {
+          persistSession(null);
+          setState(null);
+          showToast("Die Sitzung ist abgelaufen. Bitte erneut anmelden.", "error");
+        }
+      } finally { busy = false; }
+    };
+    return repositoryRef.current.subscribe(session, refresh);
+  }, [session?.token, session?.role, session?.organizationId]);
+
+  useEffect(() => {
+    const roleTitle = session?.role === "admin" ? "Arbeitgeber" : session?.role === "kiosk" ? "Check-in" : session?.role === "employee" ? "Mitarbeiter" : "Zugang";
+    document.title = `AoraAI Workforce · ${roleTitle}`;
+  }, [session?.role]);
+
+  const enter = async (request) => {
+    const result = await repositoryRef.current.login(request);
+    applyResult(result);
+  };
+
+  const resetPassword = async (email, role) => repositoryRef.current.resetPassword(email, role);
+
+  const finishRecovery = async (password) => {
+    const result = await repositoryRef.current.updatePassword(password);
+    setRecoveryMode(false);
+    applyResult(result);
+  };
+
+  const logout = async () => {
+    await repositoryRef.current?.logout(session);
+    persistSession(null);
+    setState(null);
+    setDirectory(await repositoryRef.current.getDirectory());
+  };
+
+  const dispatch = async (event, message, tone = "success") => {
+    const current = state;
+    const optimistic = reduceAora(current, event);
+    setState(optimistic);
+    try {
+      const result = await repositoryRef.current.apply(session, event, revision, current);
+      setState(result.state);
+      setRevision(Number(result.revision || revision + 1));
+      if (message) showToast(message, tone);
+    } catch (error) {
+      setState(current);
+      showToast(error.message || "Die Änderung konnte nicht gespeichert werden.", "error");
+      try {
+        const fresh = await repositoryRef.current.load(session);
+        setState(fresh.state);
+        setRevision(Number(fresh.revision || revision));
+      } catch {}
+    }
+  };
+
+  const openKiosk = async (deviceId) => {
+    try {
+      const returnSession = session;
+      const result = await repositoryRef.current.login({ role: "kiosk", deviceId });
+      result.session.returnSession = returnSession;
+      applyResult(result);
+    } catch (error) { showToast(error.message, "error"); }
+  };
+
+  const leaveKiosk = async () => {
+    const previous = session?.returnSession;
+    if (!previous) return logout();
+    try {
+      const result = await repositoryRef.current.load(previous);
+      applyResult(result);
+    } catch { await logout(); }
+  };
+
+  const adminLogin = async () => {
+    await repositoryRef.current?.logout(session);
+    persistSession(null);
+    setState(null);
+    window.location.assign("/admin");
+  };
+
+  const replaceState = (raw, message = "Lokale Daten wurden importiert.") => {
+    if (repositoryRef.current?.mode !== "local") return showToast("Import ist im Cloud-Testsystem deaktiviert. Nutze stattdessen den kontrollierten Reset.", "error");
+    setState(normalizeState(raw));
+    showToast(message);
+  };
+
+  if (bootError) return <div className="boot boot-error"><Brand/><AlertTriangle/><h1>Verbindung fehlgeschlagen</h1><p>{bootError}</p><button className="primary" onClick={() => window.location.reload()}><RefreshCw/>Erneut versuchen</button></div>;
+  if (!directory) return <div className="boot"><Brand/><span className="loader"/><p>Arbeitsbereich wird vorbereitet …</p></div>;
+  if (recoveryMode) return <RecoveryGate onSave={finishRecovery}/>;
+  if (!session) return <AccessGate state={directory} onEnter={enter} onReset={resetPassword}/>;
+  if (!state) return <div className="boot"><Brand/><span className="loader"/><p>Daten werden synchronisiert …</p></div>;
+
+  const employee = session.role === "employee" ? state.employees.find((item) => item.id === session.employeeId && item.active) : null;
+  const admin = session.role === "admin" ? state.admins.find((item) => item.id === session.adminId) || state.admins[0] : null;
+  const device = session.role === "kiosk" ? state.kioskDevices.find((item) => item.id === session.deviceId) || state.kioskDevices[0] : null;
+  if (session.role === "employee" && !employee) return <AccessGate state={directory} onEnter={enter} onReset={resetPassword} error="Dieses Mitarbeiterprofil ist nicht mehr aktiv."/>;
+  if (session.role === "kiosk" && !device) return <AccessGate state={directory} onEnter={enter} onReset={resetPassword} error="Das ausgewählte Kioskgerät wurde nicht gefunden."/>;
+
+  return <div className={`app portal-${session.role}`}>
+    {session.role === "employee" && <EmployeeApp state={state} employeeId={employee.id} dispatch={dispatch} onOpenKiosk={() => openKiosk(state.kioskDevices.find((item) => item.locationId === employee.locationId)?.id)} onLogout={logout}/>} 
+    {session.role === "admin" && <AdminApp state={state} admin={admin} initialLocationId={session.locationId} dispatch={dispatch} onOpenKiosk={openKiosk} onLogout={logout} onReplaceState={replaceState}/>} 
+    {session.role === "kiosk" && <KioskApp state={state} deviceId={device.id} dispatch={dispatch} onBack={leaveKiosk} onAdminLogin={adminLogin}/>} 
+    {toast && <div className={`toast ${toast.tone}`} role="status" aria-live="polite"><CircleCheck/><span>{toast.message}</span></div>}
+  </div>;
+}
+function AccessGate({ state, onEnter, error = "" }) {
+  const portalParam = new URLSearchParams(window.location.search).get("portal");
+  const routeMode = portalParam === "admin" || window.location.pathname.includes("admin") ? "admin" : portalParam === "kiosk" || window.location.pathname.includes("kiosk") ? "kiosk" : "employee";
+  const cloud = state.repositoryMode === "supabase";
+  if (!cloud) return <LocalAccessGate state={state} onEnter={onEnter} error={error}/>;
+  const access = state.accessConfig?.stagingAccess || {};
+  const [mode, setMode] = useState(routeMode);
+  const [password, setPassword] = useState("");
+  const [deviceId, setDeviceId] = useState(state.accessConfig?.kioskDeviceId || state.kioskDevices.find((item) => item.active)?.id || "kiosk_1");
+  const [activationCode, setActivationCode] = useState("");
+  const [message, setMessage] = useState(error);
+  const [loading, setLoading] = useState(false);
+  const selectMode = (next) => {
+    setMode(next); setMessage(""); setPassword(""); setActivationCode("");
+    const route = next === "admin" ? "/admin" : next === "kiosk" ? "/kiosk" : "/employee";
+    if (window.location.pathname !== route) history.pushState({}, "", route);
+  };
+  const submit = async (event) => {
+    event.preventDefault(); setMessage(""); setLoading(true);
+    try {
+      if (mode === "kiosk") await onEnter({ role: "kiosk", deviceId, activationCode });
+      else await onEnter({ role: mode, password });
+    } catch (err) { setMessage(err.message || "Anmeldung nicht möglich."); }
+    finally { setLoading(false); }
+  };
+  const identity = mode === "admin" ? { initials: "AS", name: access.admin?.displayName || "Alexander Sigalovski", role: access.admin?.subtitle || "Administrator" } : { initials: "AH", name: access.employee?.displayName || "Amir Hassan", role: access.employee?.subtitle || "Mitarbeiter" };
+  return <main className="access-shell">
+    <section className="access-brand"><Brand/><p>Adaptive Operations &amp; Response Automation</p><h1>Ein Arbeitsbereich. Drei klare Rollen.</h1><span>Original-Oberfläche · Supabase Staging</span></section>
+    <form className="access-card" onSubmit={submit}>
+      <header><small>AORAAI WORKFORCE</small><h2>{mode === "kiosk" ? "Kiosk aktivieren" : "Sicher anmelden"}</h2><p>Admin, Mitarbeiter und Kiosk arbeiten mit demselben Live-Testbestand.</p></header>
+      <div className="access-tabs" role="tablist" aria-label="Rolle auswählen">
+        <button type="button" className={mode === "employee" ? "active" : ""} onClick={() => selectMode("employee")}><UserRound/>Mitarbeiter</button>
+        <button type="button" className={mode === "admin" ? "active" : ""} onClick={() => selectMode("admin")}><LayoutDashboard/>Arbeitgeber</button>
+        <button type="button" className={mode === "kiosk" ? "active" : ""} onClick={() => selectMode("kiosk")}><Monitor/>Kiosk</button>
+      </div>
+      <div className="access-fields">
+        {mode !== "kiosk" && <>
+          <div className="access-identity"><Avatar employee={identity}/><span><strong>{identity.name}</strong><small>{identity.role}</small></span></div>
+          <Field label="Staging-Passwort" hint="6-stellig"><input autoFocus type="password" inputMode="numeric" value={password} onChange={(event) => setPassword(event.target.value.replace(/\D/g, "").slice(0, 6))} autoComplete="current-password" placeholder="••••••"/></Field>
+        </>}
+        {mode === "kiosk" && <><Field label="Geräte-ID"><input value={deviceId} onChange={(event) => setDeviceId(event.target.value)} autoComplete="off"/></Field><Field label="Aktivierungscode"><input type="password" value={activationCode} onChange={(event) => setActivationCode(event.target.value)} autoComplete="off" placeholder="AORA-…"/></Field></>}
+        {message && <div className="form-error" role="alert"><AlertTriangle/>{message}</div>}
+      </div>
+      <button className="primary access-submit" type="submit" disabled={loading || (mode !== "kiosk" && password.length !== 6) || (mode === "kiosk" && activationCode.length < 8)}>{loading ? <RefreshCw className="spin"/> : mode === "employee" ? <UserRound/> : mode === "admin" ? <KeyRound/> : <Monitor/>}<span>{loading ? "Verbindung wird hergestellt …" : mode === "kiosk" ? "Kiosk sicher verbinden" : mode === "employee" ? "Mitarbeiterbereich öffnen" : "Administration öffnen"}</span><ArrowRight/></button>
+      <footer><ShieldCheck/><span>Passwörter werden gehasht geprüft; Sitzungen laufen nach 12 Stunden ab.</span></footer>
+    </form>
+  </main>;
+}
+
+function LocalAccessGate({ state, onEnter, error = "" }) {
+  const portalParam = new URLSearchParams(window.location.search).get("portal");
+  const routeMode = portalParam === "admin" || window.location.pathname.includes("admin") ? "admin" : portalParam === "kiosk" || window.location.pathname.includes("kiosk") ? "kiosk" : "employee";
+  const [mode, setMode] = useState(routeMode);
+  const [employeeId, setEmployeeId] = useState(state.employees.find((item) => item.active)?.id || "");
+  const [deviceId, setDeviceId] = useState(state.kioskDevices.find((item) => item.active)?.id || "");
+  const [pin, setPin] = useState("");
+  const [message, setMessage] = useState(error);
+  const [loading, setLoading] = useState(false);
+  const admin = state.admins[0];
+  const submit = async (event) => {
+    event.preventDefault(); setMessage(""); setLoading(true);
+    try {
+      if (mode === "employee") await onEnter({ role: "employee", employeeId });
+      else if (mode === "kiosk") await onEnter({ role: "kiosk", deviceId });
+      else await onEnter({ role: "admin", adminId: admin.id, locationId: state.locations[0]?.id, pin });
+    } catch (err) { setMessage(err.message || "Anmeldung nicht möglich."); }
+    finally { setLoading(false); }
+  };
+  return <main className="access-shell">
+    <section className="access-brand"><Brand/><p>Adaptive Operations &amp; Response Automation</p><h1>Ein Arbeitsbereich. Drei klare Rollen.</h1><span>Lokaler Prototyp · Daten nur in diesem Browser</span></section>
+    <form className="access-card" onSubmit={submit}>
+      <header><small>AORAAI WORKFORCE</small><h2>Zugang auswählen</h2><p>Die Rolle wird für diese Browser-Sitzung getrennt gespeichert.</p></header>
+      <div className="access-tabs" role="tablist" aria-label="Rolle auswählen"><button type="button" className={mode === "employee" ? "active" : ""} onClick={() => setMode("employee")}><UserRound/>Mitarbeiter</button><button type="button" className={mode === "admin" ? "active" : ""} onClick={() => setMode("admin")}><LayoutDashboard/>Arbeitgeber</button><button type="button" className={mode === "kiosk" ? "active" : ""} onClick={() => setMode("kiosk")}><Monitor/>Kiosk</button></div>
+      <div className="access-fields">{mode === "employee" && <Field label="Mitarbeiterprofil"><select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>{state.employees.filter((item) => item.active).map((employee) => <option value={employee.id} key={employee.id}>{employee.name} · {employee.role}</option>)}</select></Field>}{mode === "admin" && <><div className="access-identity"><Avatar employee={admin}/><span><strong>{admin.name}</strong><small>{admin.role}</small></span></div><Field label="Demo-PIN" hint="2468"><input inputMode="numeric" autoComplete="one-time-code" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="••••"/></Field></>}{mode === "kiosk" && <Field label="Gebundenes Gerät"><select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>{state.kioskDevices.filter((item) => item.active).map((device) => <option value={device.id} key={device.id}>{device.name}</option>)}</select></Field>}{message && <div className="form-error" role="alert"><AlertTriangle/>{message}</div>}</div>
+      <button className="primary access-submit" type="submit" disabled={loading}>{loading ? <RefreshCw className="spin"/> : mode === "employee" ? <UserRound/> : mode === "admin" ? <KeyRound/> : <Monitor/>}<span>{loading ? "Verbindung wird hergestellt …" : mode === "employee" ? "Mitarbeiterbereich öffnen" : mode === "admin" ? "Administration öffnen" : "Kiosk starten"}</span><ArrowRight/></button>
+      <footer><ShieldCheck/><span>Die lokale Zugangstrennung ersetzt keine produktive Authentifizierung.</span></footer>
+    </form>
+  </main>;
+}
+
+function RecoveryGate({ onSave }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault(); setMessage("");
+    if (password.length < 12) return setMessage("Das neue Passwort muss mindestens 12 Zeichen lang sein.");
+    if (password !== confirm) return set
