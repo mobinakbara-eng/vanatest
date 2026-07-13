@@ -1,0 +1,166 @@
+Message("Die Passwörter stimmen nicht überein.");
+    setLoading(true);
+    try { await onSave(password); }
+    catch (error) { setMessage(error.message || "Passwort konnte nicht geändert werden."); }
+    finally { setLoading(false); }
+  };
+  return <main className="access-shell"><section className="access-brand"><Brand/><p>Adaptive Operations &amp; Response Automation</p><h1>Neues Passwort festlegen.</h1><span>Sichere Wiederherstellung über Supabase Auth</span></section><form className="access-card" onSubmit={submit}><header><small>AORAAI WORKFORCE</small><h2>Passwort ändern</h2><p>Wähle ein neues, starkes Passwort für dein Aora-Konto.</p></header><div className="access-fields"><Field label="Neues Passwort"><input autoFocus type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password"/></Field><Field label="Passwort wiederholen"><input type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} autoComplete="new-password"/></Field>{message && <div className="form-error" role="alert"><AlertTriangle/>{message}</div>}</div><button className="primary access-submit" type="submit" disabled={loading}><KeyRound/><span>{loading ? "Passwort wird gespeichert …" : "Passwort speichern"}</span><ArrowRight/></button></form></main>;
+}
+
+function Brand({ compact = false, inverse = false }) {
+  return <div className={`brand ${compact ? "compact" : ""} ${inverse ? "inverse" : ""}`} role="img" aria-label="AoraAI">
+    <svg viewBox="0 0 174 64" aria-hidden="true" focusable="false">
+      <g className="brand-symbol" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 31 31 7c2-4 7-4 9 0l13 24"/>
+        <path d="M27 31h17"/>
+      </g>
+      <circle cx="35.5" cy="22" r="3.2" fill="currentColor"/>
+      <text x="2" y="57" fill="currentColor" fontFamily="Sora, Manrope, sans-serif" fontSize="18" fontWeight="600" letterSpacing="4">AoraAI</text>
+    </svg>
+  </div>;
+}
+
+function Avatar({ employee, size = "md" }) { return <span className={`avatar ${size}`} aria-hidden="true">{employee?.initials || "?"}</span>; }
+function Pill({ children, tone = "neutral" }) { return <span className={`pill ${tone}`}>{children}</span>; }
+function Empty({ icon: Icon = FileText, title, text }) { return <div className="empty"><Icon/><strong>{title}</strong><span>{text}</span></div>; }
+function Stat({ icon: Icon, label, value, detail, tone = "mint" }) { return <article className={`stat ${tone}`}><span><Icon/></span><div><small>{label}</small><strong>{value}</strong>{detail && <em>{detail}</em>}</div></article>; }
+function Progress({ value, max = 100, tone = "mint" }) { return <span className={`progress ${tone}`} role="progressbar" aria-valuemin="0" aria-valuemax={max} aria-valuenow={Math.min(max, Math.max(0, value))}><i style={{ width: `${Math.min(100, Math.max(0, (value / Math.max(1, max)) * 100))}%` }}/></span>; }
+
+function Modal({ title, subtitle, onClose, children, wide = false }) {
+  const dialogRef = useRef(null);
+  const titleId = useId();
+  const subtitleId = useId();
+  useEffect(() => {
+    const previous = document.activeElement;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const dialog = dialogRef.current;
+    const focusable = dialog?.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    focusable?.focus();
+    const onKey = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
+      if (event.key !== "Tab" || !dialog) return;
+      const nodes = [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = oldOverflow; previous?.focus?.(); };
+  }, [onClose]);
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section ref={dialogRef} className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined}>
+      <header><div><h2 id={titleId}>{title}</h2>{subtitle && <p id={subtitleId}>{subtitle}</p>}</div><button className="icon-button" onClick={onClose} aria-label="Dialog schließen"><X/></button></header>
+      {children}
+    </section>
+  </div>;
+}
+
+function Field({ label, hint, children }) { return <label className="field"><span>{label}{hint && <small>{hint}</small>}</span>{children}</label>; }
+
+/* Employee */
+function EmployeeApp({ state, employeeId, dispatch, onOpenKiosk, onLogout }) {
+  const [tab, setTab] = useState("home");
+  const employee = state.employees.find((item) => item.id === employeeId);
+  const unread = state.notifications.filter((item) => item.employeeId === employeeId && !item.read).length + state.announcements.filter((item) => (item.audience === "all" || item.audience === employee.locationId) && !item.readBy.includes(employeeId)).length;
+  return <div className="employee-shell">
+    <header className="employee-top"><Brand/><div><button className="icon-button notification-button" aria-label={`${unread} ungelesene Mitteilungen`} onClick={() => { setTab("more"); dispatch({ type: "MARK_NOTIFICATIONS_READ", employeeId }); }}><Bell/>{unread > 0 && <i>{unread}</i>}</button><Avatar employee={employee}/><button className="icon-button" aria-label="Abmelden" onClick={onLogout}><LogOut/></button></div></header>
+    <main className="employee-content">
+      {tab === "home" && <EmployeeHome state={state} employee={employee} onTab={setTab} onOpenKiosk={onOpenKiosk}/>} 
+      {tab === "calendar" && <EmployeeCalendar state={state} employee={employee}/>} 
+      {tab === "times" && <EmployeeTimes state={state} employee={employee} dispatch={dispatch}/>} 
+      {tab === "leave" && <EmployeeLeave state={state} employee={employee} dispatch={dispatch}/>} 
+      {tab === "more" && <EmployeeMore state={state} employee={employee} dispatch={dispatch}/>} 
+    </main>
+    <nav className="employee-nav" aria-label="Mitarbeiternavigation">{EMPLOYEE_NAV.map(([id, label, Icon]) => <button key={id} className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><span><Icon/>{id === "more" && unread > 0 && <i>{unread}</i>}</span><small>{label}</small></button>)}</nav>
+  </div>;
+}
+
+function EmployeeHome({ state, employee, onTab, onOpenKiosk }) {
+  const metrics = employeeMetrics(state, employee.id);
+  const today = dateKey();
+  const shift = state.shifts.find((item) => item.employeeId === employee.id && item.date === today && item.status === "published");
+  const live = state.timeEntries.find((item) => item.employeeId === employee.id && ["live", "paused"].includes(item.status));
+  const nextShift = state.shifts.filter((item) => item.employeeId === employee.id && item.status === "published" && item.date > today).sort((a, b) => a.date.localeCompare(b.date))[0];
+  return <div className="employee-page employee-home-page">
+    <section className="greeting"><span>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long" }).toUpperCase()}</span><h1>Guten Morgen, {employee.name.split(" ")[0]}.</h1><p>Alles Wichtige für deinen Arbeitstag – klar und aktuell.</p></section>
+    <section className={`today-card ${live ? "active" : ""}`}>
+      <div className="today-head"><Pill tone={live?.status === "paused" ? "warning" : live ? "success" : "neutral"}><i className="live-dot"/>{live?.status === "paused" ? "In Pause" : live ? `Seit ${live.start} im Dienst` : "Nicht eingestempelt"}</Pill><span><MapPin/>{state.locations.find((item) => item.id === employee.locationId)?.name || "Standort"}</span></div>
+      <small>HEUTIGE SCHICHT</small><h2>{shift ? `${shift.start}–${shift.end}` : "Heute frei"}</h2><p>{shift ? `${fmtMinutes(minutesBetween(shift.start, shift.end, shift.breakMinutes))} geplant · ${shift.area}` : "Keine veröffentlichte Schicht"}</p>
+      {live ? <div className="live-time"><Clock3/><strong>{live.status === "paused" ? "Pause läuft" : "Arbeitszeit läuft"}</strong><span>Start {live.start}</span></div> : <button className="today-action" onClick={onOpenKiosk}><Monitor/>AoraAI Check-in öffnen<ArrowRight/></button>}
+    </section>
+    <div className="employee-stats">
+      <Stat icon={CalendarDays} label="Geplant" value={fmtMinutes(metrics.planned)} detail="Diese Woche"/>
+      <Stat icon={Clock3} label="Gearbeitet" value={fmtMinutes(metrics.actual)} detail="Diese Woche" tone="blue"/>
+      <Stat icon={BarChart3} label="Stundenkonto" value={fmtMinutes(metrics.balance)} detail="gegen Plan bis heute" tone={metrics.balance < 0 ? "orange" : "mint"}/>
+      <Stat icon={Umbrella} label="Resturlaub" value={`${metrics.vacationRemaining} Tage`} detail={`${employee.vacationAllowance} Anspruch`} tone="sand"/>
+    </div>
+    <section className="employee-card">
+      <header><div><small>FORTSCHRITT</small><h3>Deine Woche</h3></div><button onClick={() => onTab("times")}>Details<ChevronRight/></button></header>
+      <div className="week-meter"><div><strong>{fmtMinutes(metrics.actual)}</strong><span>von {fmtMinutes(metrics.target)}</span></div><Progress value={metrics.actual} max={metrics.target}/><small>{Math.round((metrics.actual / Math.max(1, metrics.target)) * 100)} % deines Wochenziels</small></div>
+    </section>
+    <section className="employee-card next-shift"><header><h3>Nächste Schicht</h3><button onClick={() => onTab("calendar")}>Kalender<ChevronRight/></button></header>{nextShift ? <div><span className="date-tile"><small>{new Date(`${nextShift.date}T12:00:00`).toLocaleDateString("de-DE", { weekday: "short" })}</small><strong>{nextShift.date.slice(-2)}</strong></span><div><strong>{new Date(`${nextShift.date}T12:00:00`).toLocaleDateString("de-DE", { weekday: "long" })}</strong><span>{nextShift.start}–{nextShift.end} · {nextShift.area}</span><small>{fmtMinutes(minutesBetween(nextShift.start, nextShift.end, nextShift.breakMinutes))} Arbeitszeit</small></div></div> : <Empty title="Keine weitere Schicht" text="Der nächste Plan ist noch nicht veröffentlicht."/>}</section>
+  </div>;
+}
+
+function EmployeeCalendar({ state, employee }) {
+  const [weekStart, setWeekStart] = useState(mondayOf());
+  const [selected, setSelected] = useState(dateKey());
+  const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  const shifts = state.shifts.filter((item) => item.employeeId === employee.id && item.status === "published");
+  const entries = state.timeEntries.filter((item) => item.employeeId === employee.id);
+  const leaves = state.leaveRequests.filter((item) => item.employeeId === employee.id && item.status !== "rejected");
+  const selectedShift = shifts.find((item) => item.date === selected);
+  const selectedEntry = entries.find((item) => item.date === selected);
+  const selectedLeave = leaves.find((item) => selected >= item.start && selected <= item.end);
+  return <div className="employee-page">
+    <PageHeading title="Kalender" subtitle="Schichten, Arbeitszeiten und Abwesenheiten in einer Ansicht."/>
+    <section className="employee-card calendar-week">
+      <header><button className="icon-button" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft/></button><div><strong>{new Date(`${weekStart}T12:00:00`).toLocaleDateString("de-DE", { month: "long", year: "numeric" })}</strong><small>{weekStart} – {addDays(weekStart, 6)}</small></div><button className="icon-button" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight/></button></header>
+      <div className="week-days">{days.map((day, index) => { const hasShift = shifts.some((item) => item.date === day); const hasEntry = entries.some((item) => item.date === day); const hasLeave = leaves.some((item) => day >= item.start && day <= item.end); return <button key={day} className={selected === day ? "selected" : ""} onClick={() => setSelected(day)}><small>{DAY_SHORT[index]}</small><strong>{day.slice(-2)}</strong><span>{hasShift && <i className="shift"/>}{hasEntry && <i className="entry"/>}{hasLeave && <i className="leave"/>}</span></button>; })}</div>
+      <div className="legend"><span><i className="shift"/>Schicht</span><span><i className="entry"/>Arbeitszeit</span><span><i className="leave"/>Urlaub</span></div>
+    </section>
+    <section className="employee-card day-detail"><header><div><small>AUSGEWÄHLTER TAG</small><h3>{new Date(`${selected}T12:00:00`).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long" })}</h3></div></header>
+      {selectedShift && <TimelineItem icon={BriefcaseBusiness} title="Geplante Schicht" value={`${selectedShift.start}–${selectedShift.end}`} detail={`${selectedShift.area} · ${fmtMinutes(minutesBetween(selectedShift.start, selectedShift.end, selectedShift.breakMinutes))}`}/>} 
+      {selectedEntry && <TimelineItem icon={Clock3} title="Erfasste Arbeitszeit" value={`${selectedEntry.start}–${selectedEntry.end || "läuft"}`} detail={`${selectedEntry.breakMinutes} Min. Pause · ${selectedEntry.source}`}/>} 
+      {selectedLeave && <TimelineItem icon={Umbrella} title={selectedLeave.type} value={selectedLeave.status === "approved" ? "Genehmigt" : "Beantragt"} detail={`${selectedLeave.start}–${selectedLeave.end}`}/>} 
+      {!selectedShift && !selectedEntry && !selectedLeave && <Empty icon={CalendarDays} title="Keine Einträge" text="Für diesen Tag ist nichts geplant oder erfasst."/>}
+    </section>
+  </div>;
+}
+
+function TimelineItem({ icon: Icon, title, value, detail }) { return <div className="timeline-item"><span><Icon/></span><div><small>{title}</small><strong>{value}</strong><em>{detail}</em></div></div>; }
+
+function EmployeeTimes({ state, employee, dispatch }) {
+  const [range, setRange] = useState("week");
+  const [correction, setCorrection] = useState(null);
+  const start = range === "month" ? `${dateKey().slice(0, 7)}-01` : mondayOf();
+  const end = range === "month" ? endOfMonth() : addDays(start, 6);
+  const entries = state.timeEntries.filter((item) => item.employeeId === employee.id && item.date >= start && item.date <= end).sort((a, b) => b.date.localeCompare(a.date));
+  const shifts = state.shifts.filter((item) => item.employeeId === employee.id && item.date >= start && item.date <= end && item.status === "published");
+  const actual = entries.reduce((sum, item) => sum + entryMinutes(item), 0);
+  const planned = shifts.reduce((sum, item) => sum + minutesBetween(item.start, item.end, item.breakMinutes), 0);
+  return <div className="employee-page">
+    <PageHeading title="Arbeitszeiten" subtitle="Nachvollziehbar vom Kiosk bis zum Stundenkonto." action={<select value={range} onChange={(e) => setRange(e.target.value)}><option value="week">Diese Woche</option><option value="month">Dieser Monat</option></select>}/>
+    <div className="time-summary"><Stat icon={CalendarDays} label="Geplant" value={fmtMinutes(planned)}/><Stat icon={Clock3} label="Erfasst" value={fmtMinutes(actual)} tone="blue"/><Stat icon={BarChart3} label="Differenz" value={fmtMinutes(actual - planned)} tone={actual - planned < 0 ? "orange" : "mint"}/></div>
+    <section className="employee-card entries-card"><header><div><small>{start} – {end}</small><h3>Einzelbuchungen</h3></div><button onClick={() => downloadCsv(`aora-arbeitszeiten-${start}-${end}.csv`, ["Datum", "Beginn", "Ende", "Pause", "Minuten", "Quelle"], entries.map((entry) => [entry.date, entry.start, entry.end || "läuft", entry.breakMinutes, entryMinutes(entry), entry.source]))}><Download/>CSV</button></header>{entries.length ? entries.map((entry) => <button className="entry-row" key={entry.id} onClick={() => setCorrection(entry)}><span className="date-small"><strong>{entry.date.slice(-2)}</strong><small>{new Date(`${entry.date}T12:00:00`).toLocaleDateString("de-DE", { weekday: "short" })}</small></span><div><strong>{entry.start}–{entry.end || "läuft"}</strong><span>{entry.breakMinutes} Min. Pause · {entry.source === "kiosk" ? "Kiosk" : "Manuell"}</span>{entry.corrected && <small>Korrigiert</small>}</div><strong>{fmtMinutes(entryMinutes(entry))}</strong><ChevronRight/></button>) : <Empty icon={Clock3} title="Noch keine Arbeitszeit" text="Für den gewählten Zeitraum gibt es keine Buchungen."/>}</section>
+    {correction && <CorrectionModal entry={correction} onClose={() => setCorrection(null)} onSave={(request) => { dispatch({ type: "REQUEST_CORRECTION", employeeId: employee.id, request }, "Korrekturanfrage wurde gesendet."); setCorrection(null); }}/>} 
+  </div>;
+}
+
+function CorrectionModal({ entry, onClose, onSave }) {
+  const [reason, setReason] = useState("");
+  return <Modal title="Zeitkorrektur anfragen" subtitle={`${entry.date} · ${entry.start}–${entry.end || "läuft"}`} onClose={onClose}><div className="modal-body"><div className="notice"><ShieldCheck/><span>Originalwerte bleiben im Audit erhalten. Nur die Filialleitung kann Zeiten ändern.</span></div><Field label="Was stimmt nicht?"><textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Zum Beispiel: Pause wurde versehentlich doppelt erfasst."/></Field><div className="modal-actions"><button className="secondary" onClick={onClose}>Abbrechen</button><button className="primary" disabled={reason.trim().length < 8} onClick={() => onSave({ entryId: entry.id, reason })}><Send/>Anfrage senden</button></div></div></Modal>;
+}
+
+function EmployeeLeave({ state, employee, dispatch }) {
+  const metrics = employeeMetrics(state, employee.id);
+  const [open, setOpen] = useState(false);
+  const requests = state.leaveRequests.filter((item) => item.employeeId === employee.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return <div className="employee-page">
+    <PageHeading title="Urlaub" subtitle="Anspruch, Planung und Status ohne Rückfragen." action={<button className="primary small" onClick={() => setOpen(true)}><Plus/>Antrag</button>}/>
+    <section className="employee-card leave-balance"><div className="donut" style={{ "--value": `${Math.round((metrics.vacationRemaining / employee.vacationAllowance) * 100)}%` }}><div><strong>{metrics.vacationRemaining}</strong><span>Tage frei</span></div></div><div><small>URLAUBSJAHR {new Date().getFullYear()}</small><h3>Dein Urlaubskonto</h3><Balance label="Anspruch" value={employee.vacationAllowance}/><Balance label="Genommen" value={employee.vacationUsed}/><Balance label="Verfügbar" value={metrics.vacationRemaining} strong/></div></section>
+    <section className="employee-card request-card"><header><h3>Deine Anträge</h3><Pill>{requests.length}</Pill></header>{requests.length ? requests.map((request) => <div className="request-row" key={request.id}><span className={`request-icon ${request.status}`}><Umbrella/></span><div><strong>{request.type}</strong><span>{request.start}–{request.end}</span><small>{request.days} Arbeitstage</small></div><Pill tone={request.status === "approved" ? "success" : request.status === "rejected" ? "danger" : "warning"}>{request.status === "approved" ? "Genehmigt" : request.status === "rejected" ? "Abgelehnt" : "In Prüfung"}</Pill></div>) : <Empty icon={Umbrella} title="Keine Anträge" text="Deine Urlaubsanträge erscheinen hier."/>}</section>
+    {open && <LeaveRequestModal state={state} employee={employee} onClose={() => setOpen(false)} onSave={(request) => { dispatch({ type: "REQUEST_LEAVE", employeeId: employee.id, request }, "Urlaubsantrag wurde eingereicht."); s
