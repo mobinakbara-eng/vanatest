@@ -78,6 +78,12 @@
     </section>
   </main>
 
+  <dialog data-confirm-dialog class="manager-dialog" aria-labelledby="confirm-dialog-title">
+    <h2 id="confirm-dialog-title" data-confirm-title></h2>
+    <p data-confirm-message></p>
+    <div class="manager-dialog-actions"><button type="button" class="manager-quiet" data-confirm-close>Zurück</button><button type="button" class="manager-quiet manager-danger" data-confirm-approve></button></div>
+  </dialog>
+
   <dialog data-editor class="manager-dialog">
     <form data-editor-form>
       <div class="manager-section-head manager-section-head--small"><h2 data-editor-title></h2><button type="button" class="manager-quiet" data-editor-close aria-label="Schließen">✕</button></div>

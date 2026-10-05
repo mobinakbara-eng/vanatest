@@ -57,6 +57,7 @@
 .manager-dialog { width: min(92vw, 560px); max-height: 90vh; padding: 30px; border: 1px solid #d3c5b1; background: #fff; box-shadow: 0 35px 90px rgba(0,0,0,.23); }
 .manager-dialog::backdrop { background: rgba(23,20,18,.65); }
 .manager-dialog h2 { font-size: 2.2rem; }
+.manager-dialog > p { color: #655c53; margin: 18px 0 26px; }
 .manager-dialog [data-editor-fields] { display: grid; gap: 13px; margin: 24px 0; }
 .manager-dialog-actions { display: flex; justify-content: end; gap: 10px; }
 @media (max-width: 760px) { .manager-main { padding-top: 30px; } .manager-login { margin: 15px auto; padding: 26px; } .menu-admin-layout { grid-template-columns: 1fr; gap: 18px; } .reservation-card { grid-template-columns: 1fr; gap: 8px; } .reservation-actions { flex-direction: row; align-items: center; flex-wrap: wrap; } .manager-topline, .manager-section-head { align-items: start; } .menu-admin-item { align-items: start; flex-direction: column; } }

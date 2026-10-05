@@ -8,6 +8,7 @@
   var session = null, menu = null, menuVersion = 0, dirty = false;
   var book = "food", categoryIndex = 0, wineIndex = 0;
   var reservations = [];
+  var pendingAction = null;
 
   function message(s, login) { $(login ? "[data-login-message]" : "[data-app-message]").textContent = s || ""; }
   function menuMessage(s) { $("[data-menu-state]").textContent = s || ""; }
@@ -149,7 +150,8 @@
       var actions = node("div", null, "reservation-actions");
       if (r.status !== "confirmed") actions.appendChild(action("Bestätigen", function () { updateReservation(r, { status: "confirmed" }); }));
       if (r.status !== "cancelled") actions.appendChild(action("Stornieren", function () {
-        if (window.confirm("Reservierung von " + r.name + " stornieren?")) updateReservation(r, { status: "cancelled" });
+        confirmAction("Reservierung stornieren?", "Die Reservierung von " + r.name + " wird storniert und der Tisch wieder freigegeben.",
+          "Reservierung stornieren", function () { updateReservation(r, { status: "cancelled" }); });
       }, "manager-danger"));
       if (r.status !== "pending") {
         var inform = node("a", "Gast informieren ↗", "manager-quiet");
@@ -162,6 +164,20 @@
     var button = node("button", label, "manager-quiet " + (extra || ""));
     button.type = "button"; button.addEventListener("click", handler); return button;
   }
+  function confirmAction(title, description, label, handler) {
+    pendingAction = handler;
+    $("[data-confirm-title]").textContent = title;
+    $("[data-confirm-message]").textContent = description;
+    $("[data-confirm-approve]").textContent = label;
+    $("[data-confirm-dialog]").showModal();
+  }
+  $("[data-confirm-close]").addEventListener("click", function () { $("[data-confirm-dialog]").close(); });
+  $("[data-confirm-approve]").addEventListener("click", function () {
+    var handler = pendingAction;
+    $("[data-confirm-dialog]").close();
+    if (handler) handler();
+  });
+  $("[data-confirm-dialog]").addEventListener("close", function () { pendingAction = null; });
   function updateReservation(row, change) {
     message("Änderung wird gespeichert …");
     request("reservations?id=eq." + row.id, { method: "PATCH", headers: { Prefer: "return=representation" }, body: change }).then(function (rows) {
@@ -224,7 +240,8 @@
       var buttons = node("div", null, "menu-admin-item-actions");
       buttons.appendChild(action("Bearbeiten", function () { openEditor("item", index); }));
       buttons.appendChild(action("Entfernen", function () {
-        if (window.confirm("Eintrag entfernen?")) { items.splice(index, 1); markDirty(); }
+        confirmAction("Eintrag entfernen?", "Dieser Eintrag wird nach dem Veröffentlichen nicht mehr auf der Website angezeigt.",
+          "Eintrag entfernen", function () { items.splice(index, 1); markDirty(); });
       }, "manager-danger"));
       row.append(description, buttons); target.appendChild(row);
     });
@@ -235,12 +252,14 @@
   $("[data-add-category]").addEventListener("click", function () { openEditor("category", -1); });
   $("[data-edit-category]").addEventListener("click", function () { openEditor("category", categoryIndex); });
   $("[data-remove-category]").addEventListener("click", function () {
-    if (window.confirm("Kategorie und alle Einträge entfernen?")) { menu[book].splice(categoryIndex, 1); markDirty(); }
+    confirmAction("Kategorie entfernen?", "Diese Kategorie und alle ihre Einträge werden nach dem Veröffentlichen entfernt.",
+      "Kategorie entfernen", function () { menu[book].splice(categoryIndex, 1); markDirty(); });
   });
   $("[data-add-item]").addEventListener("click", function () { openEditor("item", -1); });
   $("[data-add-wine-group]").addEventListener("click", function () { openEditor("group", -1); });
   $("[data-remove-wine-group]").addEventListener("click", function () {
-    if (window.confirm("Weingruppe und alle Einträge entfernen?")) { currentCategory().groups.splice(wineIndex, 1); markDirty(); }
+    confirmAction("Weingruppe entfernen?", "Diese Weingruppe und alle ihre Einträge werden nach dem Veröffentlichen entfernt.",
+      "Weingruppe entfernen", function () { currentCategory().groups.splice(wineIndex, 1); markDirty(); });
   });
   function field(name, label, value, required) {
     var wrap = node("label", label), input = node("input");
