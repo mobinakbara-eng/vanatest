@@ -10,13 +10,12 @@
     // Reservation time slots (first / last seating, minutes after midnight) and step
     slots: { from: 960, to: 1320, step: 30 },
     bookAheadDays: 90,
-    // Floor-plan booking: how long a table stays blocked, and the online booking backend.
-    // While supabaseUrl is empty the plan runs in demo mode (bookings only stored in this browser).
+    // Floor-plan booking: the public configuration is shared with the manager page.
     booking: {
       durationMin: 120,
       maxOnlineGuests: 6,
-      supabaseUrl: "",
-      supabaseKey: ""
+      supabaseUrl: (window.LT_CONFIG || {}).supabaseUrl || "",
+      supabaseKey: (window.LT_CONFIG || {}).supabaseKey || ""
     },
     email: "latettoia.berlin@gmail.com",
     whatsapp: "491739357099",
@@ -84,6 +83,7 @@
       el.placeholder = lang === "en" ? el.getAttribute("data-en-placeholder") : el.getAttribute("data-de-placeholder");
     });
     renderMenu();
+    renderSpecials();
     updateStatus();
     document.dispatchEvent(new CustomEvent("lt:lang", { detail: lang }));
   }
@@ -179,6 +179,26 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function norm(s) { return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
 
+  // Featured cards use the published menu for their text and prices.
+  function renderSpecials() {
+    var section = $("#specialita"), target = $(".dishes", section);
+    var images = {
+      "119": "photo-1528137871618-79d2761e3fd5", "77": "photo-1595295333158-4742f28fbd85",
+      "83": "photo-1621996346565-e3dbc646d9a9", "155": "photo-1600891964092-4316c288032e",
+      "168": "photo-1467003909585-2f8a72700288", "202": "photo-1571877227200-a0d98ea607e9"
+    };
+    var featured = [];
+    if (M) M.food.forEach(function (category) { (category.items || []).forEach(function (item) {
+      if (images[item[0]]) featured.push(item);
+    }); });
+    section.hidden = !featured.length;
+    target.innerHTML = featured.map(function (item) {
+      return '<article class="dish"><div class="dish__img"><img src="https://images.unsplash.com/' + images[item[0]] +
+        '?w=800&q=80&auto=format&fit=crop" alt="" loading="lazy"></div><div class="dish__body"><h3>' + esc(item[1]) +
+        '</h3><p>' + esc(lang === "de" ? item[2] : item[3]) + '</p><span class="price">' + esc(item[4]) + ' €</span></div></article>';
+    }).join("");
+  }
+
   function renderChips() {
     var cats = M[state.book];
     var html = '<button class="chip" role="tab" data-cat="all" aria-selected="' + (state.cat === "all") + '">' + t("all") + "</button>";
@@ -190,6 +210,13 @@
 
   function renderMenu() {
     if (!board) return;
+    if (!M) {
+      chipsEl.replaceChildren(); filtersEl.hidden = true;
+      board.innerHTML = '<p class="empty">' + (lang === "de" ?
+        "Speisekarte derzeit nicht verfügbar. Bitte fragen Sie im Restaurant nach." :
+        "The menu is currently unavailable. Please ask our team.") + '</p>';
+      return;
+    }
     renderChips();
     filtersEl.hidden = state.book !== "food";
     var cats = M[state.book];
@@ -327,7 +354,13 @@
   /* Shared helpers for booking.js */
   window.LT = {
     CONFIG: CONFIG, lang: function () { return lang; }, esc: esc,
-    berlinNow: berlinNow, hhmm: hhmm, addDays: addDays, weekday: weekday, fmtDate: fmtDate
+    berlinNow: berlinNow, hhmm: hhmm, addDays: addDays, weekday: weekday, fmtDate: fmtDate,
+    replaceMenu: function (menu) {
+      M = menu && Array.isArray(menu.food) && Array.isArray(menu.drinks) ? menu : null;
+      state.cat = "all";
+      renderMenu();
+      renderSpecials();
+    }
   };
 
   applyLang();

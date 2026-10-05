@@ -38,10 +38,9 @@
       taken: "Dieser Tisch wurde gerade vergeben – bitte wählen Sie einen anderen.",
       failed: "Die Reservierung konnte nicht gespeichert werden. Bitte rufen Sie uns an: 030 396 31 47.",
       sending: "Wird gesendet …",
-      doneTitle: "Grazie – Ihr Tisch ist reserviert!",
-      doneText: "Wir haben Ihre Reservierung erhalten und melden uns bei Rückfragen telefonisch oder per E-Mail.",
-      demoTitle: "Fast geschafft – grazie!",
-      demoText: "Der Tisch ist für Sie vorgemerkt. Bitte senden Sie die Anfrage jetzt per E-Mail oder WhatsApp ab – wir bestätigen so schnell wie möglich.",
+      doneTitle: "Grazie – Ihre Anfrage ist eingegangen!",
+      doneText: "Der Tisch ist für Sie vorgemerkt. Die Reservierung ist erst nach Bestätigung durch das Restaurant verbindlich.",
+      unavailable: "Online-Reservierungen sind derzeit nicht verfügbar. Bitte rufen Sie uns an: 030 396 31 47.",
       subject: "Reservierung", intro: "Guten Tag, ich möchte gerne einen Tisch reservieren:",
       fDate: "Datum", fTime: "Uhrzeit", fGuests: "Personen", fTable: "Tisch", fName: "Name", fPhone: "Telefon",
       fEmail: "E-Mail", fOcc: "Anlass", fNotes: "Nachricht", outro: "Vielen Dank – ich freue mich auf Ihre Bestätigung.",
@@ -62,10 +61,9 @@
       taken: "This table was just booked – please choose another one.",
       failed: "Your reservation could not be saved. Please call us: +49 30 396 31 47.",
       sending: "Sending …",
-      doneTitle: "Grazie – your table is booked!",
-      doneText: "We have received your reservation and will contact you by phone or e-mail if we have any questions.",
-      demoTitle: "Almost done – grazie!",
-      demoText: "The table is held for you. Please send your request by e-mail or WhatsApp now – we will confirm as soon as possible.",
+      doneTitle: "Grazie – we received your request!",
+      doneText: "The table is held for you. Your booking is confirmed only after the restaurant approves it.",
+      unavailable: "Online booking is currently unavailable. Please call us: +49 30 396 31 47.",
       subject: "Reservation", intro: "Hello, I would like to book a table:",
       fDate: "Date", fTime: "Time", fGuests: "Guests", fTable: "Table", fName: "Name", fPhone: "Phone",
       fEmail: "E-mail", fOcc: "Occasion", fNotes: "Message", outro: "Thank you – looking forward to your confirmation.",
@@ -78,51 +76,22 @@
     return s;
   }
 
-  /* ---------- Storage ----------
-     remote: Supabase (see supabase/schema.sql) – shared by all guests.
-     demo:   example occupancy + bookings saved in this browser only. */
+  /* ---------- Storage ---------- */
   var remote = !!(B.supabaseUrl && B.supabaseKey);
-  var LS_KEY = "lt-bookings";
-
-  function readLocal() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch (e) { return []; } }
-  function writeLocal(list) { try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ } }
-
-  function seeded(str) {
-    var h = 2166136261;
-    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return function () {
-      h += 0x6D2B79F5; var r = Math.imul(h ^ (h >>> 15), 1 | h);
-      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function demoBookings(date) {
-    var rnd = seeded(date), out = [], slots = allSlots();
-    TABLES.forEach(function (tb) {
-      var n = Math.floor(rnd() * 3); // 0–2 bookings per table
-      for (var i = 0; i < n; i++) out.push({ table: tb.id, time: slots[Math.floor(rnd() * slots.length)] });
-    });
-    return out;
-  }
 
   var headers = function () {
-    return { apikey: B.supabaseKey, Authorization: "Bearer " + B.supabaseKey, "Content-Type": "application/json" };
+    return { apikey: B.supabaseKey, "Content-Type": "application/json" };
   };
 
   var Store = {
     list: function (date) {
-      if (!remote) {
-        return Promise.resolve(demoBookings(date).concat(readLocal().filter(function (b) { return b.date === date; })));
-      }
+      if (!remote) return Promise.reject(new Error("unavailable"));
       return fetch(B.supabaseUrl + "/rest/v1/booked_slots?select=table_id,time&date=eq." + date, { headers: headers() })
         .then(function (r) { if (!r.ok) throw new Error("list"); return r.json(); })
         .then(function (rows) { return rows.map(function (r) { return { table: String(r.table_id), time: String(r.time).slice(0, 5) }; }); });
     },
     create: function (b) {
-      if (!remote) {
-        var list = readLocal(); list.push({ date: b.date, time: b.time, table: b.table }); writeLocal(list);
-        return Promise.resolve({ demo: true });
-      }
+      if (!remote) return Promise.reject(new Error("unavailable"));
       return fetch(B.supabaseUrl + "/rest/v1/rpc/book_table", {
         method: "POST", headers: headers(),
         body: JSON.stringify({
@@ -160,7 +129,7 @@
   }
 
   /* ---------- State & elements ---------- */
-  var state = { date: "", guests: 2, time: "", table: "", bookings: [], loading: false, step: 1 };
+  var state = { date: "", guests: 2, time: "", table: "", bookings: [], loading: false, available: false, step: 1 };
   var dateEl = $("[data-b-date]"), guestsEl = $("[data-b-guests]"), slotsEl = $("[data-b-slots]"), planEl = $("[data-b-plan]");
   var nextBtn = $("[data-b-next]"), err1 = $("[data-b-err1]"), err2 = $("[data-b-err2]"), form = $("[data-b-form]");
 
@@ -186,9 +155,10 @@
   function renderPlan() {
     var closed = !C.hours[LT.weekday(state.date)];
     var tables = TABLES.map(function (tb) {
-      var st = closed ? "busy" : tableState(tb);
-      var label = t("table") + " " + tb.id + ", " + tb.seats + " " + t("seats") + ", " + t(st === "sel" ? "free" : st);
-      var dis = st === "small" || st === "busy";
+      var st = !remote || !state.available || state.loading ? "offline" : closed ? "busy" : tableState(tb);
+      var label = t("table") + " " + tb.id + ", " + tb.seats + " " + t("seats") + ", " +
+        (!remote || !state.available ? t("unavailable") : t(st === "sel" ? "free" : st));
+      var dis = st === "small" || st === "busy" || st === "offline";
       return '<g class="tbl tbl--' + st + '" data-table="' + tb.id + '" role="button" tabindex="' + (dis ? -1 : 0) + '" aria-disabled="' + dis + '" aria-pressed="' + (st === "sel") + '" aria-label="' + esc(label) + '">' +
         chairs(tb) +
         '<rect class="top" x="' + tb.x + '" y="' + tb.y + '" width="' + tb.w + '" height="' + tb.h + '" rx="6"/>' +
@@ -219,6 +189,7 @@
 
   /* ---------- Render: time slots ---------- */
   function renderSlots() {
+    if (!remote || (!state.available && !state.loading)) { slotsEl.innerHTML = '<p class="slots__msg">' + t("unavailable") + "</p>"; return; }
     var closed = !C.hours[LT.weekday(state.date)];
     if (closed) { slotsEl.innerHTML = '<p class="slots__msg">' + t("closed") + "</p>"; return; }
     var any = false;
@@ -244,10 +215,11 @@
   function renderPanel() {
     $("[data-b-pick]").innerHTML = pickHTML();
     $("[data-b-pick2]").innerHTML = pickHTML();
-    var ok = state.time && state.table && !isPast(state.date, state.time) && tableFree(state.table, state.time);
+    var ok = remote && state.available && !state.loading && state.time && state.table && !isPast(state.date, state.time) && tableFree(state.table, state.time);
     nextBtn.disabled = !ok;
     var hint = "";
-    if (!C.hours[LT.weekday(state.date)]) hint = t("closed");
+    if (!remote || (!state.available && !state.loading)) hint = t("unavailable");
+    else if (!C.hours[LT.weekday(state.date)]) hint = t("closed");
     else if (state.guests > B.maxOnlineGuests) hint = t("group", { n: B.maxOnlineGuests });
     else if (!state.time && !state.table) hint = t("pickBoth");
     else if (!state.time) hint = t("pickTime");
@@ -286,17 +258,18 @@
   /* ---------- Load bookings for the selected day ---------- */
   var loadToken = 0;
   function load() {
+    if (!remote) { state.bookings = []; state.loading = false; render(); return Promise.resolve(); }
     var my = ++loadToken;
-    state.loading = true; render();
+    state.loading = true; state.available = false; render();
     return Store.list(state.date).then(function (list) {
       if (my !== loadToken) return;
-      state.bookings = list; state.loading = false;
+      state.bookings = list; state.loading = false; state.available = true;
       if (state.time && !slotOpen(state.time)) state.time = "";
       if (state.table && state.time && !tableFree(state.table, state.time)) state.table = "";
       render();
     }).catch(function () {
       if (my !== loadToken) return;
-      state.loading = false; state.bookings = []; render();
+      state.loading = false; state.available = false; state.bookings = []; render();
       err1.textContent = t("failed");
     });
   }
@@ -329,7 +302,7 @@
   });
   function pickTable(id) {
     var tb = tableById(id);
-    if (!tb || !fits(tb) || state.guests > B.maxOnlineGuests || !C.hours[LT.weekday(state.date)]) return;
+    if (!remote || !state.available || state.loading || !tb || !fits(tb) || state.guests > B.maxOnlineGuests || !C.hours[LT.weekday(state.date)]) return;
     if (state.time && !tableFree(id, state.time)) return;
     state.table = state.table === id ? "" : id;
     render();
@@ -380,8 +353,8 @@
       state.bookings = list;
       if (!tableFree(booking.table, booking.time)) throw new Error("taken");
       return Store.create(booking);
-    }).then(function (res) {
-      done(booking, res && res.demo);
+    }).then(function () {
+      done(booking);
     }).catch(function (err) {
       if (err.message === "taken") {
         state.table = ""; state.step = 1; render(); err1.textContent = t("taken"); err1.classList.remove("is-hint");
@@ -389,7 +362,7 @@
     }).then(function () { btn.disabled = false; btn.innerHTML = label; });
   });
 
-  function done(b, demo) {
+  function done(b) {
     var occ = form.elements.occasion;
     var lines = [
       t("intro"), "",
@@ -407,10 +380,10 @@
     var body = lines.join("\n");
     var subj = t("subject") + " – " + b.date + " " + b.time + " – " + t("fTable") + " " + b.table + " – " + b.guests + " P.";
 
-    $("[data-b-done-title]").textContent = demo ? t("demoTitle") : t("doneTitle");
-    $("[data-b-done-text]").textContent = demo ? t("demoText") : t("doneText");
+    $("[data-b-done-title]").textContent = t("doneTitle");
+    $("[data-b-done-text]").textContent = t("doneText");
     $("[data-b-summary]").textContent = lines.slice(2, -2).join("\n");
-    $("[data-b-send]").hidden = !demo;
+    $("[data-b-send]").hidden = true;
     $("[data-b-mail]").href = "mailto:" + C.email + "?subject=" + encodeURIComponent(subj) + "&body=" + encodeURIComponent(body);
     $("[data-b-wa]").href = "https://wa.me/" + C.whatsapp + "?text=" + encodeURIComponent(body);
 

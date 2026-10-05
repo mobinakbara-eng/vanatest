@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>La Tettoia · Verwaltung</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/manager.css">
+</head>
+<body class="manager-page">
+  <a class="skip" href="#manager-main">Zum Inhalt springen</a>
+  <header class="manager-header">
+    <div class="wrap manager-header__inner">
+      <a class="manager-brand" href="index.html"><span>La Tettoia</span><small>Verwaltung</small></a>
+      <a href="index.html" class="manager-site-link">Website ansehen ↗</a>
+    </div>
+  </header>
+  <main id="manager-main" class="wrap manager-main">
+    <section class="manager-login" data-login>
+      <p class="eyebrow">Privater Bereich</p>
+      <h1>Willkommen zurück.</h1>
+      <p>Reservierungen und Speisekarte an einem Ort verwalten.</p>
+      <form data-login-form>
+        <label>E-Mail-Adresse<input name="email" type="email" autocomplete="username" required></label>
+        <label>Passwort<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="btn btn--gold" type="submit">Anmelden</button>
+      </form>
+      <p class="manager-message" data-login-message role="status"></p>
+    </section>
+
+    <section class="manager-app" data-app hidden>
+      <div class="manager-topline">
+        <div><p class="eyebrow">La Tettoia · Verwaltung</p><h1>Guten Tag.</h1><p data-account></p></div>
+        <button type="button" class="manager-quiet" data-signout>Abmelden</button>
+      </div>
+      <p class="manager-message" data-app-message role="status"></p>
+      <nav class="manager-tabs" aria-label="Verwaltung">
+        <button type="button" data-tab="reservations" aria-current="page">Reservierungen <span data-pending-count></span></button>
+        <button type="button" data-tab="menu">Speisekarte</button>
+      </nav>
+
+      <section data-panel="reservations" aria-label="Reservierungen">
+        <div class="manager-section-head"><div><p class="eyebrow">Tischbuchungen</p><h2>Reservierungen</h2></div><button type="button" class="manager-quiet" data-refresh>Aktualisieren ↻</button></div>
+        <div class="manager-filters">
+          <label>Ab Datum<input type="date" data-from-date></label>
+          <label>Status<select data-status-filter><option value="active">Aktiv</option><option value="pending">Anfragen</option><option value="confirmed">Bestätigt</option><option value="cancelled">Storniert</option><option value="all">Alle</option></select></label>
+        </div>
+        <div data-reservations class="reservation-list" aria-live="polite"></div>
+      </section>
+
+      <section data-panel="menu" aria-label="Speisekarte" hidden>
+        <div class="manager-section-head"><div><p class="eyebrow">Öffentliche Speisekarte</p><h2>Gerichte &amp; Getränke</h2></div><span class="manager-save-state" data-menu-state></span></div>
+        <p>Änderungen werden erst nach „Veröffentlichen“ auf der Website sichtbar.</p>
+        <div class="menu-admin-layout">
+          <aside class="menu-admin-side">
+            <label>Bereich<select data-menu-book><option value="food">Speisen</option><option value="drinks">Getränke</option></select></label>
+            <label>Kategorie<select data-menu-category></select></label>
+            <div data-wine-controls hidden>
+              <label>Weingruppe<select data-wine-group></select></label>
+              <button type="button" class="manager-quiet" data-add-wine-group>+ Weingruppe</button>
+              <button type="button" class="manager-quiet manager-danger" data-remove-wine-group>Weingruppe löschen</button>
+            </div>
+            <button type="button" class="manager-quiet" data-add-category>+ Kategorie</button>
+            <button type="button" class="manager-quiet" data-edit-category>Kategorie bearbeiten</button>
+            <button type="button" class="manager-quiet manager-danger" data-remove-category>Kategorie löschen</button>
+          </aside>
+          <div class="menu-admin-content">
+            <div class="manager-section-head manager-section-head--small"><h3 data-category-title></h3><button type="button" class="manager-quiet" data-add-item>+ Eintrag</button></div>
+            <div data-menu-items class="menu-admin-items"></div>
+            <button type="button" class="btn btn--gold" data-publish>Speisekarte veröffentlichen</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog data-editor class="manager-dialog">
+    <form data-editor-form>
+      <div class="manager-section-head manager-section-head--small"><h2 data-editor-title></h2><button type="button" class="manager-quiet" data-editor-close aria-label="Schließen">✕</button></div>
+      <div data-editor-fields></div>
+      <div class="manager-dialog-actions"><button type="button" class="manager-quiet" data-editor-cancel>Abbrechen</button><button class="btn btn--gold" type="submit">Übernehmen</button></div>
+    </form>
+  </dialog>
+  <script src="js/config.js"></script>
+  <script src="js/menu-data.js"></script>
+  <script src="js/manager.js"></script>
+</body>
+</html>
