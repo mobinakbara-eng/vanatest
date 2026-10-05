@@ -172,8 +172,8 @@
   }
 
   /* ---------- Menu ---------- */
-  var M = window.MENU, board = $("[data-board]"), chipsEl = $("[data-chips]"), filtersEl = $("[data-filters]");
-  var state = { book: "food", cat: "antipasti", q: "", tags: {} };
+  var M = window.MENU, board = $("[data-board]"), categoryEl = $("[data-category]"), moreEl = $("[data-more]");
+  var state = { book: "food", cat: "", q: "", tags: {} };
   var TAGS = { v: ["V", "tag--v", "Vegetarisch", "Vegetarian"], f: ["F", "tag--f", "Fisch", "Fish"], s: ["P", "tag--s", "Pikant", "Spicy"], h: ["★", "tag--h", "Empfehlung", "House favourite"] };
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -199,38 +199,59 @@
     }).join("");
   }
 
-  function renderChips() {
+  function renderCategories() {
     var cats = M[state.book];
-    var html = '<button class="chip" role="tab" data-cat="all" aria-selected="' + (state.cat === "all") + '">' + t("all") + "</button>";
+    if (!cats.some(function (c) { return c.id === state.cat; })) state.cat = cats.length ? cats[0].id : "";
+    var html = "";
     cats.forEach(function (c) {
-      html += '<button class="chip" role="tab" data-cat="' + c.id + '" aria-selected="' + (state.cat === c.id) + '"><i>' + esc(c.it) + "</i>" + esc(c[lang]) + "</button>";
+      html += '<option value="' + esc(c.id) + '">' + esc(c.it) + " · " + esc(c[lang]) + "</option>";
     });
-    chipsEl.innerHTML = html;
+    categoryEl.innerHTML = html;
+    categoryEl.value = state.cat;
+    var index = cats.findIndex(function (c) { return c.id === state.cat; });
+    $("[data-category-prev]").disabled = index <= 0;
+    $("[data-category-next]").disabled = index < 0 || index >= cats.length - 1;
   }
 
   function renderMenu() {
     if (!board) return;
     if (!M) {
-      chipsEl.replaceChildren(); filtersEl.hidden = true;
+      categoryEl.replaceChildren(); moreEl.hidden = true;
+      $("[data-menu-summary]").textContent = "";
       board.innerHTML = '<p class="empty">' + (lang === "de" ?
         "Speisekarte derzeit nicht verfügbar. Bitte fragen Sie im Restaurant nach." :
         "The menu is currently unavailable. Please ask our team.") + '</p>';
       return;
     }
-    renderChips();
-    filtersEl.hidden = state.book !== "food";
+    renderCategories();
+    moreEl.hidden = state.book !== "food";
     var cats = M[state.book];
     var anyTag = Object.keys(state.tags).filter(function (k) { return state.tags[k]; });
-    var searching = state.q || anyTag.length;
+    var searching = !!state.q;
     var html = "";
+    var count = 0;
 
     cats.forEach(function (c) {
-      if (!searching && state.cat !== "all" && state.cat !== c.id) return;
+      if (!searching && state.cat !== c.id) return;
       var head = '<div class="cat__head"><h3>' + esc(c.it) + "</h3><span>" + esc(c[lang]) + "</span></div>" +
         (c.note ? '<p class="cat__note">' + esc(c.note[lang]) + "</p>" : "");
 
       if (state.book === "drinks") {
-        html += '<section class="cat">' + head + (c.wine ? wineTable(c) : drinkList(c)) + "</section>";
+        var matched = c;
+        if (state.q) {
+          var q = norm(state.q), categoryMatches = norm(c.it + " " + c[lang]).indexOf(q) > -1;
+          if (c.wine) {
+            matched = Object.assign({}, c, { groups: c.groups.map(function (g) {
+              return Object.assign({}, g, { items: categoryMatches || norm(g[lang]).indexOf(q) > -1 ? g.items : g.items.filter(function (w) { return norm(w.join(" ")).indexOf(q) > -1; }) });
+            }).filter(function (g) { return g.items.length; }) });
+          } else {
+            matched = Object.assign({}, c, { items: categoryMatches ? c.items : c.items.filter(function (d) { return norm(d.join(" ")).indexOf(q) > -1; }) });
+          }
+        }
+        var drinkItems = c.wine ? matched.groups.reduce(function (n, g) { return n + g.items.length; }, 0) : matched.items.length;
+        if (!drinkItems) return;
+        count += drinkItems;
+        html += '<section class="cat">' + head + (c.wine ? wineTable(matched) : drinkList(matched)) + "</section>";
         return;
       }
       var items = c.items.filter(function (it) {
@@ -240,9 +261,13 @@
         return true;
       });
       if (!items.length) return;
+      count += items.length;
       html += '<section class="cat">' + head + '<div class="items">' + items.map(itemHTML).join("") + "</div></section>";
     });
 
+    $("[data-menu-summary]").textContent = state.q ?
+      (lang === "de" ? count + " Treffer in der Speisekarte" : count + " results in the menu") :
+      (lang === "de" ? count + " Einträge in dieser Kategorie" : count + " items in this category");
     board.innerHTML = html || '<p class="empty">' + t("empty") + "</p>";
   }
 
@@ -276,19 +301,24 @@
     $$("[data-book]").forEach(function (b) {
       b.addEventListener("click", function () {
         state.book = b.dataset.book;
-        state.cat = state.book === "food" ? "antipasti" : "all";
+        state.cat = ""; state.q = ""; $("[data-search]").value = "";
+        state.tags = {}; $$("[data-filter]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
         $$("[data-book]").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
         renderMenu();
       });
     });
-    chipsEl.addEventListener("click", function (e) {
-      var c = e.target.closest("[data-cat]"); if (!c) return;
-      state.cat = c.dataset.cat;
+    function selectCategory(id) {
+      state.cat = id;
       state.q = ""; $("[data-search]").value = "";
       state.tags = {}; $$("[data-filter]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
       renderMenu();
-      var top = $("#menu .menu__switch").getBoundingClientRect().top + window.scrollY - 70;
-      if (window.scrollY > top + 200) window.scrollTo({ top: top, behavior: "smooth" });
+    }
+    categoryEl.addEventListener("change", function () { selectCategory(this.value); });
+    ["prev", "next"].forEach(function (direction) {
+      $("[data-category-" + direction + "]").addEventListener("click", function () {
+        var cats = M[state.book], index = cats.findIndex(function (c) { return c.id === state.cat; });
+        if (cats[index + (direction === "next" ? 1 : -1)]) selectCategory(cats[index + (direction === "next" ? 1 : -1)].id);
+      });
     });
     $$("[data-filter]").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -357,7 +387,7 @@
     berlinNow: berlinNow, hhmm: hhmm, addDays: addDays, weekday: weekday, fmtDate: fmtDate,
     replaceMenu: function (menu) {
       M = menu && Array.isArray(menu.food) && Array.isArray(menu.drinks) ? menu : null;
-      state.cat = "all";
+      state.cat = "";
       renderMenu();
       renderSpecials();
     }

@@ -178,18 +178,21 @@
         </div>
 
         <div class="menu__tools">
-          <div class="chips" data-chips role="tablist" aria-label="Kategorien"></div>
-          <div class="menu__filters" data-filters>
-            <label class="search">
+          <div class="menu__primary">
+            <label class="menu__category-label"><span data-en="Choose a category">Kategorie wählen</span><select data-category aria-label="Kategorie wählen"></select></label>
+            <div class="menu__arrows"><button type="button" data-category-prev aria-label="Vorherige Kategorie" title="Vorherige Kategorie">←</button><button type="button" data-category-next aria-label="Nächste Kategorie" title="Nächste Kategorie">→</button></div>
+            <label class="search menu__search">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-              <input type="search" placeholder="Gericht suchen …" data-en-placeholder="Search dishes …" data-search aria-label="Speisekarte durchsuchen">
+              <input type="search" placeholder="Speisekarte durchsuchen …" data-en-placeholder="Search the menu …" data-search aria-label="Speisekarte durchsuchen">
             </label>
+          </div>
+          <div class="menu__meta"><span data-menu-summary role="status"></span><details class="menu__more" data-more><summary data-en="More options">Weitere Optionen</summary><div class="menu__filters" data-filters>
             <button type="button" class="toggle" data-filter="v" aria-pressed="false"><i class="tag tag--v">V</i> <span data-en="Vegetarian">Vegetarisch</span></button>
             <button type="button" class="toggle" data-filter="f" aria-pressed="false"><i class="tag tag--f">F</i> <span data-en="Fish &amp; seafood">Fisch &amp; Meer</span></button>
             <button type="button" class="toggle" data-filter="s" aria-pressed="false"><i class="tag tag--s">P</i> <span data-en="Spicy">Pikant</span></button>
             <button type="button" class="toggle" data-filter="h" aria-pressed="false"><i class="tag tag--h">★</i> <span data-en="House favourites">Empfehlung</span></button>
             <button type="button" class="toggle toggle--plain" data-allergens aria-pressed="false" data-en="Show allergens">Allergene zeigen</button>
-          </div>
+          </div></details></div>
         </div>
 
         <div class="menu__board" data-board aria-live="polite"></div>
