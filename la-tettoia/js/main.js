@@ -9,8 +9,15 @@
     hours: [[960, 1440], null, [960, 1440], [960, 1440], [960, 1440], [960, 1440], [960, 1440]],
     // Reservation time slots (first / last seating, minutes after midnight) and step
     slots: { from: 960, to: 1320, step: 30 },
-    maxGuests: 12,
     bookAheadDays: 90,
+    // Floor-plan booking: how long a table stays blocked, and the online booking backend.
+    // While supabaseUrl is empty the plan runs in demo mode (bookings only stored in this browser).
+    booking: {
+      durationMin: 120,
+      maxOnlineGuests: 6,
+      supabaseUrl: "",
+      supabaseKey: ""
+    },
     email: "latettoia.berlin@gmail.com",
     whatsapp: "491739357099",
     mapSrc: "https://www.google.com/maps?q=La+Tettoia,+Waldstra%C3%9Fe+55,+10551+Berlin&z=16&output=embed"
@@ -78,8 +85,7 @@
     });
     renderMenu();
     updateStatus();
-    fillGuests();
-    fillTimes();
+    document.dispatchEvent(new CustomEvent("lt:lang", { detail: lang }));
   }
 
   $("[data-lang-toggle]").addEventListener("click", function () {
@@ -296,111 +302,6 @@
     go(0); restart();
   }
 
-  /* ---------- Reservation ---------- */
-  var form = $("[data-form]");
-  var dateEl = $("[data-date]"), timeEl = $("[data-time]"), guestsEl = $("[data-guests]");
-
-  function addDays(iso, n) {
-    var d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n);
-    return d.toISOString().slice(0, 10);
-  }
-  function weekday(iso) { return new Date(iso + "T12:00:00Z").getUTCDay(); }
-
-  function fillGuests() {
-    if (!guestsEl) return;
-    var v = guestsEl.value || "2", html = "";
-    for (var i = 1; i <= CONFIG.maxGuests; i++) html += '<option value="' + i + '">' + i + " " + (i === 1 ? t("person") : t("persons")) + "</option>";
-    html += '<option value="more">' + t("more", { n: CONFIG.maxGuests }) + "</option>";
-    guestsEl.innerHTML = html; guestsEl.value = v;
-  }
-
-  function fillTimes() {
-    if (!timeEl) return;
-    var v = timeEl.value, now = berlinNow(), html = "";
-    var today = dateEl.value === now.iso;
-    for (var m = CONFIG.slots.from; m <= CONFIG.slots.to; m += CONFIG.slots.step) {
-      if (today && m < now.min + 60) continue;
-      html += '<option value="' + hhmm(m) + '">' + hhmm(m) + t("clock") + "</option>";
-    }
-    timeEl.innerHTML = html;
-    if (v && $('option[value="' + v + '"]', timeEl)) timeEl.value = v;
-    else if ($('option[value="19:00"]', timeEl)) timeEl.value = "19:00";
-  }
-
-  function fmtDate(iso) {
-    return new Date(iso + "T12:00:00Z").toLocaleDateString(lang === "de" ? "de-DE" : "en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-  }
-
-  if (form) {
-    var today = berlinNow().iso;
-    dateEl.min = today;
-    dateEl.max = addDays(today, CONFIG.bookAheadDays);
-    // default: next open day (today if before last seating)
-    var start = today, now0 = berlinNow();
-    if (now0.min + 60 > CONFIG.slots.to) start = addDays(start, 1);
-    while (!CONFIG.hours[weekday(start)]) start = addDays(start, 1);
-    dateEl.value = start;
-    dateEl.addEventListener("change", function () {
-      fillTimes();
-      showErr(dateEl.value && !CONFIG.hours[weekday(dateEl.value)] ? t("errMonday") : "");
-    });
-    guestsEl.addEventListener("change", function () {
-      showErr(guestsEl.value === "more" ? t("errGroup", { n: CONFIG.maxGuests }) : "");
-    });
-
-    $$("[data-reserve-occasion]").forEach(function (a) {
-      a.addEventListener("click", function () { $("[data-occasion]").value = a.dataset.reserveOccasion; });
-    });
-
-    var errEl = $("[data-error]");
-    function showErr(msg) { errEl.textContent = msg || ""; }
-
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var f = form.elements, bad = [];
-      ["date", "time", "guests", "name", "phone", "email"].forEach(function (n) {
-        var ok = String(f[n].value).trim() !== "";
-        f[n].setAttribute("aria-invalid", String(!ok));
-        if (!ok) bad.push(f[n]);
-      });
-      if (bad.length) { showErr(t("errRequired")); bad[0].focus(); return; }
-      if (f.date.value < berlinNow().iso) { showErr(t("errPast")); f.date.focus(); return; }
-      if (!CONFIG.hours[weekday(f.date.value)]) { showErr(t("errMonday")); f.date.focus(); return; }
-      if (!timeEl.options.length) { showErr(t("errNoSlot")); return; }
-      if (f.guests.value === "more") { showErr(t("errGroup", { n: CONFIG.maxGuests })); return; }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.value.trim())) { f.email.setAttribute("aria-invalid", "true"); showErr(t("errEmail")); f.email.focus(); return; }
-      if (!f.consent.checked) { showErr(t("errConsent")); return; }
-      showErr("");
-
-      var seatSel = form.querySelector('input[name="seating"]:checked');
-      var lines = [
-        t("intro"), "",
-        t("fDate") + ": " + fmtDate(f.date.value),
-        t("fTime") + ": " + f.time.value + t("clock"),
-        t("fGuests") + ": " + f.guests.value,
-        t("fName") + ": " + f.name.value.trim(),
-        t("fPhone") + ": " + f.phone.value.trim(),
-        t("fEmail") + ": " + f.email.value.trim()
-      ];
-      if (f.occasion.value) lines.push(t("fOcc") + ": " + f.occasion.options[f.occasion.selectedIndex].text);
-      if (seatSel) lines.push(t("fSeat") + ": " + seatSel.nextElementSibling.textContent);
-      if (f.notes.value.trim()) lines.push(t("fNotes") + ": " + f.notes.value.trim());
-      lines.push("", t("outro"));
-      var body = lines.join("\n");
-      var subj = t("subject") + " – " + f.date.value + " " + f.time.value + " – " + f.guests.value + " P.";
-
-      $("[data-summary]").textContent = lines.slice(2, -2).join("\n");
-      $("[data-send-mail]").href = "mailto:" + CONFIG.email + "?subject=" + encodeURIComponent(subj) + "&body=" + encodeURIComponent(body);
-      $("[data-send-wa]").href = "https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(body);
-      var done = $("[data-done]");
-      done.hidden = false;
-      done.querySelector("h3").focus && done.querySelector("h3").setAttribute("tabindex", "-1");
-      done.querySelector("h3").focus();
-    });
-
-    $("[data-reset]").addEventListener("click", function () { $("[data-done]").hidden = true; });
-  }
-
   /* ---------- Map (loads only after consent) ---------- */
   var mapBtn = $("[data-map-load]");
   if (mapBtn) mapBtn.addEventListener("click", function () {
@@ -412,6 +313,22 @@
 
   /* ---------- Misc ---------- */
   $$("[data-year]").forEach(function (el) { el.textContent = new Date().getFullYear(); });
+
+  function addDays(iso, n) {
+    var d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  function weekday(iso) { return new Date(iso + "T12:00:00Z").getUTCDay(); }
+  function fmtDate(iso, opts) {
+    return new Date(iso + "T12:00:00Z").toLocaleDateString(lang === "de" ? "de-DE" : "en-GB",
+      Object.assign({ weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }, opts || {}));
+  }
+
+  /* Shared helpers for booking.js */
+  window.LT = {
+    CONFIG: CONFIG, lang: function () { return lang; }, esc: esc,
+    berlinNow: berlinNow, hhmm: hhmm, addDays: addDays, weekday: weekday, fmtDate: fmtDate
+  };
 
   applyLang();
 })();

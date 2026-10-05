@@ -276,82 +276,110 @@
 
     <!-- ============ RESERVATION ============ -->
     <section class="section section--dark reserve" id="reserve">
-      <div class="wrap reserve__grid">
-        <aside class="reserve__info">
+      <div class="wrap">
+        <header class="section__head">
           <p class="eyebrow reveal">Prenotazione</p>
-          <h2 class="h2 reveal" data-en="Book <em>your table</em>">Reservieren Sie <em>Ihren Tisch</em></h2>
-          <p class="reveal" data-en="Send us your request – we confirm every reservation personally by phone or e-mail. For same-day bookings or groups of more than 12, please call us.">Senden Sie uns Ihre Anfrage – wir bestätigen jede Reservierung persönlich per Telefon oder E-Mail. Für Reservierungen am selben Tag oder Gruppen über 12 Personen rufen Sie uns bitte an.</p>
-          <a class="phone reveal" href="tel:+49303963147"><span data-en="Call us">Telefon</span><strong>030 396 31 47</strong></a>
-          <dl class="mini-hours reveal">
+          <h2 class="h2 reveal" data-en="Choose <em>your table</em>">Wählen Sie <em>Ihren Tisch</em></h2>
+          <p class="section__intro reveal" data-en="Pick a day and time, tap a free table on the floor plan and complete your details.">Wählen Sie Tag und Uhrzeit, tippen Sie auf einen freien Tisch im Plan und ergänzen Sie Ihre Angaben.</p>
+        </header>
+
+        <div class="booking reveal" data-booking>
+          <!-- Left: plan -->
+          <div class="plan-card">
+            <div class="plan-bar">
+              <label class="field field--inline"><span data-en="Date">Datum</span>
+                <input type="date" data-b-date>
+              </label>
+              <label class="field field--inline"><span data-en="Guests">Personen</span>
+                <select data-b-guests></select>
+              </label>
+            </div>
+
+            <div class="slots-wrap">
+              <p class="mini-label" data-en="Time">Uhrzeit</p>
+              <div class="slots" data-b-slots role="listbox" aria-label="Uhrzeit"></div>
+            </div>
+
+            <div class="plan" data-b-plan></div>
+
+            <ul class="plan-legend">
+              <li><i class="lg lg--free"></i><span data-en="Free">Frei</span></li>
+              <li><i class="lg lg--busy"></i><span data-en="Booked">Reserviert</span></li>
+              <li><i class="lg lg--sel"></i><span data-en="Your table">Ihr Tisch</span></li>
+              <li><i class="lg lg--small"></i><span data-en="Too small">Zu klein</span></li>
+            </ul>
+            <p class="plan-demo" data-b-demo hidden data-en="Demo mode: the occupied tables shown are examples until the online booking system is connected.">Demo-Modus: Die angezeigte Belegung ist ein Beispiel, bis das Online-Buchungssystem angebunden ist.</p>
+          </div>
+
+          <!-- Right: steps -->
+          <div class="book-panel">
+            <ol class="steps" aria-label="Schritte">
+              <li data-b-step-ind="1"><span>1</span><em data-en="Table">Tisch</em></li>
+              <li data-b-step-ind="2"><span>2</span><em data-en="Details">Angaben</em></li>
+              <li data-b-step-ind="3"><span>3</span><em data-en="Done">Fertig</em></li>
+            </ol>
+
+            <!-- Step 1 -->
+            <div class="step" data-b-step="1">
+              <div class="pick" data-b-pick></div>
+              <div class="table-times" data-b-tabletimes hidden></div>
+              <p class="form__error" data-b-err1 role="alert"></p>
+              <button type="button" class="btn btn--gold btn--block" data-b-next disabled data-en="Continue">Weiter</button>
+              <p class="book-help" data-en="Groups of more than 6 or questions? Call us: <a href='tel:+49303963147'>030 396 31 47</a>">Mehr als 6 Personen oder Fragen? Rufen Sie uns an: <a href="tel:+49303963147">030 396 31 47</a></p>
+            </div>
+
+            <!-- Step 2 -->
+            <form class="step" data-b-step="2" data-b-form novalidate hidden>
+              <div class="pick pick--compact" data-b-pick2></div>
+              <div class="form__row form__row--2">
+                <label class="field"><span data-en="Name">Name</span><input type="text" name="name" autocomplete="name" required></label>
+                <label class="field"><span data-en="Phone">Telefon</span><input type="tel" name="phone" autocomplete="tel" required></label>
+              </div>
+              <div class="form__row form__row--2">
+                <label class="field"><span>E-Mail</span><input type="email" name="email" autocomplete="email" required></label>
+                <label class="field"><span data-en="Occasion">Anlass</span>
+                  <select name="occasion" data-occasion>
+                    <option value="" data-en="— none —">— keiner —</option>
+                    <option value="Geburtstag" data-en="Birthday">Geburtstag</option>
+                    <option value="Jahrestag" data-en="Anniversary">Jahrestag</option>
+                    <option value="Geschäftsessen" data-en="Business dinner">Geschäftsessen</option>
+                    <option value="Feier / Event" data-en="Celebration / event">Feier / Event</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field"><span data-en="Message (allergies, high chair, wishes …)">Nachricht (Allergien, Kinderstuhl, Wünsche …)</span>
+                <textarea name="notes" rows="3"></textarea>
+              </label>
+              <label class="check">
+                <input type="checkbox" name="consent" required>
+                <span data-en="I agree that my details are used to handle my reservation. See our <a href='datenschutz.html'>privacy policy</a>.">Ich bin einverstanden, dass meine Angaben zur Bearbeitung der Reservierung verwendet werden. Siehe <a href="datenschutz.html">Datenschutz</a>.</span>
+              </label>
+              <p class="form__error" data-b-err2 role="alert"></p>
+              <button class="btn btn--gold btn--block" type="submit" data-b-submit data-en="Book table">Tisch reservieren</button>
+              <button type="button" class="link-arrow link-arrow--back" data-b-back data-en="Change table or time">Tisch oder Zeit ändern</button>
+            </form>
+
+            <!-- Step 3 -->
+            <div class="step step--done" data-b-step="3" hidden>
+              <h3 tabindex="-1" data-b-done-title></h3>
+              <p data-b-done-text></p>
+              <pre class="summary" data-b-summary></pre>
+              <div class="form__send" data-b-send>
+                <a class="btn btn--gold" data-b-mail href="#" data-en="Send by e-mail">Per E-Mail senden</a>
+                <a class="btn btn--line" data-b-wa href="#" target="_blank" rel="noopener" data-en="Send via WhatsApp">Per WhatsApp senden</a>
+              </div>
+              <button type="button" class="link-arrow link-arrow--back" data-b-again data-en="New reservation">Neue Reservierung</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="reserve__foot reveal">
+          <a class="phone" href="tel:+49303963147"><span data-en="Call us">Telefon</span><strong>030 396 31 47</strong></a>
+          <dl class="mini-hours">
             <dt data-en="Tuesday – Sunday">Dienstag – Sonntag</dt><dd>16:00 – 24:00</dd>
             <dt data-en="Monday">Montag</dt><dd data-en="Closed">Ruhetag</dd>
           </dl>
-        </aside>
-
-        <form class="form reveal" data-form novalidate>
-          <div class="form__row">
-            <label class="field"><span data-en="Date">Datum</span>
-              <input type="date" name="date" required data-date>
-            </label>
-            <label class="field"><span data-en="Time">Uhrzeit</span>
-              <select name="time" required data-time></select>
-            </label>
-            <label class="field"><span data-en="Guests">Personen</span>
-              <select name="guests" required data-guests></select>
-            </label>
-          </div>
-          <div class="form__row form__row--2">
-            <label class="field"><span data-en="Name">Name</span>
-              <input type="text" name="name" autocomplete="name" required>
-            </label>
-            <label class="field"><span data-en="Phone">Telefon</span>
-              <input type="tel" name="phone" autocomplete="tel" required>
-            </label>
-          </div>
-          <div class="form__row form__row--2">
-            <label class="field"><span>E-Mail</span>
-              <input type="email" name="email" autocomplete="email" required>
-            </label>
-            <label class="field"><span data-en="Occasion">Anlass</span>
-              <select name="occasion" data-occasion>
-                <option value="" data-en="— none —">— keiner —</option>
-                <option value="Geburtstag" data-en="Birthday">Geburtstag</option>
-                <option value="Jahrestag" data-en="Anniversary">Jahrestag</option>
-                <option value="Geschäftsessen" data-en="Business dinner">Geschäftsessen</option>
-                <option value="Feier / Event" data-en="Celebration / event">Feier / Event</option>
-              </select>
-            </label>
-          </div>
-          <div class="form__row">
-            <label class="field"><span data-en="Seating preference">Sitzwunsch</span>
-              <div class="seg" role="radiogroup">
-                <label><input type="radio" name="seating" value="Egal" checked><span data-en="No preference">Egal</span></label>
-                <label><input type="radio" name="seating" value="Innen"><span data-en="Inside">Innen</span></label>
-                <label><input type="radio" name="seating" value="Terrasse"><span data-en="Terrace">Terrasse</span></label>
-              </div>
-            </label>
-          </div>
-          <label class="field"><span data-en="Message (allergies, high chair, wishes …)">Nachricht (Allergien, Kinderstuhl, Wünsche …)</span>
-            <textarea name="notes" rows="3"></textarea>
-          </label>
-          <label class="check">
-            <input type="checkbox" name="consent" required>
-            <span data-en="I agree that my details are used to handle my reservation. See our <a href='datenschutz.html'>privacy policy</a>.">Ich bin einverstanden, dass meine Angaben zur Bearbeitung der Reservierung verwendet werden. Siehe <a href="datenschutz.html">Datenschutz</a>.</span>
-          </label>
-          <p class="form__error" data-error role="alert"></p>
-          <button class="btn btn--gold btn--block" type="submit" data-en="Send reservation request">Reservierungsanfrage senden</button>
-
-          <div class="form__done" data-done hidden>
-            <h3 data-en="Almost done – grazie!">Fast geschafft – grazie!</h3>
-            <p data-en="Please send your request using one of the options below. We will confirm your table as soon as possible.">Bitte senden Sie Ihre Anfrage über eine der folgenden Optionen ab. Wir bestätigen Ihren Tisch so schnell wie möglich.</p>
-            <pre class="summary" data-summary></pre>
-            <div class="form__send">
-              <a class="btn btn--gold" data-send-mail href="#" data-en="Send by e-mail">Per E-Mail senden</a>
-              <a class="btn btn--line" data-send-wa href="#" target="_blank" rel="noopener" data-en="Send via WhatsApp">Per WhatsApp senden</a>
-            </div>
-            <button type="button" class="link-arrow link-arrow--back" data-reset data-en="Edit request">Anfrage bearbeiten</button>
-          </div>
-        </form>
+        </div>
       </div>
     </section>
 
@@ -438,5 +466,6 @@
 
   <script src="js/menu-data.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/booking.js"></script>
 </body>
 </html>
