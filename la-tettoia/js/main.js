@@ -172,12 +172,11 @@
   }
 
   /* ---------- Menu ---------- */
-  var M = window.MENU, board = $("[data-board]"), categoryEl = $("[data-category]"), moreEl = $("[data-more]");
-  var state = { book: "food", cat: "", q: "", tags: {} };
-  var TAGS = { v: ["V", "tag--v", "Vegetarisch", "Vegetarian"], f: ["F", "tag--f", "Fisch", "Fish"], s: ["P", "tag--s", "Pikant", "Spicy"], h: ["★", "tag--h", "Empfehlung", "House favourite"] };
+  // The full menu is offered as a PDF (speisekarte.pdf / menu-en.pdf, built by tools/build-menu-pdf.cjs).
+  // The page only lists the category names and picks the PDF that matches the language.
+  var M = window.MENU;
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function norm(s) { return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
 
   // Featured cards use the published menu for their text and prices.
   function renderSpecials() {
@@ -199,145 +198,17 @@
     }).join("");
   }
 
-  function renderCategories() {
-    var cats = M[state.book];
-    if (!cats.some(function (c) { return c.id === state.cat; })) state.cat = cats.length ? cats[0].id : "";
-    var html = "";
-    cats.forEach(function (c) {
-      html += '<option value="' + esc(c.id) + '">' + esc(c.it) + " · " + esc(c[lang]) + "</option>";
-    });
-    categoryEl.innerHTML = html;
-    categoryEl.value = state.cat;
-    var index = cats.findIndex(function (c) { return c.id === state.cat; });
-    $("[data-category-prev]").disabled = index <= 0;
-    $("[data-category-next]").disabled = index < 0 || index >= cats.length - 1;
-  }
+  var MENU_PDF = { de: "speisekarte.pdf", en: "menu-en.pdf" };
 
   function renderMenu() {
-    if (!board) return;
-    if (!M) {
-      categoryEl.replaceChildren(); moreEl.hidden = true;
-      $("[data-menu-summary]").textContent = "";
-      board.innerHTML = '<p class="empty">' + (lang === "de" ?
-        "Speisekarte derzeit nicht verfügbar. Bitte fragen Sie im Restaurant nach." :
-        "The menu is currently unavailable. Please ask our team.") + '</p>';
-      return;
+    var cats = $("[data-menu-cats]");
+    if (cats) {
+      cats.innerHTML = M ? M.food.map(function (c) { return "<li>" + esc(c.it) + "</li>"; }).join("") +
+        "<li>" + (lang === "de" ? "Getränke" : "Drinks") + "</li>" : "";
     }
-    renderCategories();
-    moreEl.hidden = state.book !== "food";
-    var cats = M[state.book];
-    var anyTag = Object.keys(state.tags).filter(function (k) { return state.tags[k]; });
-    var searching = !!state.q;
-    var html = "";
-    var count = 0;
-
-    cats.forEach(function (c) {
-      if (!searching && state.cat !== c.id) return;
-      var head = '<div class="cat__head"><h3>' + esc(c.it) + "</h3><span>" + esc(c[lang]) + "</span></div>" +
-        (c.note ? '<p class="cat__note">' + esc(c.note[lang]) + "</p>" : "");
-
-      if (state.book === "drinks") {
-        var matched = c;
-        if (state.q) {
-          var q = norm(state.q), categoryMatches = norm(c.it + " " + c[lang]).indexOf(q) > -1;
-          if (c.wine) {
-            matched = Object.assign({}, c, { groups: c.groups.map(function (g) {
-              return Object.assign({}, g, { items: categoryMatches || norm(g[lang]).indexOf(q) > -1 ? g.items : g.items.filter(function (w) { return norm(w.join(" ")).indexOf(q) > -1; }) });
-            }).filter(function (g) { return g.items.length; }) });
-          } else {
-            matched = Object.assign({}, c, { items: categoryMatches ? c.items : c.items.filter(function (d) { return norm(d.join(" ")).indexOf(q) > -1; }) });
-          }
-        }
-        var drinkItems = c.wine ? matched.groups.reduce(function (n, g) { return n + g.items.length; }, 0) : matched.items.length;
-        if (!drinkItems) return;
-        count += drinkItems;
-        html += '<section class="cat">' + head + (c.wine ? wineTable(matched) : drinkList(matched)) + "</section>";
-        return;
-      }
-      var items = c.items.filter(function (it) {
-        var tags = it[5].split(" ");
-        for (var i = 0; i < anyTag.length; i++) if (tags.indexOf(anyTag[i]) < 0) return false;
-        if (state.q) return norm(it[1] + " " + it[2] + " " + it[3] + " " + it[0]).indexOf(norm(state.q)) > -1;
-        return true;
-      });
-      if (!items.length) return;
-      count += items.length;
-      html += '<section class="cat">' + head + '<div class="items">' + items.map(itemHTML).join("") + "</div></section>";
-    });
-
-    $("[data-menu-summary]").textContent = state.q ?
-      (lang === "de" ? count + " Treffer in der Speisekarte" : count + " results in the menu") :
-      (lang === "de" ? count + " Einträge in dieser Kategorie" : count + " items in this category");
-    board.innerHTML = html || '<p class="empty">' + t("empty") + "</p>";
-  }
-
-  function itemHTML(it) {
-    var tags = it[5] ? it[5].split(" ").map(function (k) {
-      var d = TAGS[k]; return d ? '<i class="tag ' + d[1] + '" title="' + (lang === "de" ? d[2] : d[3]) + '">' + d[0] + "</i>" : "";
-    }).join("") : "";
-    return '<article class="item"><div class="item__top"><span class="item__no">' + esc(it[0]) + '</span><span class="item__name">' + esc(it[1]) +
-      "</span>" + (tags ? '<span class="item__tags">' + tags + "</span>" : "") + '<span class="item__dots"></span><span class="item__price">' + esc(it[4]) + " €</span></div>" +
-      '<p class="item__desc">' + esc(lang === "de" ? it[2] : it[3]) + "</p>" +
-      (it[6] ? '<p class="item__all">' + (lang === "de" ? "Allergene/Zusatzstoffe: " : "Allergens/additives: ") + esc(it[6]) + "</p>" : "") + "</article>";
-  }
-
-  function drinkList(c) {
-    return '<div class="items">' + c.items.map(function (d) {
-      return '<article class="item"><div class="item__top"><span class="item__name">' + esc(d[0]) + '</span><span class="item__dots"></span><span class="item__price">' +
-        esc(d[2]) + " €</span></div>" + (d[1] ? '<p class="item__desc" style="margin-left:0">' + esc(d[1]) + "</p>" : "") + "</article>";
-    }).join("") + "</div>";
-  }
-
-  function wineTable(c) {
-    return c.groups.map(function (g) {
-      return '<table class="wine-table"><caption>' + esc(g[lang]) + '</caption><thead><tr><th></th><th>0,25 l</th><th>0,5 l</th><th>1 l</th></tr></thead><tbody>' +
-        g.items.map(function (w) {
-          return "<tr><td>" + esc(w[0]) + "</td>" + w.slice(1).map(function (p) { return "<td>" + (p === "–" ? "–" : esc(p) + " €") + "</td>"; }).join("") + "</tr>";
-        }).join("") + "</tbody></table>";
-    }).join("");
-  }
-
-  if (board) {
-    $$("[data-book]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        state.book = b.dataset.book;
-        state.cat = ""; state.q = ""; $("[data-search]").value = "";
-        state.tags = {}; $$("[data-filter]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
-        $$("[data-book]").forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
-        renderMenu();
-      });
-    });
-    function selectCategory(id) {
-      state.cat = id;
-      state.q = ""; $("[data-search]").value = "";
-      state.tags = {}; $$("[data-filter]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
-      renderMenu();
-    }
-    categoryEl.addEventListener("change", function () { selectCategory(this.value); });
-    ["prev", "next"].forEach(function (direction) {
-      $("[data-category-" + direction + "]").addEventListener("click", function () {
-        var cats = M[state.book], index = cats.findIndex(function (c) { return c.id === state.cat; });
-        if (cats[index + (direction === "next" ? 1 : -1)]) selectCategory(cats[index + (direction === "next" ? 1 : -1)].id);
-      });
-    });
-    $$("[data-filter]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        var on = b.getAttribute("aria-pressed") !== "true";
-        b.setAttribute("aria-pressed", String(on));
-        state.tags[b.dataset.filter] = on;
-        renderMenu();
-      });
-    });
-    var qTimer;
-    $("[data-search]").addEventListener("input", function (e) {
-      clearTimeout(qTimer);
-      qTimer = setTimeout(function () { state.q = e.target.value.trim(); renderMenu(); }, 120);
-    });
-    $("[data-allergens]").addEventListener("click", function () {
-      var on = this.getAttribute("aria-pressed") !== "true";
-      this.setAttribute("aria-pressed", String(on));
-      board.classList.toggle("show-allergens", on);
-    });
+    var other = lang === "de" ? "en" : "de";
+    $$("[data-menu-pdf]").forEach(function (a) { a.href = MENU_PDF[lang]; });
+    $$("[data-menu-pdf-alt]").forEach(function (a) { a.href = MENU_PDF[other]; });
   }
 
   /* ---------- Reviews slider ---------- */
@@ -402,7 +273,6 @@
     berlinNow: berlinNow, hhmm: hhmm, addDays: addDays, weekday: weekday, fmtDate: fmtDate,
     replaceMenu: function (menu) {
       M = menu && Array.isArray(menu.food) && Array.isArray(menu.drinks) ? menu : null;
-      state.cat = "";
       renderMenu();
       renderSpecials();
     }

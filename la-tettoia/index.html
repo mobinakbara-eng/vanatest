@@ -172,36 +172,25 @@
           <p class="section__intro reveal" data-en="Pizza, pasta, fish and meat – plus changing daily specials. Ask our team about today's recommendations.">Pizza, Pasta, Fisch und Fleisch – dazu wechselnde Tagesempfehlungen. Fragen Sie unser Team nach den Spezialitäten des Tages.</p>
         </header>
 
-        <div class="menu__switch" role="tablist" aria-label="Karte wählen">
-          <button role="tab" aria-selected="true" data-book="food" data-en="Food">Speisen</button>
-          <button role="tab" aria-selected="false" data-book="drinks" data-en="Drinks">Getränke</button>
-        </div>
-
-        <div class="menu__tools">
-          <div class="menu__primary">
-            <label class="menu__category-label"><span data-en="Choose a category">Kategorie wählen</span><select data-category aria-label="Kategorie wählen"></select></label>
-            <div class="menu__arrows"><button type="button" data-category-prev aria-label="Vorherige Kategorie" title="Vorherige Kategorie">←</button><button type="button" data-category-next aria-label="Nächste Kategorie" title="Nächste Kategorie">→</button></div>
-            <label class="search menu__search">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-              <input type="search" placeholder="Speisekarte durchsuchen …" data-en-placeholder="Search the menu …" data-search aria-label="Speisekarte durchsuchen">
-            </label>
+        <div class="menu-card reveal">
+          <div class="menu-card__cover" aria-hidden="true">
+            <svg viewBox="0 0 60 18"><path d="M2 16 30 2l28 14"/></svg>
+            <strong>La Tettoia</strong>
+            <span>Speisekarte · Menu</span>
+            <i></i><i></i><i></i><i></i>
           </div>
-          <div class="menu__meta"><span data-menu-summary role="status"></span><details class="menu__more" data-more><summary data-en="More options">Weitere Optionen</summary><div class="menu__filters" data-filters>
-            <button type="button" class="toggle" data-filter="v" aria-pressed="false"><i class="tag tag--v">V</i> <span data-en="Vegetarian">Vegetarisch</span></button>
-            <button type="button" class="toggle" data-filter="f" aria-pressed="false"><i class="tag tag--f">F</i> <span data-en="Fish &amp; seafood">Fisch &amp; Meer</span></button>
-            <button type="button" class="toggle" data-filter="s" aria-pressed="false"><i class="tag tag--s">P</i> <span data-en="Spicy">Pikant</span></button>
-            <button type="button" class="toggle" data-filter="h" aria-pressed="false"><i class="tag tag--h">★</i> <span data-en="House favourites">Empfehlung</span></button>
-            <button type="button" class="toggle toggle--plain" data-allergens aria-pressed="false" data-en="Show allergens">Allergene zeigen</button>
-          </div></details></div>
-        </div>
-
-        <div class="menu__board" data-board aria-live="polite"></div>
-
-        <div class="menu__foot">
-          <details class="legend">
-            <summary data-en="Allergens &amp; additives">Allergene &amp; Zusatzstoffe</summary>
-            <p data-en="a = cereals containing gluten · b = crustaceans · c = eggs · d = fish · g = milk &amp; lactose · h = nuts · i = celery · j = mustard · l = sulphites · n = molluscs<br>1 = preservative · 2 = antioxidant · 3 = caffeine · 4 = quinine · 5 = colouring · 10 = sweetener · 13 = reformed meat<br>* cooked pressed ham. Please let our team know about any allergies.">a = glutenhaltiges Getreide · b = Krebstiere · c = Eier · d = Fisch · g = Milch &amp; Laktose · h = Schalenfrüchte · i = Sellerie · j = Senf · l = Schwefeldioxid &amp; Sulfite · n = Weichtiere<br>1 = Konservierungsstoff · 2 = Antioxidationsmittel · 3 = koffeinhaltig · 4 = chininhaltig · 5 = Farbstoff · 10 = Süßungsmittel · 13 = Formfleisch<br>* Gekochter Vorderschinken (Pressfleisch). Bitte sprechen Sie unser Team auf Allergien an.</p>
-          </details>
+          <div class="menu-card__body">
+            <p class="menu-card__lead" data-en="Our complete menu with all prices and allergens – as a PDF to view or save.">Unsere komplette Karte mit allen Preisen und Allergenen – als PDF zum Ansehen oder Speichern.</p>
+            <ul class="menu-card__cats" data-menu-cats></ul>
+            <div class="menu-card__actions">
+              <a class="btn btn--dark" href="speisekarte.pdf" download data-menu-pdf>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
+                <span data-en="Menu as PDF">Speisekarte als PDF</span>
+              </a>
+              <a class="link-arrow" href="speisekarte.pdf" target="_blank" rel="noopener" data-menu-pdf data-en="Open in browser">Im Browser öffnen</a>
+            </div>
+            <p class="menu-card__alt"><a href="menu-en.pdf" download data-menu-pdf-alt data-en="Deutsche Speisekarte (PDF)">English menu (PDF)</a></p>
+          </div>
         </div>
       </div>
     </section>

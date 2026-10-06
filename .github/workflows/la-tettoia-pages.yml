@@ -27,10 +27,19 @@ jobs:
     steps:
       - name: Check out La Tettoia branch
         uses: actions/checkout@v4
+      - name: Rebuild menu PDFs from the published menu
+        # Keeps speisekarte.pdf / menu-en.pdf in sync with menu edits made in manager.html.
+        # If this step fails, the PDFs committed in the repository are published instead.
+        continue-on-error: true
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/pw" playwright@1
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/pw/node_modules" node la-tettoia/tools/build-menu-pdf.cjs
       - name: Prepare site files
         run: |
           mkdir -p _site/css _site/js
           cp la-tettoia/*.html _site/
+          cp la-tettoia/*.pdf _site/
           cp la-tettoia/css/*.css _site/css/
           cp la-tettoia/js/*.js _site/js/
       - name: Configure Pages

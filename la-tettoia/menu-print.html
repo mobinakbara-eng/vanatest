@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>La Tettoia · Speisekarte</title>
+  <!-- Print template for speisekarte.pdf / menu-en.pdf. Built by tools/build-menu-pdf.mjs:
+       ?lang=de|en, menu from window.LT_MENU_OVERRIDE (published menu) or js/menu-data.js. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 16mm 15mm 16mm; }
+    :root { --ink: #1d1916; --muted: #6b6258; --gold: #9a7438; --line: #d9cfbf; }
+    * { box-sizing: border-box; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { margin: 0; color: var(--ink); background: #fff; font: 300 9.6pt/1.45 "Jost", system-ui, sans-serif; }
+    .serif { font-family: "Cormorant Garamond", Georgia, serif; }
+
+    .cover { text-align: center; padding: 3mm 0 5mm; border-bottom: 0.6pt solid var(--line); margin-bottom: 6mm; }
+    .cover svg { width: 22mm; height: 7mm; fill: none; stroke: var(--gold); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .cover h1 { margin: 1mm 0 0; font: italic 500 34pt/1 "Cormorant Garamond", Georgia, serif; letter-spacing: -.01em; }
+    .cover .sub { margin-top: 2.5mm; font-size: 7.5pt; letter-spacing: .32em; text-transform: uppercase; color: var(--muted); }
+    .cover .title { margin-top: 5mm; font: italic 400 15pt "Cormorant Garamond", Georgia, serif; color: var(--gold); }
+
+    .book { columns: 2; column-gap: 11mm; column-rule: 0.4pt solid #eee6d8; }
+    .book + .book { break-before: page; }
+    .book-title { column-span: all; text-align: center; margin: 0 0 6mm; font: italic 400 20pt "Cormorant Garamond", Georgia, serif; }
+    .book-title span { display: block; font: 400 7pt "Jost", sans-serif; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); margin-top: 1mm; }
+
+    .cat { margin: 0 0 5mm; }
+    .keep { break-inside: avoid; }
+    .cat h2 { margin: 0; font: italic 500 16pt/1.1 "Cormorant Garamond", Georgia, serif; break-after: avoid; }
+    .cat h2 small { margin-left: 2.5mm; font: 400 6.8pt "Jost", sans-serif; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); font-style: normal; }
+    .cat .note { margin: 1mm 0 0; font-size: 7.6pt; font-style: italic; color: var(--muted); break-after: avoid; }
+    .cat hr { border: 0; border-top: 0.6pt solid var(--gold); width: 12mm; margin: 2mm 0 2.5mm; }
+
+    .item { break-inside: avoid; padding: 1.05mm 0; border-bottom: 0.4pt dotted var(--line); }
+    .cat > .item:last-child { border-bottom: 0; }
+    .row { display: flex; align-items: baseline; gap: 2mm; }
+    .no { flex: none; width: 6mm; font-size: 6.6pt; color: var(--muted); }
+    .name { font: 600 11pt/1.2 "Cormorant Garamond", Georgia, serif; }
+    .tags { font-size: 6.4pt; letter-spacing: .06em; color: var(--gold); font-weight: 500; }
+    .dots { flex: 1; border-bottom: 0.5pt dotted #b9ad99; transform: translateY(-1mm); min-width: 4mm; }
+    .price { flex: none; font: italic 600 11pt "Cormorant Garamond", Georgia, serif; color: var(--gold); white-space: nowrap; }
+    .desc { margin: 0.2mm 0 0 8mm; font-size: 8pt; color: #4a433c; }
+    .all { margin: 0.2mm 0 0 8mm; font-size: 6.3pt; color: var(--muted); letter-spacing: .03em; }
+    .book--drinks .desc { margin-left: 0; }
+
+    table.wine { width: 100%; border-collapse: collapse; margin: 0 0 3mm; break-inside: avoid; }
+    table.wine caption { text-align: left; font-size: 6.8pt; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); padding: 1mm 0; }
+    table.wine th, table.wine td { padding: 1.1mm 0; border-bottom: 0.4pt dotted var(--line); text-align: right; font-weight: 300; font-size: 8pt; }
+    table.wine th:first-child, table.wine td:first-child { text-align: left; font: 600 10.5pt "Cormorant Garamond", Georgia, serif; }
+    table.wine thead th { font: 400 6.6pt "Jost", sans-serif !important; color: var(--muted); }
+    table.wine td + td { font: italic 600 10pt "Cormorant Garamond", Georgia, serif; color: var(--gold); }
+
+    .legend { break-inside: avoid; margin-top: 6mm; padding-top: 3mm; border-top: 0.6pt solid var(--line); font-size: 6.6pt; line-height: 1.6; color: var(--muted); column-span: all; }
+    .legend strong { color: var(--ink); font-weight: 500; letter-spacing: .08em; }
+    .foot { column-span: all; text-align: center; margin-top: 5mm; font-size: 7pt; letter-spacing: .14em; color: var(--muted); }
+
+    @media screen {
+      body { background: #e9e3d8; padding: 24px 0; }
+      .sheet { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 16mm 15mm; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,.15); }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet" id="sheet"></div>
+  <script src="js/menu-data.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var lang = /[?&]lang=en\b/.test(location.search) ? "en" : "de";
+    var M = window.LT_MENU_OVERRIDE || window.MENU;
+    document.documentElement.lang = lang;
+    var T = {
+      de: { title: "Speisekarte", food: "Speisen", drinks: "Getränke", sub: "Ristorante · Pizzeria · Waldstraße 55 · 10551 Berlin",
+        tags: { v: "vegetarisch", s: "pikant", h: "Empfehlung" }, all: "Allergene / Zusatzstoffe",
+        legendTitle: "Allergene & Zusatzstoffe",
+        legend: "a = glutenhaltiges Getreide · b = Krebstiere · c = Eier · d = Fisch · g = Milch & Laktose · h = Schalenfrüchte · i = Sellerie · j = Senf · l = Schwefeldioxid & Sulfite · n = Weichtiere — 1 = Konservierungsstoff · 2 = Antioxidationsmittel · 3 = koffeinhaltig · 4 = chininhaltig · 5 = Farbstoff · 10 = Süßungsmittel · 13 = Formfleisch — * gekochter Vorderschinken (Pressfleisch). Bitte sprechen Sie unser Team auf Allergien an.",
+        foot: "Alle Preise in Euro inkl. MwSt. · Tel. 030 396 31 47 · Di – So 16:00 – 24:00" },
+      en: { title: "Menu", food: "Food", drinks: "Drinks", sub: "Ristorante · Pizzeria · Waldstraße 55 · 10551 Berlin",
+        tags: { v: "vegetarian", s: "spicy", h: "house favourite" }, all: "Allergens / additives",
+        legendTitle: "Allergens & additives",
+        legend: "a = cereals containing gluten · b = crustaceans · c = eggs · d = fish · g = milk & lactose · h = nuts · i = celery · j = mustard · l = sulphites · n = molluscs — 1 = preservative · 2 = antioxidant · 3 = caffeine · 4 = quinine · 5 = colouring · 10 = sweetener · 13 = reformed meat — * cooked pressed ham. Please tell our team about any allergies.",
+        foot: "All prices in euros incl. VAT · Phone +49 30 396 31 47 · Tue – Sun 4 pm – midnight" }
+    }[lang];
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+    function tags(str) {
+      return (str || "").split(" ").filter(function (k) { return T.tags[k]; }).map(function (k) { return T.tags[k]; }).join(" · ");
+    }
+    function head(c) {
+      return '<h2>' + esc(c.it) + (c[lang] && c[lang] !== c.it ? '<small>' + esc(c[lang]) + '</small>' : '') + '</h2>' +
+        (c.note ? '<p class="note">' + esc(c.note[lang]) + '</p>' : '') + '<hr>';
+    }
+    function foodItem(it) {
+      var tg = tags(it[5]);
+      return '<div class="item"><div class="row"><span class="no">' + esc(it[0]) + '</span><span class="name">' + esc(it[1]) + '</span>' +
+        (tg ? '<span class="tags">' + esc(tg) + '</span>' : '') + '<span class="dots"></span><span class="price">' + esc(it[4]) + ' €</span></div>' +
+        '<p class="desc">' + esc(lang === "de" ? it[2] : it[3]) + '</p>' +
+        (it[6] ? '<p class="all">' + esc(it[6]) + '</p>' : '') + '</div>';
+    }
+    function drinkItem(d) {
+      return '<div class="item"><div class="row"><span class="name">' + esc(d[0]) + '</span><span class="dots"></span><span class="price">' + esc(d[2]) + ' €</span></div>' +
+        (d[1] ? '<p class="desc">' + esc(d[1]) + '</p>' : '') + '</div>';
+    }
+    function wine(c) {
+      return c.groups.map(function (g) {
+        return '<table class="wine"><caption>' + esc(g[lang]) + '</caption><thead><tr><th></th><th>0,25 l</th><th>0,5 l</th><th>1 l</th></tr></thead><tbody>' +
+          g.items.map(function (w) { return '<tr><td>' + esc(w[0]) + '</td>' + w.slice(1).map(function (p) { return '<td>' + (p === "–" ? "–" : esc(p) + " €") + '</td>'; }).join("") + '</tr>'; }).join("") +
+          '</tbody></table>';
+      }).join("");
+    }
+    var html =
+      '<header class="cover"><svg viewBox="0 0 60 18" aria-hidden="true"><path d="M2 16 30 2l28 14"/></svg>' +
+      '<h1>La Tettoia</h1><div class="sub">' + esc(T.sub) + '</div><div class="title">' + esc(T.title) + '</div></header>';
+    if (M && M.food && M.drinks) {
+      html += '<section class="book">' + M.food.map(function (c) {
+        var rows = (c.items || []).map(foodItem);
+        return '<div class="cat"><div class="keep">' + head(c) + (rows.shift() || "") + '</div>' + rows.join("") + '</div>';
+      }).join("") +
+        '<div class="legend"><strong>' + esc(T.legendTitle) + '</strong><br>' + esc(T.legend) + '</div></section>';
+      html += '<section class="book book--drinks"><h2 class="book-title">Bevande<span>' + esc(T.drinks) + '</span></h2>' + M.drinks.map(function (c) {
+        if (c.wine) return '<div class="cat"><div class="keep">' + head(c) + wine(c).split("</table>")[0] + "</table></div>" + wine(c).split("</table>").slice(1).join("</table>") + '</div>';
+        var rows = (c.items || []).map(drinkItem);
+        return '<div class="cat"><div class="keep">' + head(c) + (rows.shift() || "") + '</div>' + rows.join("") + '</div>';
+      }).join("") + '<p class="foot">' + esc(T.foot) + '</p></section>';
+    }
+    document.getElementById("sheet").innerHTML = html;
+    document.title = "La Tettoia · " + T.title;
+    window.LT_MENU_READY = true;
+  })();
+  </script>
+</body>
+</html>

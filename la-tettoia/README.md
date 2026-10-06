@@ -37,4 +37,8 @@ One Supabase Auth user can sign in at `manager.html`. The dashboard lists reques
 - Confirm the table positions against the real room, opening hours, contact numbers, dishes, prices, allergens and rating claims with the owner. `js/menu-data.js` is the original fallback/seed source; after setup, the `site_menu` database row is the published source of truth.
 - In a connected non-production project, verify: guest request → pending row → manager sees it → manager confirms → guest contacts/confirmation process → occupied slot persists after reload; conflicting requests are rejected; cancellation releases the slot; a manager menu edit appears on the public site after publishing and reload. Also verify a signed-out visitor cannot read `reservations` or write `site_menu`.
 
+## Menu PDF
+
+The website offers the full menu as a download (`speisekarte.pdf` in German, `menu-en.pdf` in English) instead of an on-page menu. Both are generated from `menu-print.html` by `tools/build-menu-pdf.cjs`, using the menu published in the manager dashboard (falling back to `js/menu-data.js`). The GitHub Pages workflow rebuilds them on every deploy; after editing the menu in the dashboard, re-run the **Publish La Tettoia** workflow (Actions → Run workflow) to refresh the PDFs. To build locally: `npm install --no-save playwright@1 && npx playwright install chromium && node la-tettoia/tools/build-menu-pdf.cjs`.
+
 `supabase/build-seed.mjs` regenerates `seed-menu.sql` from the bundled `js/menu-data.js` if the initial menu changes before first deployment. It does not overwrite a menu already published by the manager.
