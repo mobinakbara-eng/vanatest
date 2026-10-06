@@ -540,7 +540,10 @@ address { font-style: normal; font: 400 1.5rem/1.4 var(--serif); margin-bottom: 
 .plan .hatch { stroke: rgba(201,164,106,.45); stroke-width: 3; }
 .plan .wall { fill: none; stroke: var(--cream); stroke-width: 6; stroke-linecap: round; }
 .plan .wall--in { stroke-width: 4; opacity: .8; }
-.plan .passage { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linejoin: round; opacity: .7; }
+.plan .floor--wc { fill: #24201d; }
+.plan .door { fill: none; stroke: var(--gold); stroke-width: 2; stroke-dasharray: 4 4; opacity: .75; }
+.plan .zone--wc { fill: rgba(245,239,228,.5); font: 500 34px var(--sans); letter-spacing: .12em; }
+.plan .wc__sub { fill: rgba(245,239,228,.35); font: 400 13px var(--sans); letter-spacing: .14em; text-transform: uppercase; text-anchor: middle; }
 .plan .arrow { fill: none; stroke: var(--gold); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .plan .zone { fill: rgba(245,239,228,.35); font: italic 400 26px var(--serif); text-anchor: middle; }
 .plan .zone--bar { fill: var(--gold); font-size: 30px; }

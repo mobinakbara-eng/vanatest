@@ -8,25 +8,26 @@
   var esc = LT.esc;
 
   /* ---------- Floor plan (SVG units, viewBox 600 × 850) ----------
-     Drawn from the owner's sketch: entrance at the bottom, four tables along the
-     left wall, bar across the top, a dividing wall with a passage, and a small
-     room with four tables on the right. Adjust positions / seats here. */
+     Drawn from the owner's sketch: entrance at the bottom, four 6-seat tables
+     along the left wall, bar across the top, the WC behind the dividing wall and
+     a small room with four 4-seat tables on the right. Adjust positions / seats
+     here – and keep the seat limits in supabase/schema.sql in sync. */
   var TABLES = [
-    { id: "1", seats: 4, x: 55, y: 150, w: 150, h: 64, zone: "sala" },
-    { id: "2", seats: 4, x: 55, y: 285, w: 150, h: 64, zone: "sala" },
-    { id: "3", seats: 4, x: 55, y: 420, w: 150, h: 64, zone: "sala" },
-    { id: "4", seats: 6, x: 55, y: 565, w: 175, h: 74, zone: "sala" },
-    { id: "5", seats: 2, x: 375, y: 548, w: 64, h: 64, zone: "saletta" },
-    { id: "6", seats: 2, x: 485, y: 548, w: 64, h: 64, zone: "saletta" },
-    { id: "7", seats: 2, x: 375, y: 680, w: 64, h: 64, zone: "saletta" },
-    { id: "8", seats: 2, x: 485, y: 680, w: 64, h: 64, zone: "saletta" }
+    { id: "1", seats: 6, x: 55, y: 168, w: 180, h: 64, zone: "sala" },
+    { id: "2", seats: 6, x: 55, y: 318, w: 180, h: 64, zone: "sala" },
+    { id: "3", seats: 6, x: 55, y: 468, w: 180, h: 64, zone: "sala" },
+    { id: "4", seats: 6, x: 55, y: 618, w: 180, h: 64, zone: "sala" },
+    { id: "5", seats: 4, x: 358, y: 528, w: 92, h: 60, zone: "saletta" },
+    { id: "6", seats: 4, x: 470, y: 528, w: 92, h: 60, zone: "saletta" },
+    { id: "7", seats: 4, x: 358, y: 662, w: 92, h: 60, zone: "saletta" },
+    { id: "8", seats: 4, x: 470, y: 662, w: 92, h: 60, zone: "saletta" }
   ];
 
   var S = {
     de: {
       table: "Tisch", seats: "Plätze", free: "frei", busy: "reserviert", small: "zu klein",
       persons: "Personen", person: "Person", more: "{n}+ Personen",
-      bar: "Bar", sala: "Sala", saletta: "Saletta", entrance: "Eingang", passage: "Durchgang",
+      bar: "Bar", sala: "Sala", saletta: "Saletta", entrance: "Eingang", wc: "Toiletten",
       pickTime: "Wählen Sie eine Uhrzeit.", pickTable: "Tippen Sie auf einen freien Tisch im Plan.",
       pickBoth: "Wählen Sie eine Uhrzeit und einen freien Tisch.",
       closed: "Montags ist Ruhetag – bitte wählen Sie einen anderen Tag.",
@@ -49,7 +50,7 @@
     en: {
       table: "Table", seats: "seats", free: "free", busy: "booked", small: "too small",
       persons: "guests", person: "guest", more: "{n}+ guests",
-      bar: "Bar", sala: "Sala", saletta: "Saletta", entrance: "Entrance", passage: "Passage",
+      bar: "Bar", sala: "Sala", saletta: "Saletta", entrance: "Entrance", wc: "Restrooms",
       pickTime: "Choose a time.", pickTable: "Tap a free table on the plan.",
       pickBoth: "Choose a time and a free table.",
       closed: "We are closed on Mondays – please choose another day.",
@@ -171,16 +172,21 @@
       '<defs><pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="14" class="hatch"/></pattern></defs>' +
       '<rect class="floor" x="20" y="20" width="560" height="780"/>' +
       '<rect class="floor floor--alt" x="330" y="470" width="250" height="330"/>' +
+      '<rect class="floor floor--wc" x="330" y="122" width="250" height="208"/>' +
       // bar counter
       '<path class="bar" d="M160 20 V96 Q160 122 186 122 H580 V20 Z"/>' +
       '<text class="zone zone--bar" x="380" y="78">' + t("bar") + "</text>" +
-      // walls: outer with entrance gap, divider with passage, small-room wall with opening
+      // walls: outer with entrance gap; divider with WC door (240–300) and open passage (380–460);
+      // WC wall; small-room wall with opening on the left
       '<path class="wall" d="M250 800 H20 V20 H580 V800 H330"/>' +
-      '<path class="wall wall--in" d="M330 122 V300 M330 372 V800 M400 470 H580"/>' +
-      '<path class="passage" d="M318 304 l24 12 l-24 12 l24 12 l-24 12 l24 12"/>' +
+      '<path class="wall wall--in" d="M330 122 V240 M330 300 V380 M330 460 V800 M330 330 H580 M400 470 H580"/>' +
+      '<path class="door" d="M330 300 H390 M390 300 A60 60 0 0 0 330 240"/>' +
+      // WC
+      '<g class="wc" aria-label="WC"><text class="zone zone--wc" x="455" y="238">WC</text>' +
+      '<text class="wc__sub" x="455" y="266">' + t("wc") + "</text></g>" +
       // labels
-      '<text class="zone" x="140" y="770">' + t("sala") + "</text>" +
-      '<text class="zone" x="470" y="505">' + t("saletta") + "</text>" +
+      '<text class="zone" x="145" y="772">' + t("sala") + "</text>" +
+      '<text class="zone" x="455" y="784">' + t("saletta") + "</text>" +
       '<path class="arrow" d="M290 842 V808 M280 820 l10 -12 l10 12"/>' +
       '<text class="zone zone--entry" x="370" y="836">' + t("entrance") + "</text>" +
       tables + "</svg>";

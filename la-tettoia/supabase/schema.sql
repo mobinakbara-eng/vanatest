@@ -75,8 +75,8 @@ create policy guest_books on public.reservations for insert to anon
     and extract(minute from time) in (0, 30)
     and extract(second from time) = 0
     and table_id in ('1','2','3','4','5','6','7','8')
-    and guests between 1 and case when table_id in ('5','6','7','8') then 2
-                                   when table_id = '4' then 6 else 4 end
+    -- tables 1–4 (Sala, left wall): 6 seats · tables 5–8 (Saletta, right room): 4 seats
+    and guests between 1 and case when table_id in ('5','6','7','8') then 4 else 6 end
     and length(trim(name)) between 1 and 120
     and length(trim(phone)) between 3 and 40
     and length(trim(email)) between 3 and 160
