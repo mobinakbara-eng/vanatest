@@ -207,8 +207,10 @@
         "<li>" + (lang === "de" ? "Getränke" : "Drinks") + "</li>" : "";
     }
     var other = lang === "de" ? "en" : "de";
-    $$("[data-menu-pdf]").forEach(function (a) { a.href = MENU_PDF[lang]; });
-    $$("[data-menu-pdf-alt]").forEach(function (a) { a.href = MENU_PDF[other]; });
+    // keep the "?v=…" cache-busting tag the deploy adds to the links
+    function setPdf(a, file) { var q = a.getAttribute("href").split("?")[1]; a.setAttribute("href", file + (q ? "?" + q : "")); }
+    $$("[data-menu-pdf]").forEach(function (a) { setPdf(a, MENU_PDF[lang]); });
+    $$("[data-menu-pdf-alt]").forEach(function (a) { setPdf(a, MENU_PDF[other]); });
   }
 
   /* ---------- Reviews slider ---------- */

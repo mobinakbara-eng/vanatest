@@ -42,6 +42,10 @@ jobs:
           cp la-tettoia/*.pdf _site/
           cp la-tettoia/css/*.css _site/css/
           cp la-tettoia/js/*.js _site/js/
+          # Cache-busting: browsers keep files for 10 min; tag local CSS/JS/PDF links with this
+          # commit so a new page never runs with old cached scripts.
+          V="${GITHUB_SHA::8}"
+          sed -i -E "s#((href|src)=\"(css|js)/[^\"?]+\.(css|js))\"#\1?v=$V\"#g; s#(href=\"(speisekarte|menu-en)\.pdf)\"#\1?v=$V\"#g" _site/*.html
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site
