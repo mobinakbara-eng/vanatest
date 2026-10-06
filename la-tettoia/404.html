@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <script>
+    // GitHub Pages serves this page for any missing URL, also deep ones like /repo/a/b/c.
+    // Point relative links back at the site root (the first path segment on *.github.io).
+    if (/\.github\.io$/.test(location.hostname)) {
+      document.write('<base href="/' + location.pathname.split("/")[1] + '/">');
+    }
+  </script>
+  <title>Seite nicht gefunden · La Tettoia Berlin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .notfound { min-height: 100svh; display: grid; place-items: center; text-align: center; padding: 120px 16px 60px; background: var(--ink); color: var(--cream); }
+    .notfound .eyebrow { color: var(--gold); }
+    .notfound h1 { margin: 0 0 18px; font: italic 400 clamp(3rem, 10vw, 6rem)/1 var(--serif); }
+    .notfound p { max-width: 520px; margin: 0 auto 34px; color: rgba(245,239,228,.75); }
+    .notfound .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  </style>
+</head>
+<body>
+  <main class="notfound">
+    <div>
+      <p class="eyebrow">Errore 404</p>
+      <h1>Mamma mia!</h1>
+      <p>Diese Seite gibt es leider nicht (mehr). Vielleicht finden Sie, was Sie suchen, auf unserer Startseite. <br><span lang="en">This page doesn't exist – try our homepage instead.</span></p>
+      <div class="actions">
+        <a class="btn btn--gold" href="./">Zur Startseite</a>
+        <a class="btn btn--line" href="./#menu">Speisekarte</a>
+        <a class="btn btn--line" href="./#reserve">Tisch reservieren</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

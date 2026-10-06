@@ -52,7 +52,7 @@
   <!-- ============ HEADER ============ -->
   <header class="header" data-header>
     <div class="wrap header__inner">
-      <a href="#top" class="logo" aria-label="La Tettoia – Startseite">
+      <a href="#top" class="logo">
         <svg class="logo__roof" viewBox="0 0 60 18" aria-hidden="true"><path d="M2 16 30 2l28 14"/></svg>
         <span class="logo__name">La Tettoia</span>
         <span class="logo__sub">Ristorante · Pizzeria</span>
@@ -68,8 +68,8 @@
       </nav>
 
       <div class="header__tools">
-        <button class="lang" type="button" data-lang-toggle aria-label="Sprache wechseln / Switch language">
-          <span data-lang="de">DE</span><span aria-hidden="true">/</span><span data-lang="en">EN</span>
+        <button class="lang" type="button" data-lang-toggle title="Sprache wechseln / Switch language">
+          <span data-lang="de">DE</span><span aria-hidden="true">/</span><span data-lang="en">EN</span><span class="sr-only"> – Sprache wechseln / Switch language</span>
         </button>
         <button class="burger" type="button" aria-controls="nav" aria-expanded="false" data-burger aria-label="Menü öffnen">
           <span></span><span></span><span></span>
@@ -432,6 +432,7 @@
         </div>
       </div>
     </section>
+    <a href="#reserve" class="fab" data-fab data-en="Reserve">Reservieren</a>
   </main>
 
   <!-- ============ FOOTER ============ -->
@@ -446,15 +447,15 @@
         <p class="footer__claim" data-en="Under one roof since the late 1970s.">Unter einem Dach – seit Ende der 1970er.</p>
       </div>
       <div>
-        <h4 data-en="Contact">Kontakt</h4>
+        <h3 data-en="Contact">Kontakt</h3>
         <p>Waldstraße 55 · 10551 Berlin<br><a href="tel:+49303963147">030 396 31 47</a><br><a href="mailto:latettoia.berlin@gmail.com">latettoia.berlin@gmail.com</a></p>
       </div>
       <div>
-        <h4 data-en="Hours">Öffnungszeiten</h4>
+        <h3 data-en="Hours">Öffnungszeiten</h3>
         <p><span data-en="Tue – Sun">Di – So</span> 16:00 – 24:00<br><span data-en="Monday closed">Montag Ruhetag</span></p>
       </div>
       <div>
-        <h4>Links</h4>
+        <h3>Links</h3>
         <p><a href="#reserve" data-en="Book a table">Tisch reservieren</a><br><a href="https://www.la-tettoia-berlin.de/" target="_blank" rel="noopener" data-en="Order online">Online bestellen</a><br><a href="https://www.instagram.com/latettoia.berlin/" target="_blank" rel="noopener">Instagram</a></p>
       </div>
     </div>
@@ -464,7 +465,6 @@
     </div>
   </footer>
 
-  <a href="#reserve" class="fab" data-fab data-en="Reserve">Reservieren</a>
 
   <script src="js/config.js"></script>
   <script src="js/menu-data.js"></script>

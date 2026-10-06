@@ -157,13 +157,14 @@
     var closed = !C.hours[LT.weekday(state.date)];
     var tables = TABLES.map(function (tb) {
       var st = !remote || !state.available || state.loading ? "offline" : closed ? "busy" : tableState(tb);
-      var label = t("table") + " " + tb.id + ", " + tb.seats + " " + t("seats") + ", " +
+      // starts with the visible text ("1 6 P.") so voice-control users can say what they see
+      var label = tb.id + " " + tb.seats + " P. – " + t("table") + " " + tb.id + ", " + tb.seats + " " + t("seats") + ", " +
         (!remote || !state.available ? t("unavailable") : t(st === "sel" ? "free" : st));
       var dis = st === "small" || st === "busy" || st === "offline";
       return '<g class="tbl tbl--' + st + '" data-table="' + tb.id + '" role="button" tabindex="' + (dis ? -1 : 0) + '" aria-disabled="' + dis + '" aria-pressed="' + (st === "sel") + '" aria-label="' + esc(label) + '">' +
         chairs(tb) +
         '<rect class="top" x="' + tb.x + '" y="' + tb.y + '" width="' + tb.w + '" height="' + tb.h + '" rx="6"/>' +
-        '<text class="no" x="' + (tb.x + tb.w / 2) + '" y="' + (tb.y + tb.h / 2 - 5) + '">' + tb.id + "</text>" +
+        '<text class="no" x="' + (tb.x + tb.w / 2) + '" y="' + (tb.y + tb.h / 2 - 5) + '">' + tb.id + "</text> " +
         '<text class="cap" x="' + (tb.x + tb.w / 2) + '" y="' + (tb.y + tb.h / 2 + 20) + '">' + tb.seats + " P.</text></g>";
     }).join("");
 

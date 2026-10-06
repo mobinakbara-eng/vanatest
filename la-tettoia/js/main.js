@@ -368,6 +368,21 @@
     map.innerHTML = ""; map.appendChild(f);
   });
 
+  /* ---------- Images that fail to load (also cards rendered later) ----------
+     Swap in a branded placeholder so the layout keeps its shape. */
+  var FALLBACK_IMG = "data:image/svg+xml," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a2420"/><stop offset="1" stop-color="#3a2f28"/></linearGradient></defs>' +
+    '<rect width="400" height="400" fill="url(#g)"/>' +
+    '<path d="M150 190 200 165l50 25" fill="none" stroke="#c9a46a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".7"/>' +
+    '<text x="200" y="228" text-anchor="middle" font-family="Georgia,serif" font-style="italic" font-size="30" fill="#c9a46a" opacity=".7">La Tettoia</text></svg>');
+  document.addEventListener("error", function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== "IMG" || img.dataset.fallback) return;
+    img.dataset.fallback = "1";
+    img.src = FALLBACK_IMG;
+  }, true);
+
   /* ---------- Misc ---------- */
   $$("[data-year]").forEach(function (el) { el.textContent = new Date().getFullYear(); });
 
