@@ -18,3 +18,6 @@
 
 /assets/js/*
   Cache-Control: public, max-age=3600, must-revalidate
+
+/site.webmanifest
+  Content-Type: application/manifest+json
