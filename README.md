@@ -195,7 +195,7 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 ## نکته‌ها
 - **⚠️ بعد از هر تغییر CSS یا JS:** عدد `?v=` رو تو لینک‌های همه‌ی صفحه‌ها یکی بالا ببر (مثلاً `?v=20261013` → `?v=20261020`). این‌طوری مرورگرها نسخه‌ی قدیمی رو از کش استفاده نمی‌کنن. یه تست هم چک می‌کنه همه‌ی صفحه‌ها یه نسخه داشته باشن. دستور سریع:
   ```bash
-  NEW=$(date +%Y%m%d%H%M); sed -i -E "s/\?v=[0-9]+/?v=$NEW/g" public/*.html
+  NEW=$(date +%Y%m%d%H%M); sed -i -E "s/\?v=[0-9a-z]+/?v=$NEW/g" public/*.html
   ```
 - **فونت‌ها محلی‌ان**، بدون Google Fonts (حکم LG München درباره‌ی DSGVO).
 - **بنر کوکی** (`public/assets/js/consent.js`) طبق TDDDG § 25: «Alle akzeptieren» و «Nur notwendige» هم‌وزن تو صفحه‌ی اول، تنظیمات جدا برای Statistik و Marketing، و لینک «Cookie-Einstellungen» پایین هر صفحه. انتخاب کاربر تو `localStorage` با کلید `vana-consent` ذخیره می‌شه. الان هیچ سرویس آمار یا تبلیغاتی فعال نیست.
