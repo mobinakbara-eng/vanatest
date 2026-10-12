@@ -66,6 +66,17 @@ test.describe('navigation', () => {
     await expect(page).toHaveURL(/\/(index\.html)?$/);
   });
 
+  test('every icon and the manifest load', async ({ page, request }) => {
+    for (const path of ['/', '/impressum.html', '/datenschutz.html', '/gibt-es-nicht']) {
+      await page.goto(path);
+      const hrefs = await page.locator('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="manifest"]').evaluateAll((els) => els.map((e) => e.href));
+      expect(hrefs.length).toBeGreaterThanOrEqual(5);
+      for (const href of hrefs) expect((await request.get(href)).status(), href).toBe(200);
+    }
+    const manifest = await (await request.get('/site.webmanifest')).json();
+    for (const icon of manifest.icons) expect((await request.get('/' + icon.src)).status(), icon.src).toBe(200);
+  });
+
   test('unknown pages show the 404 page', async ({ page }) => {
     const res = await page.goto('/gibt-es-nicht');
     expect(res.status()).toBe(404);

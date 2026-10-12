@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p _site && cp -r public/. _site/
           if [ -n "$BASE" ] && [ "$BASE" != "/" ]; then
-            sed -i "s#\"/assets/#\"$BASE/assets/#g; s#href=\"/\"#href=\"$BASE/\"#g" _site/404.html
+            sed -i "s#\"/assets/#\"$BASE/assets/#g; s#\"/favicon.ico#\"$BASE/favicon.ico#g; s#\"/site.webmanifest#\"$BASE/site.webmanifest#g; s#href=\"/\"#href=\"$BASE/\"#g" _site/404.html
           fi
           rm -f _site/_headers   # Netlify / Cloudflare Pages only
 
