@@ -14,9 +14,8 @@
   --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   --gutter: clamp(40px, 10vw, 160px);
   --header-h: 68px;
+  color-scheme: light; /* always light, also when the device is in dark mode */
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink: #e9e7e1; --bg: #121924; --field: #19212e; --muted: #9aa0ab; --body: #c3c7ce; --line: #2a3342; --ok: #7fc4a0; --err: #f08a7a; color-scheme: dark; } }
-:root[data-theme="dark"] { --ink: #e9e7e1; --bg: #121924; --field: #19212e; --muted: #9aa0ab; --body: #c3c7ce; --line: #2a3342; --ok: #7fc4a0; --err: #f08a7a; color-scheme: dark; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }

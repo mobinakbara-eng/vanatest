@@ -46,6 +46,15 @@ test.describe('navigation', () => {
     await expect.poll(() => focused.evaluate((el) => getComputedStyle(el.closest('header')).opacity)).toBe('1');
   });
 
+  test('always light, even when the device is in dark mode', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    for (const path of ['/', '/impressum.html']) {
+      await page.goto(path);
+      expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(246, 245, 242)');
+      expect(await page.evaluate(() => getComputedStyle(document.body).color)).toBe('rgb(23, 32, 46)');
+    }
+  });
+
   test('reduced motion: static logo with roof, no moving beams', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
