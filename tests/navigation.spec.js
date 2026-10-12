@@ -77,6 +77,20 @@ test.describe('navigation', () => {
     for (const icon of manifest.icons) expect((await request.get('/' + icon.src)).status(), icon.src).toBe(200);
   });
 
+  test('CSS and JS links carry the same version on every page (cache busting)', async ({ page }) => {
+    const versions = new Set();
+    for (const path of ['/', '/impressum.html', '/datenschutz.html', '/gibt-es-nicht']) {
+      await page.goto(path);
+      const urls = await page.locator('link[rel="stylesheet"], script[src]').evaluateAll((els) => els.map((e) => e.href || e.src));
+      for (const u of urls) {
+        const v = new URL(u).searchParams.get('v');
+        expect(v, `${u} needs ?v=`).toBeTruthy();
+        versions.add(v);
+      }
+    }
+    expect([...versions], 'one version everywhere').toHaveLength(1);
+  });
+
   test('unknown pages show the 404 page', async ({ page }) => {
     const res = await page.goto('/gibt-es-nicht');
     expect(res.status()).toBe(404);
