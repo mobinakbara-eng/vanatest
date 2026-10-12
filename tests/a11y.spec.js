@@ -2,6 +2,9 @@
 const { test, expect } = require('./fixtures');
 const AxeBuilder = require('@axe-core/playwright').default;
 
+// Audit with the cookie banner open, as a first-time visitor sees the page
+test.use({ presetConsent: false });
+
 for (const scheme of ['light', 'dark']) {
   for (const path of ['/', '/impressum.html', '/datenschutz.html']) {
     test(`axe ${path} (${scheme})`, async ({ page }) => {

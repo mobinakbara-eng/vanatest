@@ -4,7 +4,16 @@ const base = require('@playwright/test');
 const test = base.test.extend({
   // Console messages a test expects (e.g. the browser logging a deliberate 404 or 429)
   allowedConsole: [null, { option: true }],
-  page: async ({ page, allowedConsole }, use) => {
+  // Most tests start with a saved cookie choice so the banner does not cover the page
+  presetConsent: [true, { option: true }],
+  page: async ({ page, allowedConsole, presetConsent }, use) => {
+    if (presetConsent) {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('vana-consent', JSON.stringify({ v: 1, statistik: false, marketing: false, zeit: '2026-01-01T00:00:00Z' }));
+        } catch (e) { /* ignore */ }
+      });
+    }
     const problems = [];
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     page.on('console', (m) => {

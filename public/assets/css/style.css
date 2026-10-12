@@ -19,6 +19,7 @@
 :root[data-theme="dark"] { --ink: #e9e7e1; --bg: #121924; --field: #19212e; --muted: #9aa0ab; --body: #c3c7ce; --line: #2a3342; --ok: #7fc4a0; --err: #f08a7a; color-scheme: dark; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 16px); }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
 h1, h2, h3 { font-family: var(--f-display); font-weight: 300; text-wrap: balance; letter-spacing: -.005em; overflow-wrap: break-word; hyphens: auto; }
@@ -236,3 +237,43 @@ a { color: inherit; }
 }
 
 .turnstile { grid-column: 1 / -1; }
+
+/* ---------- Cookie / consent banner ---------- */
+.consent-banner {
+  position: fixed; z-index: 40; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  max-width: 640px; margin-inline: auto;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--ink);
+  box-shadow: 0 18px 50px -20px rgba(10, 14, 22, .35);
+  max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain;
+}
+.consent-inner { display: grid; gap: 18px; padding: clamp(20px, 3vw, 28px); }
+.consent-head { display: grid; gap: 10px; }
+.consent-head p:not(.eyebrow) { font-size: 14px; }
+.consent-panel { display: grid; gap: 14px; padding-top: 4px; border-top: 1px solid var(--line); }
+.consent-cat { display: grid; gap: 4px; padding-top: 12px; }
+.consent-cat p { font-size: 13px; color: var(--muted); }
+.consent-cat label { display: inline-flex; align-items: center; gap: 12px; cursor: pointer; font-size: 15px; min-height: 32px; }
+.consent-cat input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.consent-switch { width: 40px; height: 22px; border: 1px solid var(--ink); border-radius: 11px; position: relative; flex: none; transition: background-color .2s ease; }
+.consent-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); transition: transform .2s ease, background-color .2s ease; }
+.consent-cat input:checked + .consent-switch { background: var(--ink); }
+.consent-cat input:checked + .consent-switch::after { transform: translateX(18px); background: var(--bg); }
+.consent-cat input:disabled + .consent-switch { opacity: .55; }
+.consent-cat input:focus-visible + .consent-switch { outline: 2px solid var(--ink); outline-offset: 3px; }
+.consent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+/* Buttons stay visible even when the banner has to scroll on small screens */
+.consent-actions { position: sticky; bottom: 0; background: var(--bg); margin-inline: calc(-1 * clamp(20px, 3vw, 28px)); margin-bottom: calc(-1 * clamp(20px, 3vw, 28px)); padding: 12px clamp(20px, 3vw, 28px) clamp(20px, 3vw, 28px); }
+.consent-actions .btn { padding: 12px 22px; font-size: 14px; }
+.btn-outline { background: transparent; color: var(--ink); }
+.btn-outline:hover { background: var(--ink); color: var(--bg); }
+.consent-link { background: none; border: 0; color: var(--ink); font: 400 14px var(--f-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 12px 4px; }
+.footer-bottom nav button { background: none; border: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+@media (max-width: 480px) {
+  .consent-banner { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .consent-inner { gap: 12px; }
+  .consent-head p:not(.eyebrow) { font-size: 13px; line-height: 1.55; }
+  .consent-actions .btn { flex: 1 1 140px; }
+}
+.consent-actions .btn { white-space: nowrap; }
+@media (max-width: 374px) { .consent-actions .btn { flex-basis: 100%; } }
+@media (prefers-reduced-motion: reduce) { .consent-switch, .consent-switch::after { transition: none; } }

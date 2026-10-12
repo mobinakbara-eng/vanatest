@@ -70,7 +70,7 @@ netlify.toml                    تنظیمات Netlify (publish = public)
 npm install
 npm start                       # http://localhost:4173  (با همون هدرهای امنیتی سایت اصلی)
 npx playwright install chromium # بار اول
-npm test                        # ۵۰ تست: ۱۴ اندازه‌ی صفحه، منو، فرم، دسترس‌پذیری
+npm test                        # ۵۸ تست: ۱۴ اندازه‌ی صفحه، منو، فرم، بنر کوکی، دسترس‌پذیری
 npm run test:functions          # ۱۲ تست Edge Function
 npm run lint:functions
 ```
@@ -179,6 +179,13 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 
 ## نکته‌ها
 - **فونت‌ها محلی‌ان**، بدون Google Fonts (حکم LG München درباره‌ی DSGVO).
-- **کوکی و ابزار آمار نداره**، پس بنر کوکی لازم نیست. اگه آمار اضافه شد، بنر و Datenschutz باید آپدیت بشن.
+- **بنر کوکی** (`public/assets/js/consent.js`) طبق TDDDG § 25: «Alle akzeptieren» و «Nur notwendige» هم‌وزن تو صفحه‌ی اول، تنظیمات جدا برای Statistik و Marketing، و لینک «Cookie-Einstellungen» پایین هر صفحه. انتخاب کاربر تو `localStorage` با کلید `vana-consent` ذخیره می‌شه. الان هیچ سرویس آمار یا تبلیغاتی فعال نیست.
+- **اضافه کردن سرویس آمار در آینده:** فقط بعد از رضایت لودش کن:
+  ```js
+  function loadStats() { /* اسکریپت آمار */ }
+  if (window.vanaConsent?.has('statistik')) loadStats();
+  document.addEventListener('vana:consent', (e) => { if (e.detail.statistik) loadStats(); });
+  ```
+  بعدش اسم سرویس رو به بند ۳ Datenschutz و دامنه‌ش رو به CSP تو `_headers` اضافه کن.
 - **ضد اسپم چندلایه:** فیلد مخفی، حداقل ۳ ثانیه، اعتبارسنجی سمت سرور، حداکثر ۵ درخواست در ساعت برای هر IP (IP فقط به‌صورت hash و حداکثر ۲۴ ساعت نگه داشته می‌شه)، و Turnstile اختیاری.
 - **CI:** هر push به گیت‌هاب همه‌ی تست‌ها رو اجرا می‌کنه (`.github/workflows/ci.yml`).
