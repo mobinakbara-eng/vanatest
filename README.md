@@ -168,6 +168,19 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 
 ---
 
+## دیده شدن در گوگل (SEO و Google Ads)
+
+برنامه‌ی کامل: **[docs/SEO-PLAN.md](docs/SEO-PLAN.md)**. شامل تحلیل رقبا، کلمه‌های کلیدی، برنامه‌ی مرحله‌به‌مرحله و منابع رسمی گوگل.
+
+خلاصه:
+1. **Google Business Profile** بسازید و تأیید کنید. اسم فقط «VANA Management» باشه.
+2. **بعد از هر پروژه نظر گوگل بگیرید** و به همه‌ی نظرات جواب بدید.
+3. **برای هر خدمت صفحه‌ی جدا** با عکس واقعی، قیمت، FAQ و پروژه‌ها.
+4. ثبت در دایرکتوری‌ها با اسم، آدرس و تلفن یکسان.
+5. محتوای «هزینه‌ها» با قیمت‌های واقعی VANA.
+
+پیش‌نیازهایی که الان کمه: ☎️ **شماره تلفن**، 📷 **عکس پروژه‌ها**، و روشن شدن اینکه **آدرس Wöhlertstr. 4 دفتر واقعیه یا نه.**
+
 ## قبل از آنلاین شدن ✅
 - [ ] Supabase ساخته شد، `db push` و `functions deploy` انجام شد، `apiUrl` تو `config.js` پر شد
 - [ ] یه درخواست تستی از سایت فرستاده شد و تو Table Editor دیده شد
@@ -175,7 +188,9 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 - [ ] Impressum و Datenschutz توسط وکیل یا سرویس حقوقی چک شد
 - [ ] ایمیل `info@vana-management.com` کار می‌کنه
 - [ ] دامنه وصل شد و `ALLOWED_ORIGINS` آپدیت شد
-- [ ] (پیشنهاد) Google Search Console → `sitemap.xml` ثبت شد
+- [ ] Google Search Console و Bing Webmaster وصل شدن و `sitemap.xml` ثبت شد
+- [ ] Google Business Profile ساخته و تأیید شد (مرحله‌ی ۰ و ۱ در [SEO-PLAN](docs/SEO-PLAN.md))
+- [ ] شماره تلفن روی سایت، Impressum و پروفایل گوگل یکسانه
 
 ## نکته‌ها
 - **فونت‌ها محلی‌ان**، بدون Google Fonts (حکم LG München درباره‌ی DSGVO).
