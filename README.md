@@ -1,7 +1,6 @@
 # VANA Management – Website
 
 Website der **VANA Management UG (haftungsbeschränkt)**: Sanierung & Trockenbau in Berlin.
-Statische Seite (HTML/CSS/JS, ohne Build-Schritt). Das Kontaktformular speichert Anfragen in **Supabase**, gehostet wird auf **Netlify**.
 
 | | |
 |---|---|
@@ -11,155 +10,175 @@ Statische Seite (HTML/CSS/JS, ohne Build-Schritt). Das Kontaktformular speichert
 | Register | Amtsgericht Charlottenburg (Berlin), HRB 281066 B |
 | USt-IdNr. | DE462217121 |
 | E-Mail | info@vana-management.de |
+| Domain | vana-management.de (DNS bei Cloudflare) |
 
 ---
+
+## معماری
+
+```
+                 ┌──────────────── Cloudflare ────────────────┐
+ بازدیدکننده ──▶ │ DNS vana-management.de  (+ Turnstile اختیاری) │
+                 └───────────────┬─────────────────────────────┘
+                                 ▼
+          ┌──────── هاست استاتیک (فعلاً Netlify، بعداً هر جا) ────────┐
+          │ public/   HTML + CSS + JS + فونت‌ها   (_headers = امنیت)    │
+          └───────────────┬─────────────────────────────────────────────┘
+                          │  POST /functions/v1/kontakt   (فقط فرم تماس)
+                          ▼
+          ┌──────────────── Supabase (فرانکفورت) ───────────────────┐
+          │ Edge Function "kontakt"                                   │
+          │   ✓ چک Origin   ✓ اعتبارسنجی   ✓ ضد اسپم   ✓ Rate-Limit   │
+          │   ✓ Turnstile (اختیاری)   ✓ ایمیل با Resend (اختیاری)     │
+          │                      │ service_role                       │
+          │ Postgres: anfragen, anfrage_limits  (RLS، anon هیچ دسترسی) │
+          └───────────────────────────────────────────────────────────┘
+```
+
+- **سایت کاملاً استاتیکه.** هیچ سرور مخصوصی نمی‌خواد و روی Netlify، Cloudflare Pages یا هر هاست دیگه‌ای بالا میاد. فایل `public/_headers` روی Netlify و Cloudflare Pages هر دو کار می‌کنه.
+- **مرورگر هیچ‌وقت مستقیم به دیتابیس وصل نمی‌شه.** فرم به Edge Function می‌فرسته. فقط اون Function با کلید `service_role` (که فقط روی سرور Supabase هست) می‌نویسه. نقش عمومی `anon` هیچ دسترسی‌ای به جدول‌ها نداره (تست شده).
+- **کلید مخفی تو کد سایت نیست.** تو `public/assets/js/config.js` فقط آدرس Function و (اختیاری) Site Key عمومی Turnstile میاد.
 
 ## ساختار پروژه
 
 ```
-index.html                 صفحه‌ی اصلی (هدر/منو، موشن لوگو، معرفی، خدمات، مراحل، فرم تماس)
-impressum.html             Impressum (§ 5 DDG)
-datenschutz.html           Datenschutzerklärung (DSGVO)
-404.html                   صفحه‌ی خطا
-assets/css/style.css       همه‌ی استایل‌ها + رنگ‌ها (حالت روشن و تاریک)
-assets/js/main.js          منوی بالا + انیمیشن سقف لوگو موقع اسکرول
-assets/js/contact.js       فرم تماس → Supabase
-assets/js/config.js        ⚠️ آدرس و کلید Supabase اینجا وارد می‌شه
-assets/fonts/              فونت‌ها روی سرور خودمون (طبق DSGVO، بدون Google Fonts)
-assets/img/                لوگو (SVG) و favicon
-supabase/migrations/       SQL ساخت جدول anfragen
-netlify.toml               تنظیمات Netlify و هدرهای امنیتی
+public/                         ← فقط همین پوشه آنلاین می‌شه
+  index.html                    صفحه‌ی اصلی
+  impressum.html, datenschutz.html, 404.html
+  _headers                      هدرهای امنیتی و کش (CSP، HSTS، …)
+  robots.txt, sitemap.xml
+  assets/css/style.css          استایل‌ها (رنگ‌ها بالای فایل تو :root)
+  assets/js/main.js             منو + انیمیشن سقف لوگو
+  assets/js/contact.js          فرم تماس → Edge Function
+  assets/js/config.js           ⚠️ آدرس Edge Function اینجا
+  assets/fonts/                 فونت‌ها روی سرور خودمون (DSGVO)
+  assets/img/                   لوگو، favicon، تصویر اشتراک‌گذاری (og-image)
+supabase/
+  migrations/…_anfragen.sql     جدول‌ها، RLS، تابع rate-limit
+  functions/kontakt/            Edge Function (+ تست‌ها)
+  config.toml
+tests/                          تست‌های خودکار (Playwright)
+.github/workflows/ci.yml        اجرای خودکار تست‌ها روی هر push
+netlify.toml                    تنظیمات Netlify (publish = public)
 ```
 
-### دیدن سایت روی کامپیوتر
+## اجرای محلی و تست
+
+پیش‌نیاز: Node 22 و [Deno 2](https://deno.com).
+
 ```bash
-python3 -m http.server 8080
-# بعد: http://localhost:8080
+npm install
+npm start                       # http://localhost:4173  (با همون هدرهای امنیتی سایت اصلی)
+npx playwright install chromium # بار اول
+npm test                        # ۵۰ تست: ۱۴ اندازه‌ی صفحه، منو، فرم، دسترس‌پذیری
+npm run test:functions          # ۱۲ تست Edge Function
+npm run lint:functions
 ```
+
+تست‌ها چه چیزهایی رو چک می‌کنن:
+- **۱۴ اندازه‌ی صفحه** از iPhone SE (۳۲۰px) تا مانیتور QHD (۲۵۶۰px)، شامل موبایل افقی و iPad: اسکرول افقی نداشته باشه، هیچ متنی از صفحه بیرون نزنه، منو جا بشه.
+- منو، پرش به بخش‌ها، محو شدن منو، کیبورد (skip link و دیده شدن focus)، حالت reduced motion و حالت بدون جاوااسکریپت.
+- فرم تماس از اول تا آخر با **همون کد واقعی Edge Function**: خطاهای فیلدها، رضایت، ذخیره، honeypot، خطای ۴۲۹، قطع اینترنت.
+- **دسترس‌پذیری (WCAG 2.2 AA)** با axe در حالت روشن و تاریک.
+- هر خطای کنسول یا نقض CSP یعنی شکست تست.
 
 ---
 
-## Supabase (فرم تماس)
+## راه‌اندازی Supabase
 
-فرم تماس مستقیم با REST API در جدول `anfragen` ذخیره می‌کنه. هیچ کتابخونه‌ای لازم نیست.
-**امنیت:** کلید `anon` عمومیه و فقط اجازه‌ی **اضافه کردن** درخواست داره. خوندن، تغییر و حذف فقط از داخل پنل Supabase ممکنه.
+### ۱. پروژه
+1. اکانت Supabase مخصوص VANA → **New project** → اسم `vana-management`
+2. Region: **Central EU (Frankfurt)**
+3. رمز دیتابیس رو جای امن نگه دار
 
-### ۱. ساخت پروژه
-1. وارد اکانت Supabase مخصوص VANA شو → **New project**
-2. اسم: `vana-management`
-3. Region: **Central EU (Frankfurt) – eu-central-1** (برای DSGVO مهمه)
-4. یه رمز قوی برای دیتابیس بذار و یه جای امن نگهش دار
-
-### ۲. ساخت جدول
-**SQL Editor → New query** → محتوای فایل
-[`supabase/migrations/20261012000000_anfragen.sql`](supabase/migrations/20261012000000_anfragen.sql)
-رو کامل کپی کن و **Run** بزن.
-
-یا با Supabase CLI:
+### ۲. دیتابیس و Function با Supabase CLI
 ```bash
+npm i -g supabase           # یا: brew install supabase/tap/supabase
+supabase login
 supabase link --project-ref <PROJECT_REF>
-supabase db push
+
+supabase db push            # جدول‌ها + RLS + rate-limit
+
+supabase secrets set \
+  ALLOWED_ORIGINS="https://vana-management.de,https://www.vana-management.de,https://<netlify-name>.netlify.app" \
+  RATE_LIMIT_SALT="$(openssl rand -hex 32)"
+
+supabase functions deploy kontakt     # verify_jwt=false از config.toml خونده می‌شه
 ```
-
-جدول `anfragen`:
-
-| ستون | نوع | توضیح |
-|---|---|---|
-| `id` | uuid | خودکار |
-| `erstellt_am` | timestamptz | زمان ارسال، خودکار |
-| `name` | text | اجباری، ۲ تا ۱۲۰ کاراکتر |
-| `email` | text | اجباری، فرمت ایمیل چک می‌شه |
-| `telefon` | text | اختیاری |
-| `ort` | text | اختیاری (شهر/کد پستی ملک) |
-| `projektart` | text | `Sanierung` / `Trockenbau` / `Sanierung und Trockenbau` / `Sonstiges` |
-| `nachricht` | text | اجباری، ۱۰ تا ۴۰۰۰ کاراکتر |
-| `datenschutz_akzeptiert` | boolean | باید `true` باشه |
-| `status` | text | `neu` / `in_bearbeitung` / `erledigt` (فقط داخلی) |
-| `notiz` | text | یادداشت داخلی |
+بدون CLI هم می‌شه: محتوای فایل SQL رو تو **SQL Editor** اجرا کن و Function رو از **Edge Functions → Deploy a new function** بساز. سه فایل `index.ts`، `handler.ts` و `validate.ts` لازمه. گزینه‌ی **Verify JWT** رو خاموش کن.
 
 ### ۳. وصل کردن سایت
-**Project Settings → API Keys** (یا Data API):
-- **Project URL** مثلاً `https://abcdefghijklmnop.supabase.co`
-- **anon / publishable key**
-
-این دو تا رو تو [`assets/js/config.js`](assets/js/config.js) بذار:
+تو `public/assets/js/config.js`:
 ```js
-window.VANA_CONFIG = {
-  supabaseUrl: "https://abcdefghijklmnop.supabase.co",
-  supabaseAnonKey: "eyJhbGciOi...",
-  contactEmail: "info@vana-management.de"
-};
+apiUrl: "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt",
 ```
-> ⛔ هیچ‌وقت کلید `service_role` / `secret` رو تو سایت نذار.
-
-تا وقتی این دو تا خالی‌ان، فرم به بازدیدکننده می‌گه با ایمیل تماس بگیره.
 
 ### ۴. تست
 ```bash
-curl -i -X POST "https://<PROJECT_REF>.supabase.co/rest/v1/anfragen" \
-  -H "apikey: <ANON_KEY>" -H "Authorization: Bearer <ANON_KEY>" \
-  -H "Content-Type: application/json" -H "Prefer: return=minimal" \
-  -d '{"name":"Test","email":"test@example.com","projektart":"Sanierung","nachricht":"Testanfrage von der Website","datenschutz_akzeptiert":true}'
-# انتظار: HTTP 201
-```
-تست امنیت (باید خطا بده یا لیست خالی برگردونه، **نه** داده):
-```bash
-curl "https://<PROJECT_REF>.supabase.co/rest/v1/anfragen?select=*" -H "apikey: <ANON_KEY>" -H "Authorization: Bearer <ANON_KEY>"
+curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
+  -H "Origin: https://vana-management.de" -H "Content-Type: application/json" \
+  -d '{"name":"Test","email":"test@example.com","projektart":"Sanierung","nachricht":"Testanfrage von der Website","datenschutz_akzeptiert":true,"website":"","elapsed_ms":5000}'
+# → 201 {"ok":true}
 ```
 
-### ۵. دیدن درخواست‌ها
-**Table Editor → anfragen**. ستون `status` رو برای هر درخواست عوض کن (`neu` → `in_bearbeitung` → `erledigt`) و یادداشت رو تو `notiz` بنویس.
+### ۵. دیدن و مدیریت درخواست‌ها
+**Table Editor → anfragen**. ستون `status` رو برای هر درخواست عوض کن: `neu` → `in_bearbeitung` → `erledigt`. یادداشت داخلی تو `notiz` می‌ره و `bearbeitet_am` خودکار پر می‌شه.
 
-### ۶. (اختیاری) ایمیل خبر دادن برای هر درخواست جدید
-راه پیشنهادی: Edge Function + [Resend](https://resend.com) و یک Database Webhook.
-1. تو Resend دامنه‌ی `vana-management.de` رو تأیید کن و یک API Key بساز.
-2. `supabase secrets set RESEND_API_KEY=... NOTIFY_TO=info@vana-management.de`
-3. فایل `supabase/functions/neue-anfrage/index.ts`:
-   ```ts
-   Deno.serve(async (req) => {
-     const { record: a } = await req.json();
-     await fetch("https://api.resend.com/emails", {
-       method: "POST",
-       headers: { Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")}`, "Content-Type": "application/json" },
-       body: JSON.stringify({
-         from: "Website <website@vana-management.de>",
-         to: Deno.env.get("NOTIFY_TO"),
-         reply_to: a.email,
-         subject: `Neue Anfrage: ${a.projektart} – ${a.name}`,
-         text: `${a.name} (${a.email}, ${a.telefon ?? "-"})\nOrt: ${a.ort ?? "-"}\n\n${a.nachricht}`,
-       }),
-     });
-     return new Response("ok");
-   });
+### ۶. (اختیاری) ایمیل برای هر درخواست جدید
+1. تو [Resend](https://resend.com) دامنه‌ی `vana-management.de` رو تأیید کن. رکوردهای DNS‌ش رو تو Cloudflare اضافه کن.
+2. ```bash
+   supabase secrets set RESEND_API_KEY=re_... NOTIFY_TO=info@vana-management.de MAIL_FROM="VANA Website <website@vana-management.de>"
    ```
-4. `supabase functions deploy neue-anfrage`
-5. **Database → Webhooks → Create**: Table `anfragen`, Event `INSERT`, Type: Supabase Edge Function → `neue-anfrage`.
+   ایمیل `reply_to` مشتری رو داره، پس با Antworten مستقیم به خود مشتری جواب می‌دی.
 
-### ۷. دسترسی برای Claude
-برای اینکه Claude خودش جدول رو بسازه و وصل کنه، یکی از این دو کار رو بکن:
-- تو claude.ai → **Settings → Connectors → Supabase** با **اکانت Supabase مخصوص VANA** وارد شو (اکانت فعلی مال پروژه‌های aora هست و نباید داده‌ی VANA اونجا بره)، یا
-- فقط **Project URL** و **anon key** رو بفرست (این دو تا عمومی‌ان). کلید `service_role` رو نفرست.
+### ۷. (اختیاری) Cloudflare Turnstile ضد اسپم
+1. Cloudflare → **Turnstile → Add widget** → دامنه‌ها رو اضافه کن
+2. `supabase secrets set TURNSTILE_SECRET_KEY=...`
+3. Site Key رو تو `config.js` → `turnstileSiteKey` بذار
+4. ⚠️ یه بند به Datenschutz اضافه کن (Cloudflare Turnstile، Art. 6 Abs. 1 lit. f DSGVO)
+
+| Secret | لازم؟ | توضیح |
+|---|---|---|
+| `ALLOWED_ORIGINS` | ✅ | دامنه‌هایی که اجازه دارن فرم بفرستن (با کاما) |
+| `RATE_LIMIT_SALT` | ✅ | رشته‌ی تصادفی طولانی |
+| `RESEND_API_KEY`, `NOTIFY_TO`, `MAIL_FROM` | — | ایمیل خبر دادن |
+| `TURNSTILE_SECRET_KEY` | — | Turnstile |
 
 ---
 
-## Netlify (انتشار)
-1. Netlify → **Add new project → Import from Git** → ریپو `mobinakbara-eng/vanatest`
-2. Branch: `main` (بعد از merge) · Build command: خالی · Publish directory: `.`
-3. **Domain management** → `vana-management.de` و `www.vana-management.de` رو اضافه کن و DNS رو طبق راهنمای Netlify تنظیم کن. HTTPS خودکار فعال می‌شه.
-4. اگه دامنه‌ی Supabase عوض شد، `connect-src` تو `netlify.toml` همچنان `*.supabase.co` رو قبول می‌کنه.
+## انتشار
+
+### فعلاً: Netlify
+- اتصال به گیت‌هاب: **Add new project → Import from Git** → `mobinakbara-eng/vanatest`
+- Publish directory خودش از `netlify.toml` خونده می‌شه: `public`. Build command نداره.
+
+### دامنه روی Cloudflare → Netlify
+1. Cloudflare → `vana-management.de` → **DNS**:
+   | Type | Name | Content | Proxy |
+   |---|---|---|---|
+   | CNAME | `@` | `<netlify-name>.netlify.app` | **DNS only** (ابر خاکستری) |
+   | CNAME | `www` | `<netlify-name>.netlify.app` | **DNS only** |
+2. Netlify → **Domain management** → هر دو دامنه رو اضافه کن. HTTPS خودکار فعال می‌شه.
+3. `ALLOWED_ORIGINS` تو Supabase رو با دامنه‌ی نهایی آپدیت کن.
+
+> چرا DNS only؟ اگه پروکسی Cloudflare (ابر نارنجی) جلوی Netlify روشن باشه، صدور گواهی SSL و کش Netlify به مشکل می‌خورن.
+
+### بعداً (اختیاری): Cloudflare Pages
+همون پوشه‌ی `public` بدون هیچ تغییری: **Workers & Pages → Create → Pages → Connect to Git**، Build command خالی و Output directory `public`. `_headers` هم همون‌جا کار می‌کنه.
 
 ---
 
 ## قبل از آنلاین شدن ✅
-- [ ] جدول Supabase ساخته شد و `config.js` پر شد
-- [ ] یک درخواست تستی فرستاده شد و تو Table Editor دیده شد
-- [ ] **AVV (Auftragsverarbeitungsvertrag)** با Netlify و Supabase بسته شد (هر دو آنلاین تو تنظیمات اکانت ارائه می‌کنن)
-- [ ] Impressum و Datenschutz توسط یک وکیل یا سرویس حقوقی چک شد
-- [ ] ایمیل `info@vana-management.de` واقعاً کار می‌کنه
-- [ ] دامنه به Netlify وصل شد
+- [ ] Supabase ساخته شد، `db push` و `functions deploy` انجام شد، `apiUrl` تو `config.js` پر شد
+- [ ] یه درخواست تستی از سایت فرستاده شد و تو Table Editor دیده شد
+- [ ] **AVV (قرارداد پردازش داده)** با Netlify، Cloudflare و Supabase (هر سه آنلاین تو تنظیمات اکانت)
+- [ ] Impressum و Datenschutz توسط وکیل یا سرویس حقوقی چک شد
+- [ ] ایمیل `info@vana-management.de` کار می‌کنه
+- [ ] دامنه وصل شد و `ALLOWED_ORIGINS` آپدیت شد
+- [ ] (پیشنهاد) Google Search Console → `sitemap.xml` ثبت شد
 
 ## نکته‌ها
-- **فونت‌ها** محلی‌ان (`assets/fonts`)، چون لود Google Fonts از سرور گوگل تو آلمان مشکل DSGVO داره.
-- سایت **کوکی و ابزار آمار نداره**، پس بنر کوکی لازم نیست. اگه بعداً آمار اضافه شد، بنر و متن Datenschutz باید آپدیت بشن.
-- **ضد اسپم:** فیلد مخفی (honeypot) + حداقل ۳ ثانیه روی صفحه + محدودیت‌های دیتابیس. اگه اسپم زیاد شد، Cloudflare Turnstile اضافه کنید.
-- **رنگ‌ها و فونت‌ها** همه بالای `assets/css/style.css` تو `:root` تعریف شدن.
+- **فونت‌ها محلی‌ان**، بدون Google Fonts (حکم LG München درباره‌ی DSGVO).
+- **کوکی و ابزار آمار نداره**، پس بنر کوکی لازم نیست. اگه آمار اضافه شد، بنر و Datenschutz باید آپدیت بشن.
+- **ضد اسپم چندلایه:** فیلد مخفی، حداقل ۳ ثانیه، اعتبارسنجی سمت سرور، حداکثر ۵ درخواست در ساعت برای هر IP (IP فقط به‌صورت hash و حداکثر ۲۴ ساعت نگه داشته می‌شه)، و Turnstile اختیاری.
+- **CI:** هر push به گیت‌هاب همه‌ی تست‌ها رو اجرا می‌کنه (`.github/workflows/ci.yml`).

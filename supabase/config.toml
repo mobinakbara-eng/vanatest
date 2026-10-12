@@ -1,0 +1,7 @@
+# Supabase CLI configuration (only the parts this project needs)
+project_id = "vana-management"
+
+[functions.kontakt]
+# Public website endpoint: no Supabase login required. Protected by origin check,
+# validation, honeypot, rate limit and optional Cloudflare Turnstile.
+verify_jwt = false

@@ -1,0 +1,84 @@
+const { test, expect, scrollToY } = require('./fixtures');
+
+test.describe('navigation', () => {
+  test.use({ allowedConsole: /status of 404 \(Not Found\)$/ });
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+    test(`links jump to their sections (${viewport.width}px)`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      for (const [label, id] of [['Über uns', 'ueber-uns'], ['Leistungen', 'leistungen'], ['Ablauf', 'ablauf'], ['Kontakt', 'kontakt']]) {
+        await scrollToY(page, 0);
+        await page.waitForTimeout(300); // header returns at the top
+        await page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name: label }).click();
+        await expect.poll(() => page.locator('#' + id).evaluate((el) => Math.round(el.getBoundingClientRect().top)), { timeout: 4000 })
+          .toBeLessThan(140);
+        await expect(page).toHaveURL(new RegExp('#' + id + '$'));
+      }
+    });
+  }
+
+  test('header fades out when scrolling down and returns when scrolling up', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const header = page.locator('#siteHeader');
+    await expect(header).not.toHaveClass(/away/);
+    await page.mouse.wheel(0, 900);
+    await expect(header).toHaveClass(/away/);
+    await page.mouse.wheel(0, -300);
+    await expect(header).not.toHaveClass(/away/);
+  });
+
+  test('keyboard: skip link first, focused menu links stay visible after scrolling', async ({ page }) => {
+    await page.goto('/');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Zum Inhalt springen' })).toBeFocused();
+    await expect(page.getByRole('link', { name: 'Zum Inhalt springen' })).toBeInViewport();
+
+    await page.mouse.wheel(0, 3000);
+    await expect(page.locator('#siteHeader')).toHaveClass(/away/);
+    await page.locator('body').focus();
+    await page.keyboard.press('Tab'); // skip link
+    await page.keyboard.press('Tab'); // brand (hidden on phones) or first link
+    await page.keyboard.press('Tab');
+    const focused = page.locator(':focus');
+    await expect(focused).toBeInViewport();
+    // the header fades back in (0.45s transition)
+    await expect.poll(() => focused.evaluate((el) => getComputedStyle(el.closest('header')).opacity)).toBe('1');
+  });
+
+  test('reduced motion: static logo with roof, no moving beams', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await expect(page.locator('.roof')).toBeVisible();
+    await expect(page.locator('.beams')).toBeHidden();
+    await expect(page.getByText('Sanierung · Trockenbau · Berlin')).toBeVisible();
+  });
+
+  test('footer links open Impressum and Datenschutz, brand leads back home', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Impressum' }).click();
+    await expect(page).toHaveURL(/impressum\.html$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Impressum');
+    await expect(page.getByText('HRB 281066 B')).toBeVisible();
+    await page.getByRole('link', { name: 'Datenschutz' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Datenschutz\u00ad?erklärung$/);
+    await page.getByRole('link', { name: /zur Startseite/ }).first().click();
+    await expect(page).toHaveURL(/\/(index\.html)?$/);
+  });
+
+  test('unknown pages show the 404 page', async ({ page }) => {
+    const res = await page.goto('/gibt-es-nicht');
+    expect(res.status()).toBe(404);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diese Seite gibt es nicht.');
+  });
+
+  test('works without JavaScript: content and roof visible', async ({ browser }) => {
+    const ctx = await browser.newContext({ javaScriptEnabled: false });
+    const page = await ctx.newPage();
+    await page.goto('/');
+    await page.waitForTimeout(2600);
+    await expect(page.locator('.roof')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Was wir bauen.' })).toBeAttached();
+    await ctx.close();
+  });
+});

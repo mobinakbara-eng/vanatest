@@ -45,14 +45,15 @@
 
   /* ---------- Roof choreography (home page only) ---------- */
   const logo = $('logo');
-  if (!logo) {
+  // No scroll choreography for visitors who asked for reduced motion: the roof stays in the logo
+  if (!logo || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     updateHeader();
     addEventListener('scroll', updateHeader, { passive: true });
     return;
   }
   document.documentElement.classList.add('js');
 
-  const word = $('word'), hint = $('hint');
+  const word = $('word'), hint = $('hint'), tagline = $('tagline');
   const beamL = $('beamL'), beamR = $('beamR');
   const frameEl = $('frame'), servicesEl = $('services'), stepsEl = $('steps'), roofEl = $('roofAnchor');
 
@@ -137,13 +138,14 @@
     word.style.transformOrigin = 'center';
     word.style.transformBox = 'fill-box';
     hint.style.visibility = s > H * .03 ? 'hidden' : 'visible';
+    if (tagline) tagline.style.opacity = 1 - f;
     if (brand) brand.classList.toggle('visible', f > .9);
 
     const maxScroll = document.documentElement.scrollHeight - H;
     const fr = holdAround(frameEl, H), sv = holdAround(servicesEl, H), st = holdAround(stepsEl, H);
     const timeline = [
       { get: roofLogo,          hold: [0, H * .18] },
-      { get: () => edges(W, H), hold: [H * 1.5, fr[0] - H * .7] },
+      { get: () => edges(W, H), hold: [H * 1.15, fr[0] - H * .7] },
       { get: frame,             hold: fr },
       { get: tracks,            hold: sv },
       { get: rails,             hold: st },
