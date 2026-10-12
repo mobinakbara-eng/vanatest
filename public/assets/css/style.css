@@ -45,8 +45,9 @@ a { color: inherit; }
   border-bottom: 1px solid transparent;
 }
 .site-header.scrolled { background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom-color: var(--line); }
-.header-inner { height: var(--header-h); display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-inline: clamp(56px, 6vw, 88px); }
-.brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; transition: opacity .5s ease; }
+/* Menu always centred; the small logo sits on the left without pushing it aside */
+.header-inner { position: relative; height: var(--header-h); display: flex; align-items: center; justify-content: center; gap: 24px; padding-inline: clamp(56px, 6vw, 88px); }
+.brand { position: absolute; left: clamp(56px, 6vw, 88px); top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 12px; text-decoration: none; transition: opacity .5s ease; }
 .brand svg { height: 30px; width: auto; display: block; }
 .brand svg path { fill: none; stroke: var(--ink); stroke-width: 18; stroke-linejoin: miter; }
 .brand svg .brand-roof { stroke-width: 10; }
@@ -65,9 +66,9 @@ a { color: inherit; }
 .home .site-header.away { opacity: 0; transform: translateY(-100%); pointer-events: none; }
 .home .site-header.away:focus-within { opacity: 1; transform: none; pointer-events: auto; }
 
+@media (max-width: 960px) { .brand { display: none; } }
 @media (max-width: 760px) {
-  .header-inner { padding-inline: 24px; justify-content: center; }
-  .brand { display: none; }
+  .header-inner { padding-inline: 24px; }
   .nav { gap: 18px; }
   .nav a { font-size: 14px; }
 }

@@ -55,6 +55,9 @@ for (const [name, width, height] of VIEWPORTS) {
         expect(b.top).toBeGreaterThanOrEqual(0);
       }
       for (let i = 1; i < boxes.length; i++) expect(boxes[i].left, 'nav links must not overlap').toBeGreaterThanOrEqual(boxes[i - 1].right);
+      // Menu is centred on every screen size
+      const navCentre = (boxes[0].left + boxes[boxes.length - 1].right) / 2;
+      expect(Math.abs(navCentre - width / 2), 'menu centred').toBeLessThan(3);
       // Touch targets on small screens: at least 24px high (WCAG 2.2 AA)
       for (const b of boxes) expect(b.height).toBeGreaterThanOrEqual(24);
 
@@ -82,6 +85,11 @@ for (const [name, width, height] of VIEWPORTS) {
       for (const p of ['/impressum.html', '/datenschutz.html']) {
         await page.goto(p);
         await expect(page.locator('h1')).toBeVisible();
+        // Centred menu, and the small logo (if shown) never overlaps it
+        const nav = await page.locator('#nav a').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON()));
+        expect(Math.abs((nav[0].left + nav[nav.length - 1].right) / 2 - width / 2)).toBeLessThan(3);
+        const brand = await page.locator('#brand').boundingBox();
+        if (brand) expect(brand.x + brand.width, 'logo must not overlap the menu').toBeLessThan(nav[0].left - 16);
         await noHorizontalOverflow(page);
         await textInsideViewport(page);
       }
