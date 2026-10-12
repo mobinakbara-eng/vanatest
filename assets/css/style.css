@@ -57,29 +57,18 @@ a { color: inherit; }
 .nav .nav-cta:hover { background: var(--ink); color: var(--bg); }
 .home .nav { opacity: 0; animation: fadeIn .8s ease 2.2s forwards; }
 
-.nav-toggle { display: none; background: none; border: 0; color: var(--ink); font: 500 13px var(--f-mono); letter-spacing: .2em; text-transform: uppercase; cursor: pointer; padding: 10px 0; align-items: center; gap: 10px; }
-.nav-toggle .bars { width: 22px; height: 10px; position: relative; }
-.nav-toggle .bars::before, .nav-toggle .bars::after { content: ""; position: absolute; left: 0; right: 0; height: 1.5px; background: var(--ink); transition: transform .3s ease, top .3s ease; }
-.nav-toggle .bars::before { top: 0; }
-.nav-toggle .bars::after { top: 8px; }
-.nav-open .nav-toggle .bars::before { top: 4px; transform: rotate(45deg); }
-.nav-open .nav-toggle .bars::after { top: 4px; transform: rotate(-45deg); }
+/* Home: transparent over the hero, fades away when scrolling down, returns when scrolling up */
+.home .site-header { transition: opacity .45s ease, transform .45s ease, background-color .3s ease, border-color .3s ease; }
+.home .site-header.away { opacity: 0; transform: translateY(-100%); pointer-events: none; }
 
 @media (max-width: 760px) {
-  .header-inner { padding-inline: 32px; }
-  .nav-toggle { display: inline-flex; position: relative; z-index: 2; }
-  .home .nav { animation: none; opacity: 1; }
-  .nav {
-    position: fixed; inset: 0; z-index: 1; background: var(--bg);
-    flex-direction: column; align-items: flex-start; justify-content: center; gap: 22px;
-    padding: calc(var(--header-h) + env(safe-area-inset-top, 0px)) 36px 48px;
-    visibility: hidden; opacity: 0; transition: opacity .3s ease, visibility 0s linear .3s;
-  }
-  .nav a { font-size: 34px; font-weight: 300; }
-  .nav .nav-cta { margin-top: 12px; font-size: 20px; padding: 12px 24px; }
-  .nav-open .nav { visibility: visible; opacity: 1; transition: opacity .3s ease; }
-  .nav-open .brand { opacity: 1; pointer-events: auto; position: relative; z-index: 2; }
+  .header-inner { padding-inline: 24px; justify-content: center; }
+  .brand { display: none; }
+  .nav { gap: 18px; }
+  .nav a { font-size: 14px; }
+  .nav .nav-cta { padding: 5px 12px; }
 }
+@media (max-width: 360px) { .nav { gap: 12px; } .nav a { font-size: 13px; } }
 
 /* ---------- Hero ---------- */
 .hero { height: 260vh; position: relative; }
@@ -118,17 +107,18 @@ a { color: inherit; }
   100% { opacity: 1; filter: blur(0); transform: scaleX(1); }
 }
 
-.scroll-hint {
-  position: absolute; bottom: 5vh; left: 50%; transform: translateX(-50%);
-  font-family: var(--f-mono); font-size: 11px; letter-spacing: .35em; text-transform: uppercase; color: var(--muted);
-  opacity: 0; animation: fadeIn 1s ease 2.6s forwards;
-}
-.scroll-hint::after {
-  content: ""; display: block; width: 1px; height: 36px; margin: 12px auto 0;
-  background: linear-gradient(var(--ink), transparent); animation: drip 1.8s ease-in-out infinite;
+/* Scroll cue: three chevrons in the roof's angle, pulsing downward like a wave */
+.scroll-cue { position: absolute; bottom: calc(5vh + env(safe-area-inset-bottom, 0px)); left: 50%; width: 40px; margin-left: -20px; opacity: 0; animation: fadeIn 1s ease 2.6s forwards; }
+.scroll-cue svg { display: block; width: 40px; height: auto; overflow: visible; }
+.scroll-cue path { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .12; animation: wave 2.4s ease-in-out infinite; }
+.scroll-cue path:nth-child(2) { animation-delay: .25s; }
+.scroll-cue path:nth-child(3) { animation-delay: .5s; }
+@keyframes wave {
+  0%, 100% { opacity: .12; transform: translateY(-3px); }
+  35%      { opacity: 1;   transform: translateY(2px); }
+  70%      { opacity: .12; transform: translateY(5px); }
 }
 @keyframes fadeIn { to { opacity: 1; } }
-@keyframes drip { 0% { transform: scaleY(0); transform-origin: top; } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
 
 /* ---------- Sections ---------- */
 .section { padding-inline: var(--gutter); padding-block: 26vh; max-width: 1280px; margin-inline: auto; }
@@ -220,5 +210,6 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .letter, .beam-inner, .roof path, .home .nav { animation: none; opacity: 1; filter: none; transform: none; }
-  .scroll-hint { animation: none; opacity: 1; }
+  .scroll-cue { animation: none; opacity: 1; }
+  .scroll-cue path { animation: none; opacity: .6; }
 }

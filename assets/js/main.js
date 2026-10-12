@@ -11,20 +11,8 @@
   if (year) year.textContent = new Date().getFullYear();
 
   /* ---------- Header ---------- */
-  const header = $('siteHeader'), toggle = $('navToggle'), nav = $('nav'), brand = $('brand');
-
-  function setNav(open) {
-    document.body.classList.toggle('nav-open', open);
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.querySelector('.label').textContent = open ? 'Schließen' : 'Menü';
-    document.body.style.overflow = open ? 'hidden' : '';
-  }
-  if (toggle && nav) {
-    toggle.addEventListener('click', () => setNav(!document.body.classList.contains('nav-open')));
-    nav.addEventListener('click', e => { if (e.target.closest('a')) setNav(false); });
-    addEventListener('keydown', e => { if (e.key === 'Escape') setNav(false); });
-    matchMedia('(min-width: 761px)').addEventListener('change', () => setNav(false));
-  }
+  const header = $('siteHeader'), nav = $('nav'), brand = $('brand');
+  const isHome = document.body.classList.contains('home');
 
   // Mark the nav link of the section in view
   const navLinks = nav ? [...nav.querySelectorAll('a[href^="#"]')] : [];
@@ -40,8 +28,19 @@
     sections.forEach(s => io.observe(s));
   }
 
+  // Home: the header sits transparent over the hero, fades away when scrolling down
+  // and comes back when scrolling up.
+  let lastY = scrollY;
   function updateHeader() {
-    if (header) header.classList.toggle('scrolled', scrollY > innerHeight * .9 || !document.body.classList.contains('home'));
+    if (!header) return;
+    const y = scrollY;
+    header.classList.toggle('scrolled', !isHome || y > innerHeight * .9);
+    if (isHome) {
+      if (y < 40) header.classList.remove('away');
+      else if (y > lastY + 4) header.classList.add('away');
+      else if (y < lastY - 12) header.classList.remove('away');
+    }
+    lastY = y;
   }
 
   /* ---------- Roof choreography (home page only) ---------- */
@@ -79,7 +78,7 @@
   }
   function edges(W, H) {
     const m = W < 640 ? 14 : 34, th = W < 640 ? 3 : 5;
-    const top = (header ? header.getBoundingClientRect().bottom : 0) + 16, bottom = H - 24;
+    const top = (header ? header.offsetHeight : 0) + 16, bottom = H - 24;
     return [vert(m, (top + bottom) / 2, bottom - top, th), vert(W - m, (top + bottom) / 2, bottom - top, th)];
   }
   function frame() {
