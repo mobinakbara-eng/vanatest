@@ -1,307 +1,227 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="de">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>VANA | Integriertes Immobilien-Investment</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VANA Management | Sanierung &amp; Trockenbau in Berlin</title>
+<meta name="description" content="VANA Management aus Berlin: Sanierung von Wohnungen und Gewerbeflächen sowie Trockenbau. Ein Ansprechpartner von der Besichtigung bis zur Abnahme.">
+<meta name="theme-color" content="#f6f5f2">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/jost.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/style.css">
+<meta property="og:title" content="VANA Management | Sanierung &amp; Trockenbau in Berlin">
+<meta property="og:description" content="Sanierung und Trockenbau aus Berlin. Ein Ansprechpartner von der Besichtigung bis zur Abnahme.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HomeAndConstructionBusiness",
+  "name": "VANA Management UG (haftungsbeschränkt)",
+  "email": "info@vana-management.de",
+  "address": { "@type": "PostalAddress", "streetAddress": "Wöhlertstr. 4", "postalCode": "10115", "addressLocality": "Berlin", "addressCountry": "DE" },
+  "areaServed": "Berlin",
+  "vatID": "DE462217121"
+}
+</script>
 </head>
-<body>
-    <div class="site-wrapper">
-        <div class="cookie-banner" data-cookie-banner>
-            <div class="cookie-card">
-                <div class="cookie-top">
-                    <div>
-                        <strong>Datenschutz-Einstellungen</strong>
-                        <p>Wir nutzen Cookies, um Sicherheit, Funktionalität und die Qualität unserer Inhalte zu gewährleisten. Weitere Informationen finden Sie in der <a href="privacy.html">Datenschutzerklärung</a>. Sie können Ihre Auswahl jederzeit anpassen.</p>
-                    </div>
-                    <div class="cookie-actions">
-                        <button class="btn btn--ghost" type="button" data-cookie-open>Einstellungen</button>
-                        <button class="btn" type="button" data-cookie-accept>Alle akzeptieren</button>
-                    </div>
-                </div>
-                <div class="cookie-panel">
-                    <div class="cookie-options">
-                        <label>
-                            <input type="checkbox" checked disabled>
-                            Notwendige Cookies (immer aktiv)
-                        </label>
-                        <label>
-                            <input type="checkbox" data-cookie-analytics>
-                            Analyse & Performance
-                        </label>
-                        <label>
-                            <input type="checkbox" data-cookie-marketing>
-                            Marketing & Personalisierung
-                        </label>
-                    </div>
-                    <div class="cookie-actions" style="margin-top: 12px;">
-                        <button class="btn btn--ghost" type="button" data-cookie-reject>Nur notwendige</button>
-                        <button class="btn" type="button" data-cookie-save>Auswahl speichern</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+<body class="home">
 
-        <header class="site-header">
-            <div class="container header-inner">
-                <a class="brand" href="index.html" aria-label="VANA Startseite">
-                    <img src="assets/vana-logo.jpg" alt="VANA Logo">
-                    <div>
-                        <span class="brand-name">VANA</span>
-                        <span class="brand-tagline">VANA GROUP</span>
-                    </div>
-                </a>
-                <nav class="site-nav" aria-label="Hauptnavigation">
-                    <a href="about.html">Über</a>
-                    <a href="services.html">Leistungen</a>
-                    <a href="projects.html">Track Record</a>
-                    <a href="contact.html">Kontakt</a>
-                </nav>
-                <a class="btn" href="contact.html#kontakt">Beratung anfragen</a>
-            </div>
-        </header>
+<header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <a class="brand" id="brand" href="#top" aria-label="VANA Management, zum Seitenanfang">
+      <svg viewBox="220 230 860 330" aria-hidden="true">
+        <path class="brand-roof" d="M330 378 L645 255 L958 378"/>
+        <path d="M240 425 L319 542 L398 425"/><path d="M441 542 L520 425 L599 542"/><path d="M497 503 H544"/>
+        <path d="M687 542 V425 L822 542 V425"/><path d="M905 542 L984 425 L1063 542"/><path d="M961 503 H1007"/>
+      </svg>
+      <span class="brand-sub">Management</span>
+    </a>
+    <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="nav">
+      <span class="label">Menü</span><span class="bars" aria-hidden="true"></span>
+    </button>
+    <nav class="nav" id="nav" aria-label="Hauptnavigation">
+      <a href="#ueber-uns">Über uns</a>
+      <a href="#leistungen">Leistungen</a>
+      <a href="#ablauf">Ablauf</a>
+      <a class="nav-cta" href="#kontakt">Kontakt</a>
+    </nav>
+  </div>
+</header>
 
-        <main class="site-content">
-            <section class="hero">
-                <div class="container hero-grid">
-                    <div data-reveal>
-                        <div class="eyebrow">Integriertes Immobilien-Investment</div>
-                        <h1>VANA bündelt Ankauf, Entwicklung und Exit in einem integrierten System.</h1>
-                        <p class="lead">Wir analysieren, strukturieren und steuern Immobilienprojekte ganzheitlich – von der ersten Prüfung bis zur Verwertung.</p>
-                        <div class="hero-actions">
-                            <a class="btn" href="contact.html#kontakt">Beratung anfragen</a>
-                            <a class="btn btn--ghost" href="projects.html">Projekte ansehen</a>
-                        </div>
-                        <div class="hero-meta">
-                            <span>Assetklassen: Wohnen, Gewerbe, Mixed-Use</span>
-                            <span>Projektfokus: mittelgroße Value-Add Assets</span>
-                        </div>
-                    </div>
-                    <div class="hero-media" data-reveal style="--reveal-delay: 120ms;">
-                        <img src="assets/hero.png" alt="Architekturmodell für Immobilienprojekte">
-                        <div class="hero-media-overlay">
-                            <h3>Über VANA</h3>
-                            <p>Klare Prozesse, verlässliche Daten und ein starkes Netzwerk – für planbare Immobilienwerte.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+<section class="hero" id="top">
+  <div class="hero-stage">
+    <h1 class="visually-hidden">VANA Management – Sanierung und Trockenbau in Berlin</h1>
+    <svg class="hero-logo" id="logo" viewBox="220 230 860 330" role="img" aria-label="VANA">
+      <g class="roof">
+        <path class="rl" d="M330 377.4 L645 252 L645 258 L330 378.6 Z"/>
+        <path class="rr" d="M645 252 L958 377.4 L958 378.6 L645 258 Z"/>
+      </g>
+      <g id="word">
+        <g class="letter from-left l1"><path d="M240 425 L319 542 L398 425"/></g>
+        <g class="letter from-left l2"><path d="M441 542 L520 425 L599 542"/><path d="M497 503 H544"/></g>
+        <g class="letter from-right l3"><path d="M687 542 V425 L822 542 V425"/></g>
+        <g class="letter from-right l4"><path d="M905 542 L984 425 L1063 542"/><path d="M961 503 H1007"/></g>
+      </g>
+    </svg>
+    <div class="scroll-hint" id="hint">Scroll</div>
+  </div>
+</section>
 
-            <section class="section section--alt">
-                <div class="container">
-                                        <div class="section-header" data-reveal>
-                        <div class="eyebrow">Was VANA macht</div>
-                        <h2>Vier Schritte, ein System.</h2>
-                        <p>VANA verbindet Analyse, Finanzierung, Entwicklung und Verwertung in einem klaren Prozess – ohne Schnittstellenverluste.</p>
-                    </div>
-                    <div class="value-chain" data-reveal style="--reveal-delay: 120ms;">
-                                                <div class="chain-step">
-                            <span>01 Immobilienanalyse & Ankauf</span>
-                            <h3>Strategisch auswählen</h3>
-                            <p>Wir prüfen Lage, Substanz und Markt, um geeignete Immobilien zu identifizieren.</p>
-                            <p>So entsteht eine fundierte Ankaufentscheidung.</p>
-                        </div>
-                                                <div class="chain-step">
-                            <span>02 Strukturierung & Finanzierung</span>
-                            <h3>Kapital sauber strukturieren</h3>
-                            <p>Wir entwickeln eine Finanzierungsstruktur, die Stabilität und Transparenz sichert.</p>
-                            <ul>
-                                <li>Eigen- und Fremdkapital im passenden Mix</li>
-                                <li>Szenarien, Risiken und Kapitalabrufe</li>
-                            </ul>
-                        </div>
-                                                <div class="chain-step">
-                            <span>03 Entwicklung & Sanierung</span>
-                            <h3>Wertsteigerung steuern</h3>
-                            <p>Wir koordinieren Planung, Sanierung und Umsetzung mit klarer Steuerung.</p>
-                            <ul>
-                                <li>Kosten- und Terminmanagement</li>
-                                <li>Qualitätssicherung mit Partnern</li>
-                            </ul>
-                        </div>
-                                                <div class="chain-step">
-                            <span>04 Positionierung & Verwertung</span>
-                            <h3>Verwertung gezielt entscheiden</h3>
-                            <p>Wir wählen den optimalen Weg basierend auf Markt und Zielbild.</p>
-                            <ul>
-                                <li>Verkauf, Vermietung oder Bestand</li>
-                                <li>Exit-Entscheidung datenbasiert</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </section>
+<div class="beams" aria-hidden="true">
+  <div class="beam" id="beamL"><span class="beam-inner"></span></div>
+  <div class="beam" id="beamR"><span class="beam-inner"></span></div>
+</div>
 
-            <section class="section">
-                <div class="container grid-2">
-                    <div data-reveal>
-                        <div class="eyebrow">Für wen wir arbeiten</div>
-                        <h2>Partnerschaften mit klarer Struktur.</h2>
-                        <p>VANA richtet sich an:</p>
-                        <ul>
-                            <li>Private und institutionelle Investoren</li>
-                            <li>Kapitalpartner</li>
-                            <li>Immobilieneigentümer</li>
-                            <li>Strategische Geschäftspartner</li>
-                        </ul>
-                        <p>Unsere Kunden profitieren von einem professionellen Prozess ohne unnötige Schnittstellen.</p>
-                    </div>
-                    <div data-reveal style="--reveal-delay: 120ms;">
-                        <h3>Unser Anspruch</h3>
-                        <p>VANA steht für eine klare, langfristige Ausrichtung.</p>
-                        <ul>
-                            <li>Vorausschauende Entscheidungen statt Einzelmaßnahmen.</li>
-                            <li>Aufeinander abgestimmte Prozesse statt Insellösungen.</li>
-                            <li>Nachhaltige Wertentwicklung statt kurzfristiger Effekte.</li>
-                            <li>Alles aus einer Hand – vom Ankauf bis zum Exit.</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section section--dark">
-                <div class="container">
-                    <div class="section-header" data-reveal>
-                        <div class="eyebrow">Kennzahlen & Track Record</div>
-                        <h2>Projektqualität in klaren Korridoren.</h2>
-                        <p>Die folgenden Zielkorridore spiegeln die strategische Ausrichtung von VANA wider.</p>
-                    </div>
-                    <div class="kpi-grid" data-reveal style="--reveal-delay: 120ms;">
-                        <div class="kpi-card">
-                            <div class="kpi-value">Mid-Cap Segment</div>
-                            <p>Transaktionsvolumen im Mid-Cap Segment</p>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-value">24-48 Monate</div>
-                            <p>Durchschnittliche Haltedauer</p>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-value">8-14 %</div>
-                            <p>Ziel-IRR (projektspezifisch)</p>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-value">Flexible Struktur</div>
-                            <p>Individuelle Ticketstruktur</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section">
-                <div class="container">
-                    <div class="section-header" data-reveal>
-                        <div class="eyebrow">Ausgewählte Projekte</div>
-                        <h2>Track Record mit strukturierter Transparenz.</h2>
-                        <p>Jedes Projekt wird mit klaren Kennzahlen, Statusindikatoren und einer präzisen Exit-Strategie geführt.</p>
-                    </div>
-                    <div class="project-grid" data-reveal style="--reveal-delay: 120ms;">
-                        <article class="project-card">
-                            <img src="assets/hero.png" alt="Projekt Einstein Kaffee am Tacheles">
-                            <div class="status-pill status-pill--development">Development</div>
-                            <h3>Einstein Kaffee am Tacheles</h3>
-                            <p>Projektmanagement für den Ausbau und die Positionierung des Einstein Kaffee am Tacheles im Berliner Quartier.</p>
-                            <div class="metric-list">
-                                <span>Assetklasse: Gastronomie & Retail</span>
-                                <span>Dauer: 18 Monate</span>
-                                <span>Leistung: Projektmanagement</span>
-                            </div>
-                            <div class="data-bar"><span style="width: 62%;"></span></div>
-                        </article>
-                        <article class="project-card">
-                            <img src="assets/hero.png" alt="Projekt Lichtenau Campus">
-                            <div class="status-pill status-pill--acquired">Acquired</div>
-                            <h3>Lichtenau Campus, Hamburg</h3>
-                            <p>Bestandsentwicklung mit Fokus auf Nachhaltigkeit und stabile Cashflows.</p>
-                            <div class="metric-list">
-                                <span>Assetklasse: Wohnen & Gewerbe</span>
-                                <span>Dauer: 26 Monate</span>
-                                <span>Ziel-IRR: 9 %</span>
-                            </div>
-                            <div class="data-bar"><span style="width: 35%;"></span></div>
-                        </article>
-                        <article class="project-card">
-                            <img src="assets/hero.png" alt="Projekt Rheinwerk">
-                            <div class="status-pill status-pill--exit">Exit</div>
-                            <h3>Rheinwerk, Düsseldorf</h3>
-                            <p>Revitalisiertes Büroensemble mit erfolgreichem institutionellem Exit.</p>
-                            <div class="metric-list">
-                                <span>Assetklasse: Büroensemble</span>
-                                <span>Dauer: 40 Monate</span>
-                                <span>IRR: 13 %</span>
-                            </div>
-                            <div class="data-bar"><span style="width: 92%;"></span></div>
-                        </article>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section section--alt">
-                <div class="container grid-2">
-                    <div data-reveal>
-                        <div class="eyebrow">Governance & Reporting</div>
-                        <h2>Transparenz, Kontrolle, Verantwortung.</h2>
-                        <p>VANA strukturiert Projekte mit klaren Entscheidungswegen, dokumentierten Risiken und einem Reporting, das Investoren echte Transparenz bietet.</p>
-                    </div>
-                    <div data-reveal style="--reveal-delay: 120ms;">
-                        <h3>Reporting-Frequenz</h3>
-                        <p>Monatliche Performance-Updates, quartalsweise Portfolio-Reviews und jederzeit verfügbare Datenräume.</p>
-                        <ul>
-                            <li>Performance-Status je Asset</li>
-                            <li>Risiko- und Maßnahmenprotokolle</li>
-                            <li>Kapitalabrufe und Liquiditätsplanung</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section">
-                <div class="container" data-reveal>
-                    <div class="section-header">
-                        <div class="eyebrow">Kontakt</div>
-                        <h2>Bereit für eine strukturierte Zusammenarbeit?</h2>
-                        <p>Wir zeigen Ihnen gern, wie VANA Projekte ganzheitlich steuert und langfristige Wertschöpfung ermöglicht.</p>
-                        <div class="hero-actions">
-                            <a class="btn" href="contact.html#kontakt">Beratung anfragen</a>
-                            <a class="btn btn--ghost" href="about.html">Über VANA erfahren</a>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <footer class="site-footer">
-            <div class="container footer-grid">
-                <div>
-                    <h3>Standort</h3>
-                    <p>VANA GmbH<br>Musterstraße 12<br>10115 Berlin</p>
-                </div>
-                <div>
-                    <h3>Kontakt</h3>
-                    <p>info@vana-management.de<br>+49 30 1234 5678</p>
-                </div>
-                
-                <div>
-                    <h3>Rechtliches</h3>
-                    <div class="footer-links">
-                        <a href="privacy.html">Datenschutz</a>
-                        <a href="imprint.html">Impressum</a>
-                    </div>
-                </div>
-            </div>
-            <div class="container footer-meta">(c) 2025 VANA. Alle Rechte vorbehalten.</div>
-        </footer>
+<main>
+  <section class="section intro" id="ueber-uns">
+    <div class="eyebrow">Über uns · Berlin</div>
+    <h2>Sanierung und Trockenbau aus Berlin.</h2>
+    <p>Wir sanieren Wohnungen, Häuser und Gewerbeflächen und bauen Wände, Decken und Dachgeschosse im Trockenbau. Sie haben einen festen Ansprechpartner, der Ihr Projekt von der ersten Besichtigung bis zur Abnahme begleitet.</p>
+    <div class="facts">
+      <div><span class="eyebrow">Sitz</span><strong>Berlin-Mitte</strong></div>
+      <div><span class="eyebrow">Leistungen</span><strong>Sanierung · Trockenbau</strong></div>
+      <div><span class="eyebrow">Für</span><strong>Eigentümer, Verwaltungen, Gewerbe</strong></div>
     </div>
+  </section>
+
+  <section class="section">
+    <div class="frame" id="frame">
+      <div class="eyebrow">Unser Anspruch</div>
+      <h2>Ein Ansprechpartner. Ein Zeitplan. Saubere Übergabe.</h2>
+      <p>Wir planen jeden Schritt vor dem ersten Handgriff, stimmen die Gewerke ab und halten Sie während der Bauzeit auf dem Laufenden.</p>
+    </div>
+  </section>
+
+  <section class="section" id="leistungen">
+    <div class="services" id="services">
+      <header>
+        <div class="eyebrow">Leistungen</div>
+        <h2>Was wir bauen.</h2>
+      </header>
+      <div class="svc">
+        <h3>Sanierung</h3>
+        <p>Für Bestandswohnungen, Altbauten und Gewerbeflächen, als Komplett- oder Teilsanierung.</p>
+        <ul>
+          <li><span>Komplettsanierung von Wohnungen</span><span class="spec">Altbau &amp; Neubau</span></li>
+          <li><span>Teilsanierung einzelner Räume</span><span class="spec">Bad · Küche · Flur</span></li>
+          <li><span>Wand- und Deckenflächen</span><span class="spec">Spachtel Q1–Q4</span></li>
+          <li><span>Malerarbeiten und Bodenbeläge</span><span class="spec">Innenausbau</span></li>
+          <li><span>Koordination der Gewerke</span><span class="spec">Ein Ansprechpartner</span></li>
+        </ul>
+      </div>
+      <div class="svc">
+        <h3>Trockenbau</h3>
+        <p>Neue Raumaufteilungen, Decken und Dachausbau, schnell und ohne Nassarbeiten.</p>
+        <ul>
+          <li><span>Ständerwände und Raumteiler</span><span class="spec">CW / UW-Profile</span></li>
+          <li><span>Abgehängte Decken</span><span class="spec">Gipskarton · Akustik</span></li>
+          <li><span>Vorsatzschalen und Installationswände</span><span class="spec">Vorwand</span></li>
+          <li><span>Dachgeschossausbau</span><span class="spec">Dämmung · Beplankung</span></li>
+          <li><span>Schall- und Brandschutz</span><span class="spec">F30 · F90</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section process" id="ablauf">
+    <header>
+      <div class="eyebrow">Ablauf</div>
+      <h2>Vom ersten Termin zur Abnahme.</h2>
+    </header>
+    <ol class="steps" id="steps">
+      <li><span class="spec">Schritt 1</span><h3>Besichtigung vor Ort</h3><p>Wir sehen uns die Räume an, nehmen Maße auf und besprechen, was Sie vorhaben.</p></li>
+      <li><span class="spec">Schritt 2</span><h3>Angebot und Zeitplan</h3><p>Sie erhalten ein schriftliches Angebot mit Leistungsbeschreibung und Bauzeit.</p></li>
+      <li><span class="spec">Schritt 3</span><h3>Ausführung</h3><p>Unser Team arbeitet nach Plan, hält die Baustelle sauber und informiert Sie über den Stand.</p></li>
+      <li><span class="spec">Schritt 4</span><h3>Abnahme und Übergabe</h3><p>Wir gehen alle Arbeiten gemeinsam mit Ihnen durch und übergeben die fertigen Räume.</p></li>
+    </ol>
+  </section>
+
+  <section class="section contact" id="kontakt">
+    <div class="contact-head">
+      <div class="roof-anchor" id="roofAnchor" aria-hidden="true"></div>
+      <div class="eyebrow">Kontakt</div>
+      <h2>Erzählen Sie uns von Ihrem Projekt.</h2>
+      <p>Beschreiben Sie kurz, welche Räume Sie sanieren oder umbauen möchten. Wir melden uns per E-Mail und vereinbaren einen Besichtigungstermin.</p>
+    </div>
+
+    <div class="contact-body">
+      <div class="contact-info">
+        <div><span class="eyebrow">E-Mail</span><strong>info@vana-management.de</strong></div>
+        <div><span class="eyebrow">Adresse</span><strong>Wöhlertstr. 4<br>10115 Berlin</strong></div>
+        <div><span class="eyebrow">Einsatzgebiet</span><strong>Berlin und Umgebung</strong></div>
+      </div>
+
+      <form class="form" id="contactForm" novalidate>
+        <div class="field">
+          <label for="f-name">Name <span class="req">*</span></label>
+          <input id="f-name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="120">
+          <span class="error" id="f-name-err" aria-live="polite"></span>
+        </div>
+        <div class="field">
+          <label for="f-email">E-Mail <span class="req">*</span></label>
+          <input id="f-email" name="email" type="email" autocomplete="email" required maxlength="200">
+          <span class="error" id="f-email-err" aria-live="polite"></span>
+        </div>
+        <div class="field">
+          <label for="f-telefon">Telefon</label>
+          <input id="f-telefon" name="telefon" type="tel" autocomplete="tel" maxlength="40">
+          <span class="error" id="f-telefon-err" aria-live="polite"></span>
+        </div>
+        <div class="field">
+          <label for="f-ort">Ort / PLZ des Objekts</label>
+          <input id="f-ort" name="ort" type="text" autocomplete="postal-code" maxlength="120">
+          <span class="error" id="f-ort-err" aria-live="polite"></span>
+        </div>
+        <div class="field full">
+          <label for="f-projektart">Art des Projekts <span class="req">*</span></label>
+          <select id="f-projektart" name="projektart" required>
+            <option value="">Bitte auswählen</option>
+            <option>Sanierung</option>
+            <option>Trockenbau</option>
+            <option>Sanierung und Trockenbau</option>
+            <option>Sonstiges</option>
+          </select>
+          <span class="error" id="f-projektart-err" aria-live="polite"></span>
+        </div>
+        <div class="field full">
+          <label for="f-nachricht">Ihre Nachricht <span class="req">*</span></label>
+          <textarea id="f-nachricht" name="nachricht" required minlength="10" maxlength="4000" placeholder="Zum Beispiel: Altbauwohnung, 3 Zimmer, ca. 85 m². Bad und Küche erneuern, eine Trennwand im Wohnzimmer."></textarea>
+          <span class="error" id="f-nachricht-err" aria-live="polite"></span>
+        </div>
+        <div class="hp" aria-hidden="true">
+          <label for="f-website">Website</label>
+          <input id="f-website" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+        <label class="consent" for="f-consent">
+          <input id="f-consent" name="datenschutz" type="checkbox" required>
+          <span>Ich bin einverstanden, dass meine Angaben zur Bearbeitung der Anfrage gespeichert werden. Mehr dazu in der <a href="datenschutz.html">Datenschutzerklärung</a>. <span class="req">*</span></span>
+        </label>
+        <div class="form-actions">
+          <button class="btn" type="submit" id="f-submit">Anfrage senden</button>
+          <span class="form-status" id="formStatus" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="eyebrow">VANA Management UG (haftungsbeschränkt)</div>
+  <dl>
+    <div><dt>Anschrift</dt><dd>Wöhlertstr. 4<br>10115 Berlin</dd></div>
+    <div><dt>Geschäftsführer</dt><dd>M. Sc. Vahid Naseri</dd></div>
+    <div><dt>Registereintrag</dt><dd>Amtsgericht Charlottenburg (Berlin)<br>HRB 281066 B</dd></div>
+    <div><dt>USt-IdNr.</dt><dd>DE462217121</dd></div>
+  </dl>
+  <div class="footer-bottom">
+    <span>© <span id="year">2026</span> VANA Management UG (haftungsbeschränkt)</span>
+    <nav aria-label="Rechtliches"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></nav>
+  </div>
+</footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/main.js"></script>
+<script src="assets/js/contact.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
