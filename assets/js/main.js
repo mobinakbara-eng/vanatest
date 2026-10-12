@@ -12,7 +12,7 @@
 
   /* ---------- Header ---------- */
   const header = $('siteHeader'), nav = $('nav'), brand = $('brand');
-  const isHome = document.body.classList.contains('home');
+  const isHome = () => document.body.classList.contains('home');
 
   // Mark the nav link of the section in view
   const navLinks = nav ? [...nav.querySelectorAll('a[href^="#"]')] : [];
@@ -34,8 +34,8 @@
   function updateHeader() {
     if (!header) return;
     const y = scrollY;
-    header.classList.toggle('scrolled', !isHome || y > innerHeight * .9);
-    if (isHome) {
+    header.classList.toggle('scrolled', !isHome() || y > innerHeight * .9);
+    if (isHome()) {
       if (y < 40) header.classList.remove('away');
       else if (y > lastY + 4) header.classList.add('away');
       else if (y < lastY - 12) header.classList.remove('away');
