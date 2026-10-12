@@ -1,0 +1,50 @@
+name: Publish website (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Only in the VANA repository: other repositories (e.g. vanatest) use Pages for other sites.
+    if: github.repository == 'mobinakbara-eng/vana-management'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare site
+        id: site
+        uses: actions/configure-pages@v5
+
+      - name: Adjust 404 page for the Pages base path
+        # 404.html uses root-absolute links (/assets/…), which on <user>.github.io/<repo>/ need the repo prefix.
+        # Not needed once a custom domain (vana-management.com) serves the site from the root.
+        env:
+          BASE: ${{ steps.site.outputs.base_path }}
+        run: |
+          mkdir -p _site && cp -r public/. _site/
+          if [ -n "$BASE" ] && [ "$BASE" != "/" ]; then
+            sed -i "s#\"/assets/#\"$BASE/assets/#g; s#href=\"/\"#href=\"$BASE/\"#g" _site/404.html
+          fi
+          rm -f _site/_headers   # Netlify / Cloudflare Pages only
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4

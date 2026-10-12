@@ -20,7 +20,7 @@ const test = base.test.extend({
 
 /** Serve a config.js that points the form at the local mock API. */
 async function useMockApi(page, extra = {}) {
-  const cfg = { apiUrl: 'http://localhost:54329/kontakt', turnstileSiteKey: '', contactEmail: 'info@vana-management.de', ...extra };
+  const cfg = { apiUrl: 'http://localhost:54329/kontakt', turnstileSiteKey: '', contactEmail: 'info@vana-management.com', ...extra };
   await page.route('**/assets/js/config.js', (r) =>
     r.fulfill({ contentType: 'text/javascript', body: `window.VANA_CONFIG = ${JSON.stringify(cfg)};` }));
 }

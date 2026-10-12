@@ -4,7 +4,7 @@
   if (!form) return;
 
   const cfg = window.VANA_CONFIG || {};
-  const email = cfg.contactEmail || 'info@vana-management.de';
+  const email = cfg.contactEmail || 'info@vana-management.com';
   const status = document.getElementById('formStatus');
   const submit = document.getElementById('f-submit');
   const openedAt = Date.now();

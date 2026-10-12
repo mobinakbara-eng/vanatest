@@ -1,11 +1,11 @@
-// Supabase Edge Function "kontakt": receives the contact form of vana-management.de.
+// Supabase Edge Function "kontakt": receives the contact form of vana-management.com.
 //
 // Secrets (supabase secrets set ...):
-//   ALLOWED_ORIGINS       required  comma-separated, e.g. https://vana-management.de,https://www.vana-management.de
+//   ALLOWED_ORIGINS       required  comma-separated, e.g. https://vana-management.com,https://www.vana-management.com
 //   RATE_LIMIT_SALT       required  long random string
 //   RESEND_API_KEY        optional  e-mail notification for every new request
-//   NOTIFY_TO             optional  recipient of the notification (default info@vana-management.de)
-//   MAIL_FROM             optional  sender, e.g. "VANA Website <website@vana-management.de>"
+//   NOTIFY_TO             optional  recipient of the notification (default info@vana-management.com)
+//   MAIL_FROM             optional  sender, e.g. "VANA Website <website@vana-management.com>"
 //   TURNSTILE_SECRET_KEY  optional  enables Cloudflare Turnstile verification
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase automatically.
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -26,8 +26,8 @@ async function notify(a: Anfrage) {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: env("MAIL_FROM") || "VANA Website <website@vana-management.de>",
-      to: env("NOTIFY_TO") || "info@vana-management.de",
+      from: env("MAIL_FROM") || "VANA Website <website@vana-management.com>",
+      to: env("NOTIFY_TO") || "info@vana-management.com",
       reply_to: a.email,
       subject: `Neue Anfrage: ${a.projektart} – ${a.name}`,
       text: [

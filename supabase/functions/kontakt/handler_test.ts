@@ -3,7 +3,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 import { createHandler, type Deps, hashIp } from "./handler.ts";
 import type { Anfrage } from "./validate.ts";
 
-const ORIGIN = "https://vana-management.de";
+const ORIGIN = "https://vana-management.com";
 
 function setup(overrides: Partial<Deps> = {}) {
   const stored: Anfrage[] = [];

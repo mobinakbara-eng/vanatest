@@ -6,5 +6,5 @@
 window.VANA_CONFIG = {
   apiUrl: "",
   turnstileSiteKey: "",
-  contactEmail: "info@vana-management.de"
+  contactEmail: "info@vana-management.com"
 };

@@ -2,7 +2,7 @@
 import { type Anfrage, validate } from "./validate.ts";
 
 export interface Deps {
-  /** Exact origins allowed to call the endpoint, e.g. "https://vana-management.de". "*" allows all. */
+  /** Exact origins allowed to call the endpoint, e.g. "https://vana-management.com". "*" allows all. */
   allowedOrigins: string[];
   /** Secret salt for hashing IP addresses (rate limit). */
   salt: string;

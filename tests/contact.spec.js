@@ -99,7 +99,7 @@ test.describe('contact form', () => {
     await page.goto('/#kontakt');
     await fill(page);
     await page.getByRole('button', { name: 'Anfrage senden' }).click();
-    await expect(page.locator('#formStatus')).toHaveText(/info@vana-management\.de/);
+    await expect(page.locator('#formStatus')).toHaveText(/info@vana-management\.com/);
     await expect(page.getByLabel('Name')).toHaveValue('Erika Musterfrau');
   });
 
@@ -107,6 +107,6 @@ test.describe('contact form', () => {
     await page.goto('/#kontakt');
     await fill(page);
     await page.getByRole('button', { name: 'Anfrage senden' }).click();
-    await expect(page.locator('#formStatus')).toHaveText(/noch nicht freigeschaltet.*info@vana-management\.de/);
+    await expect(page.locator('#formStatus')).toHaveText(/noch nicht freigeschaltet.*info@vana-management\.com/);
   });
 });

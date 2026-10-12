@@ -9,8 +9,8 @@ Website der **VANA Management UG (haftungsbeschränkt)**: Sanierung & Trockenbau
 | Geschäftsführer | M. Sc. Vahid Naseri |
 | Register | Amtsgericht Charlottenburg (Berlin), HRB 281066 B |
 | USt-IdNr. | DE462217121 |
-| E-Mail | info@vana-management.de |
-| Domain | vana-management.de (DNS bei Cloudflare) |
+| E-Mail | info@vana-management.com |
+| Domain | vana-management.com (DNS bei Cloudflare) |
 
 ---
 
@@ -18,7 +18,7 @@ Website der **VANA Management UG (haftungsbeschränkt)**: Sanierung & Trockenbau
 
 ```
                  ┌──────────────── Cloudflare ────────────────┐
- بازدیدکننده ──▶ │ DNS vana-management.de  (+ Turnstile اختیاری) │
+ بازدیدکننده ──▶ │ DNS vana-management.com  (+ Turnstile اختیاری) │
                  └───────────────┬─────────────────────────────┘
                                  ▼
           ┌──────── هاست استاتیک (فعلاً Netlify، بعداً هر جا) ────────┐
@@ -100,7 +100,7 @@ supabase link --project-ref <PROJECT_REF>
 supabase db push            # جدول‌ها + RLS + rate-limit
 
 supabase secrets set \
-  ALLOWED_ORIGINS="https://vana-management.de,https://www.vana-management.de,https://<netlify-name>.netlify.app" \
+  ALLOWED_ORIGINS="https://vana-management.com,https://www.vana-management.com,https://<netlify-name>.netlify.app" \
   RATE_LIMIT_SALT="$(openssl rand -hex 32)"
 
 supabase functions deploy kontakt     # verify_jwt=false از config.toml خونده می‌شه
@@ -116,7 +116,7 @@ apiUrl: "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt",
 ### ۴. تست
 ```bash
 curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
-  -H "Origin: https://vana-management.de" -H "Content-Type: application/json" \
+  -H "Origin: https://vana-management.com" -H "Content-Type: application/json" \
   -d '{"name":"Test","email":"test@example.com","projektart":"Sanierung","nachricht":"Testanfrage von der Website","datenschutz_akzeptiert":true,"website":"","elapsed_ms":5000}'
 # → 201 {"ok":true}
 ```
@@ -125,9 +125,9 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 **Table Editor → anfragen**. ستون `status` رو برای هر درخواست عوض کن: `neu` → `in_bearbeitung` → `erledigt`. یادداشت داخلی تو `notiz` می‌ره و `bearbeitet_am` خودکار پر می‌شه.
 
 ### ۶. (اختیاری) ایمیل برای هر درخواست جدید
-1. تو [Resend](https://resend.com) دامنه‌ی `vana-management.de` رو تأیید کن. رکوردهای DNS‌ش رو تو Cloudflare اضافه کن.
+1. تو [Resend](https://resend.com) دامنه‌ی `vana-management.com` رو تأیید کن. رکوردهای DNS‌ش رو تو Cloudflare اضافه کن.
 2. ```bash
-   supabase secrets set RESEND_API_KEY=re_... NOTIFY_TO=info@vana-management.de MAIL_FROM="VANA Website <website@vana-management.de>"
+   supabase secrets set RESEND_API_KEY=re_... NOTIFY_TO=info@vana-management.com MAIL_FROM="VANA Website <website@vana-management.com>"
    ```
    ایمیل `reply_to` مشتری رو داره، پس با Antworten مستقیم به خود مشتری جواب می‌دی.
 
@@ -153,7 +153,7 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 - Publish directory خودش از `netlify.toml` خونده می‌شه: `public`. Build command نداره.
 
 ### دامنه روی Cloudflare → Netlify
-1. Cloudflare → `vana-management.de` → **DNS**:
+1. Cloudflare → `vana-management.com` → **DNS**:
    | Type | Name | Content | Proxy |
    |---|---|---|---|
    | CNAME | `@` | `<netlify-name>.netlify.app` | **DNS only** (ابر خاکستری) |
@@ -173,7 +173,7 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 - [ ] یه درخواست تستی از سایت فرستاده شد و تو Table Editor دیده شد
 - [ ] **AVV (قرارداد پردازش داده)** با Netlify، Cloudflare و Supabase (هر سه آنلاین تو تنظیمات اکانت)
 - [ ] Impressum و Datenschutz توسط وکیل یا سرویس حقوقی چک شد
-- [ ] ایمیل `info@vana-management.de` کار می‌کنه
+- [ ] ایمیل `info@vana-management.com` کار می‌کنه
 - [ ] دامنه وصل شد و `ALLOWED_ORIGINS` آپدیت شد
 - [ ] (پیشنهاد) Google Search Console → `sitemap.xml` ثبت شد
 
