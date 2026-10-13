@@ -75,7 +75,7 @@ export default {
     if (!a.name || !a.nachricht || !EMAIL_RE.test(a.email)) return new Response('invalid request', { status: 422 });
 
     const raw = buildMessage({
-      from: env.MAIL_FROM,
+      from: env.NOTIFY_FROM,
       fromName: env.MAIL_FROM_NAME,
       to: env.MAIL_TO,
       // Addressed to info@ (delivered to the team inbox): Gmail's "reply from the
@@ -86,7 +86,7 @@ export default {
       text: composeText(a),
     });
     try {
-      await env.MAIL.send(new EmailMessage(env.MAIL_FROM, env.MAIL_TO, raw));
+      await env.MAIL.send(new EmailMessage(env.NOTIFY_FROM, env.MAIL_TO, raw));
     } catch (e) {
       console.error('sending failed', e && e.message);
       return new Response('send failed', { status: 502 });

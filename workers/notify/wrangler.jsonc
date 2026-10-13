@@ -16,6 +16,10 @@
   "workers_dev": false,
   "vars": {
     "MAIL_FROM": "info@vana-management.com",
+    // Team notifications come from a separate address: if they came from info@ (an alias
+    // in the team's Gmail), Gmail would treat them as sent by itself and reply from the
+    // default address instead of info@.
+    "NOTIFY_FROM": "website@vana-management.com",
     "MAIL_FROM_NAME": "VANA Website",
     "MAIL_TO": "vahidnaseri1988@gmail.com"
   },
