@@ -35,6 +35,7 @@ jobs:
         with:
           deno-version: v2.x
       - run: npm ci
+      - run: npm run test:notify
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
         env:

@@ -3,7 +3,9 @@
 // Secrets (supabase secrets set ...):
 //   ALLOWED_ORIGINS       required  comma-separated, e.g. https://vana-management.com,https://www.vana-management.com
 //   RATE_LIMIT_SALT       required  long random string
-//   RESEND_API_KEY        optional  e-mail notification for every new request
+//   NOTIFY_WEBHOOK_URL    optional  e-mail notification via the Cloudflare Worker "vana-notify" (workers/notify)
+//   NOTIFY_WEBHOOK_SECRET           shared secret for NOTIFY_WEBHOOK_URL (same value as the Worker's NOTIFY_SECRET)
+//   RESEND_API_KEY        optional  alternative: e-mail notification via Resend
 //   NOTIFY_TO             optional  recipient of the notification (default info@vana-management.com)
 //   MAIL_FROM             optional  sender, e.g. "VANA Website <website@vana-management.com>"
 //   TURNSTILE_SECRET_KEY  optional  enables Cloudflare Turnstile verification
@@ -19,6 +21,8 @@ const supabase = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KE
 });
 
 const resendKey = env("RESEND_API_KEY");
+const webhookUrl = env("NOTIFY_WEBHOOK_URL");
+const webhookSecret = env("NOTIFY_WEBHOOK_SECRET");
 const turnstileSecret = env("TURNSTILE_SECRET_KEY");
 
 async function notify(a: Anfrage) {
@@ -42,6 +46,16 @@ async function notify(a: Anfrage) {
     }),
   });
   if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+}
+
+async function notifyWebhook(a: Anfrage) {
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${webhookSecret}`, "Content-Type": "application/json" },
+    body: JSON.stringify(a),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error(`notify webhook ${res.status}: ${await res.text()}`);
 }
 
 async function verifyTurnstile(token: string, ip: string | null) {
@@ -70,7 +84,7 @@ Deno.serve(
       const { error } = await supabase.from("anfragen").insert(anfrage);
       if (error) throw error;
     },
-    notify: resendKey ? notify : undefined,
+    notify: webhookUrl && webhookSecret ? notifyWebhook : resendKey ? notify : undefined,
     verifyTurnstile: turnstileSecret ? verifyTurnstile : undefined,
   }),
 );

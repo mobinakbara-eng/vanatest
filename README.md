@@ -29,7 +29,7 @@ Website der **VANA Management UG (haftungsbeschränkt)**: Sanierung & Trockenbau
           ┌──────────────── Supabase (فرانکفورت) ───────────────────┐
           │ Edge Function "kontakt"                                   │
           │   ✓ چک Origin   ✓ اعتبارسنجی   ✓ ضد اسپم   ✓ Rate-Limit   │
-          │   ✓ Turnstile (اختیاری)   ✓ ایمیل با Resend (اختیاری)     │
+          │   ✓ Turnstile (اختیاری)   ✓ ایمیل خبر (Worker vana-notify) │
           │                      │ service_role                       │
           │ Postgres: anfragen, anfrage_limits  (RLS، anon هیچ دسترسی) │
           └───────────────────────────────────────────────────────────┘
@@ -124,12 +124,18 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 ### ۵. دیدن و مدیریت درخواست‌ها
 **Table Editor → anfragen**. ستون `status` رو برای هر درخواست عوض کن: `neu` → `in_bearbeitung` → `erledigt`. یادداشت داخلی تو `notiz` می‌ره و `bearbeitet_am` خودکار پر می‌شه.
 
-### ۶. (اختیاری) ایمیل برای هر درخواست جدید
-1. تو [Resend](https://resend.com) دامنه‌ی `vana-management.com` رو تأیید کن. رکوردهای DNS‌ش رو تو Cloudflare اضافه کن.
-2. ```bash
-   supabase secrets set RESEND_API_KEY=re_... NOTIFY_TO=info@vana-management.com MAIL_FROM="VANA Website <website@vana-management.com>"
-   ```
-   ایمیل `reply_to` مشتری رو داره، پس با Antworten مستقیم به خود مشتری جواب می‌دی.
+### ۶. ایمیل برای هر درخواست جدید ✅ (فعاله)
+بعد از ذخیره‌ی هر درخواست، Function اون رو به Worker کوچیک **`vana-notify`** (`workers/notify/`، آدرس `notify.vana-management.com`) می‌فرسته. Worker با **Cloudflare Email Routing** یه ایمیل از `info@vana-management.com` به `vahidnaseri1988@gmail.com` می‌فرسته. `Reply-To` ایمیل مشتریه، پس با Antworten مستقیم به مشتری جواب می‌دی. اگه ایمیل نرسه، درخواست باز هم تو جدول ذخیره شده.
+
+- گیرنده فقط می‌تونه یه آدرس **تأییدشده** تو Email Routing باشه (`wrangler.jsonc` → `send_email` و `MAIL_TO`).
+- Function و Worker یه رمز مشترک دارن: Worker `NOTIFY_SECRET`، Supabase `NOTIFY_WEBHOOK_SECRET` (هر دو یه مقدار).
+```bash
+npm run deploy:notify                                            # دیپلوی Worker
+openssl rand -hex 32 | npx wrangler secret put NOTIFY_SECRET -c workers/notify/wrangler.jsonc
+supabase secrets set NOTIFY_WEBHOOK_URL=https://notify.vana-management.com NOTIFY_WEBHOOK_SECRET=<همون مقدار>
+npm run test:notify                                              # تست ساخت ایمیل
+```
+جایگزین: به‌جای Worker می‌شه از Resend استفاده کرد (`RESEND_API_KEY`, `NOTIFY_TO`, `MAIL_FROM`). اگه `NOTIFY_WEBHOOK_URL` تنظیم باشه، اون اولویت داره.
 
 ### ۷. (اختیاری) Cloudflare Turnstile ضد اسپم
 1. Cloudflare → **Turnstile → Add widget** → دامنه‌ها رو اضافه کن
@@ -141,7 +147,8 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 |---|---|---|
 | `ALLOWED_ORIGINS` | ✅ | دامنه‌هایی که اجازه دارن فرم بفرستن (با کاما) |
 | `RATE_LIMIT_SALT` | ✅ | رشته‌ی تصادفی طولانی |
-| `RESEND_API_KEY`, `NOTIFY_TO`, `MAIL_FROM` | — | ایمیل خبر دادن |
+| `NOTIFY_WEBHOOK_URL`, `NOTIFY_WEBHOOK_SECRET` | — | ایمیل خبر دادن از طریق Worker `vana-notify` (فعاله) |
+| `RESEND_API_KEY`, `NOTIFY_TO`, `MAIL_FROM` | — | جایگزین: ایمیل خبر دادن با Resend |
 | `TURNSTILE_SECRET_KEY` | — | Turnstile |
 
 ---
@@ -207,7 +214,7 @@ npm run deploy     # انتشار
 - [ ] یه درخواست تستی از سایت فرستاده شد و تو Table Editor دیده شد
 - [ ] **AVV (قرارداد پردازش داده)** با Netlify، Cloudflare و Supabase (هر سه آنلاین تو تنظیمات اکانت)
 - [ ] Impressum و Datenschutz توسط وکیل یا سرویس حقوقی چک شد
-- [ ] ایمیل `info@vana-management.com` کار می‌کنه
+- [x] ایمیل `info@vana-management.com` کار می‌کنه (دریافت: Cloudflare Email Routing → Gmail؛ خبر فرم: Worker `vana-notify`)
 - [ ] دامنه وصل شد و `ALLOWED_ORIGINS` آپدیت شد
 - [ ] Google Search Console و Bing Webmaster وصل شدن و `sitemap.xml` ثبت شد
 - [ ] Google Business Profile ساخته و تأیید شد (مرحله‌ی ۰ و ۱ در [SEO-PLAN](docs/SEO-PLAN.md))

@@ -1,0 +1,20 @@
+// Cloudflare Worker "vana-notify": turns a new contact-form request into an e-mail.
+// Called only by the Supabase Edge Function "kontakt" (shared secret NOTIFY_SECRET).
+// Sends through Cloudflare Email Routing; the recipient must be a verified destination address.
+//   Deploy:  npx wrangler deploy -c workers/notify/wrangler.jsonc
+//   Secret:  npx wrangler secret put NOTIFY_SECRET -c workers/notify/wrangler.jsonc
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "vana-notify",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-15",
+  "routes": [{ "pattern": "notify.vana-management.com", "custom_domain": true }],
+  "workers_dev": false,
+  "vars": {
+    "MAIL_FROM": "info@vana-management.com",
+    "MAIL_FROM_NAME": "VANA Website",
+    "MAIL_TO": "vahidnaseri1988@gmail.com"
+  },
+  "send_email": [{ "name": "MAIL", "destination_address": "vahidnaseri1988@gmail.com" }],
+  "observability": { "enabled": true }
+}
