@@ -28,3 +28,8 @@ test('builds a valid UTF-8 message with reply-to', () => {
   assert.equal(decode(body), 'Grüße\r\nZeile 2');
   for (const line of body.split('\r\n')) assert.ok(line.length <= 76);
 });
+
+test('the visible To header can differ from the delivery address', () => {
+  const raw = buildMessage({ from: 'info@vana-management.com', to: 'team@example.com', headerTo: 'info@vana-management.com', subject: 's', text: 't' });
+  assert.match(raw, /\r\nTo: <info@vana-management.com>\r\n/);
+});

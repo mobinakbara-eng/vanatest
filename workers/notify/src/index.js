@@ -78,6 +78,9 @@ export default {
       from: env.MAIL_FROM,
       fromName: env.MAIL_FROM_NAME,
       to: env.MAIL_TO,
+      // Addressed to info@ (delivered to the team inbox): Gmail's "reply from the
+      // address the message was sent to" then answers the customer from info@.
+      headerTo: env.MAIL_FROM,
       replyTo: a.email,
       subject: `Neue Anfrage: ${a.projektart || 'Projekt'} – ${a.name}`,
       text: composeText(a),

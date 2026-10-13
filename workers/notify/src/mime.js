@@ -18,12 +18,12 @@ export function mailbox(name, address) {
   return name ? `${encodeHeader(name)} <${address}>` : `<${address}>`;
 }
 
-export function buildMessage({ from, fromName, to, replyTo, subject, text, date = new Date(), id = crypto.randomUUID() }) {
+export function buildMessage({ from, fromName, to, headerTo = to, replyTo, subject, text, date = new Date(), id = crypto.randomUUID() }) {
   const domain = from.split('@')[1];
   const body = b64(text.replace(/\r?\n/g, '\r\n')).replace(/.{1,76}/g, '$&\r\n');
   return [
     `From: ${mailbox(fromName, from)}`,
-    `To: <${to}>`,
+    `To: <${headerTo}>`,
     ...(replyTo ? [`Reply-To: <${replyTo}>`] : []),
     `Subject: ${encodeHeader(subject)}`,
     `Date: ${date.toUTCString().replace('GMT', '+0000')}`,
