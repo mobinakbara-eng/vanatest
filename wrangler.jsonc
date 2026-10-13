@@ -12,6 +12,6 @@
     { "pattern": "vana-management.com", "custom_domain": true },
     { "pattern": "www.vana-management.com", "custom_domain": true }
   ],
-  "workers_dev": true,
+  "workers_dev": false,
   "observability": { "enabled": true }
 }

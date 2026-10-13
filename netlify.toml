@@ -2,3 +2,10 @@
 [build]
   publish = "public"
   command = ""
+
+# The site now lives on vana-management.com (Cloudflare). Send everything there.
+[[redirects]]
+  from = "/*"
+  to = "https://vana-management.com/:splat"
+  status = 301
+  force = true
