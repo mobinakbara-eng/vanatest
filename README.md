@@ -140,6 +140,12 @@ npm run test:notify                                              # تست ساخ
 ### ۶ب. ایمیل info@ ✅
 - **دریافت:** Cloudflare Email Routing، `info@vana-management.com` → `vahidnaseri1988@gmail.com`.
 - **ارسال از Gmail با آدرس info@:** دامنه تو **Brevo** احراز شده (DKIM با `brevo1/brevo2._domainkey`، TXT `brevo-code`). تو Gmail از بخش «Send mail as» با `smtp-relay.brevo.com:587` (TLS) و کلید SMTP خود Brevo.
+- **تأیید خودکار برای مشتری:** Worker `vana-notify` با API برند Brevo (`BREVO_API_KEY` به‌عنوان secret Worker):
+  - هر کی فرم رو بفرسته یه ایمیل «Ihre Anfrage bei VANA Management» می‌گیره. متنش ثابته و هیچ چیزی از متن فرم توش نیست (که فرم تبدیل به ابزار اسپم نشه).
+  - هر کی **برای اولین بار** به info@ ایمیل بزنه یه «Eingangsbestätigung» می‌گیره. آدرس‌های دیده‌شده تو KV `vana-notify-seen` ذخیره می‌شن. به no-reply، لیست‌های ایمیل، bounce و ایمیل‌های خودکار جواب داده نمی‌شه (RFC 3834).
+  - قانون Email Routing: `info@` → Worker `vana-notify` (Worker اول به Gmail فوروارد می‌کنه، بعد تأیید می‌فرسته).
+  - ⚠️ تو Brevo قفل IP (Authorised IPs) باید **خاموش** باشه، چون Worker از IPهای متغیر Cloudflare درخواست می‌ده.
+  - عوض کردن کلید Brevo: کلید جدید بساز → `npx wrangler secret put BREVO_API_KEY -c workers/notify/wrangler.jsonc` (یا تو داشبورد Cloudflare: Workers → vana-notify → Settings → Variables and Secrets) → کلید قدیمی رو پاک کن.
 - **DNS:** SPF `v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com ~all`، DMARC `p=none` (بعد از چند هفته گزارش بدون مشکل → `p=quarantine`).
 
 ### ۷. (اختیاری) Cloudflare Turnstile ضد اسپم

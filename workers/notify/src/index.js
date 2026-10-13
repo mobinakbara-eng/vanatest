@@ -1,5 +1,6 @@
 import { EmailMessage } from 'cloudflare:email';
 import { buildMessage } from './mime.js';
+import { FORM_REPLY, MAIL_REPLY, addressFrom, firstContact, sendViaBrevo, shouldAutoReply } from './autoreply.js';
 
 const EMAIL_RE = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/i;
 
@@ -33,7 +34,24 @@ export function composeText(a) {
 }
 
 export default {
-  async fetch(request, env) {
+  // Mail to info@ (Email Routing rule → this Worker): forward it to the team inbox,
+  // then confirm receipt to first-time senders.
+  async email(message, env, ctx) {
+    await message.forward(env.MAIL_TO);
+    if (!env.BREVO_API_KEY) return;
+    const from = addressFrom(message.headers.get('from'));
+    if (!shouldAutoReply(message.headers, from, env.MAIL_FROM.split('@')[1])) return;
+    ctx.waitUntil((async () => {
+      try {
+        if (!(await firstContact(env, from))) return;
+        await sendViaBrevo(env, { to: from, ...MAIL_REPLY, inReplyTo: message.headers.get('message-id') || undefined });
+      } catch (e) {
+        console.error('auto-reply failed', e && e.message);
+      }
+    })());
+  },
+
+  async fetch(request, env, ctx) {
     if (request.method !== 'POST') return new Response('method not allowed', { status: 405 });
     const auth = request.headers.get('authorization') || '';
     if (!env.NOTIFY_SECRET || !timingSafeEqual(auth, `Bearer ${env.NOTIFY_SECRET}`)) {
@@ -69,6 +87,18 @@ export default {
     } catch (e) {
       console.error('sending failed', e && e.message);
       return new Response('send failed', { status: 502 });
+    }
+    // Confirmation for the visitor (every form request). Also marks the address as
+    // known, so a later e-mail to info@ gets no second automatic reply.
+    if (env.BREVO_API_KEY) {
+      ctx.waitUntil((async () => {
+        try {
+          await sendViaBrevo(env, { to: a.email.toLowerCase(), ...FORM_REPLY });
+          await env.SEEN.put('seen:' + a.email.toLowerCase(), new Date().toISOString());
+        } catch (e) {
+          console.error('form confirmation failed', e && e.message);
+        }
+      })());
     }
     return new Response(null, { status: 204 });
   },

@@ -1,8 +1,12 @@
-// Cloudflare Worker "vana-notify": turns a new contact-form request into an e-mail.
-// Called only by the Supabase Edge Function "kontakt" (shared secret NOTIFY_SECRET).
-// Sends through Cloudflare Email Routing; the recipient must be a verified destination address.
+// Cloudflare Worker "vana-notify"
+//  fetch: called only by the Supabase Edge Function "kontakt" (shared secret NOTIFY_SECRET).
+//         E-mails the request to the team (Cloudflare Email Routing, verified address only)
+//         and sends the visitor a confirmation (Brevo API).
+//  email: Email Routing rule info@ → this Worker. Forwards to the team inbox and sends
+//         first-time senders an automatic confirmation (Brevo API, once per address; KV "SEEN").
 //   Deploy:  npx wrangler deploy -c workers/notify/wrangler.jsonc
-//   Secret:  npx wrangler secret put NOTIFY_SECRET -c workers/notify/wrangler.jsonc
+//   Secrets: npx wrangler secret put NOTIFY_SECRET  -c workers/notify/wrangler.jsonc
+//            npx wrangler secret put BREVO_API_KEY  -c workers/notify/wrangler.jsonc
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "vana-notify",
@@ -16,5 +20,6 @@
     "MAIL_TO": "vahidnaseri1988@gmail.com"
   },
   "send_email": [{ "name": "MAIL", "destination_address": "vahidnaseri1988@gmail.com" }],
+  "kv_namespaces": [{ "binding": "SEEN", "id": "46a4fc36b62842f48ac944ec2c3d449d" }],
   "observability": { "enabled": true }
 }
