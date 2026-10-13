@@ -114,6 +114,19 @@ test.describe('navigation', () => {
     expect(faq.mainEntity.length).toBe(await page.locator('.faq details').count());
   });
 
+  test('scroll reveal: every animated element ends up fully visible', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/');
+    const total = await page.evaluate(() => document.documentElement.scrollHeight);
+    for (let y = 0; y < total; y += 300) await scrollToY(page, y);
+    await page.waitForTimeout(1500);
+    const hidden = await page.locator('.reveal').evaluateAll((els) => els
+      .filter((el) => !el.classList.contains('in') || getComputedStyle(el).opacity !== '1')
+      .map((el) => el.tagName + ': ' + el.textContent.trim().slice(0, 40)));
+    expect(hidden).toEqual([]);
+    expect(await page.locator('.reveal').count()).toBeGreaterThan(20);
+  });
+
   test('unknown pages show the 404 page', async ({ page }) => {
     const res = await page.goto('/gibt-es-nicht');
     expect(res.status()).toBe(404);

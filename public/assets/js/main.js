@@ -7,6 +7,32 @@
   const range = (v, a, b) => clamp((v - a) / (b - a));
   const deg = r => r * 180 / Math.PI;
 
+  /* ---------- Scroll reveal: content fades and rises in as it enters the screen ---------- */
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if ('IntersectionObserver' in window && !reduceMotion) {
+    document.documentElement.classList.add('motion');
+    const groups = [
+      'main section > .eyebrow, main header > .eyebrow, .intro-head > *, .frame > *, .contact-head > .eyebrow',
+      'main h2', '.intro-body > *, .services header p, .contact-head p',
+      '.facts > div', '.svc h3, .svc > p', '.svc li', '.values li', '.steps li', '.faq details', 'main .cta-row'
+    ];
+    const seen = new Set();
+    groups.forEach(sel => document.querySelectorAll(sel).forEach(el => {
+      if (seen.has(el) || el.closest('form')) return;
+      seen.add(el);
+      // stagger siblings of the same kind: 0, 90, 180 ... ms (capped)
+      const sibs = [...el.parentElement.children].filter(c => c.tagName === el.tagName && c.className === el.className);
+      el.style.setProperty('--d', Math.min(sibs.indexOf(el), 6) * 90 + 'ms');
+      el.classList.add('reveal');
+    }));
+    const io = new IntersectionObserver(entries => entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      en.target.classList.add('in');
+      io.unobserve(en.target);
+    }), { rootMargin: '0px 0px -8% 0px', threshold: .12 });
+    seen.forEach(el => io.observe(el));
+  }
+
   const year = $('year');
   if (year) year.textContent = new Date().getFullYear();
 
