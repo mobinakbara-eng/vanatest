@@ -163,8 +163,20 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 
 > چرا DNS only؟ اگه پروکسی Cloudflare (ابر نارنجی) جلوی Netlify روشن باشه، صدور گواهی SSL و کش Netlify به مشکل می‌خورن.
 
-### بعداً (اختیاری): Cloudflare Pages
-همون پوشه‌ی `public` بدون هیچ تغییری: **Workers & Pages → Create → Pages → Connect to Git**، Build command خالی و Output directory `public`. `_headers` هم همون‌جا کار می‌کنه.
+### اصلی: Cloudflare Workers روی vana-management.com
+فایل [`wrangler.jsonc`](wrangler.jsonc) سایت (`public/`) رو به‌صورت **Workers Static Assets** منتشر می‌کنه و دامنه‌های `vana-management.com` و `www.vana-management.com` رو مستقیم وصل می‌کنه. رکورد DNS رو هم خود Cloudflare می‌سازه. `_headers` (CSP، HSTS و کش) همون‌جا هم کار می‌کنه.
+
+```bash
+export CLOUDFLARE_API_TOKEN=...   CLOUDFLARE_ACCOUNT_ID=...
+npm run dev:cf     # تست محلی با runtime خود Cloudflare → http://localhost:8787
+npm run deploy     # انتشار
+```
+پیش‌نیازها:
+- دامنه به‌عنوان Zone در همون حساب Cloudflare فعال باشه.
+- روی `vana-management.com` و `www` **رکورد CNAME قبلی نباشه**، وگرنه دامنه وصل نمی‌شه.
+- API Token از قالب **«Edit Cloudflare Workers»** ساخته بشه، محدود به همین Account و Zone `vana-management.com`، به‌علاوه‌ی **Zone → DNS → Edit**.
+
+بعد از وصل شدن دامنه، `ALLOWED_ORIGINS` تو Supabase باید فقط دامنه‌های `.com` باشه. سایت Netlify هم باید به `.com` ریدایرکت بشه یا حذف بشه.
 
 ---
 

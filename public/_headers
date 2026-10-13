@@ -21,3 +21,7 @@
 
 /site.webmanifest
   Content-Type: application/manifest+json
+
+# Keep the workers.dev address out of search results (the real address is vana-management.com)
+https://vana-management.:subdomain.workers.dev/*
+  X-Robots-Tag: noindex

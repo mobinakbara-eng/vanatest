@@ -1,0 +1,17 @@
+// Cloudflare Workers (Static Assets): serves public/ on vana-management.com.
+// Deploy: npx wrangler deploy   (needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID)
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vana-management",
+  "compatibility_date": "2026-09-15",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "vana-management.com", "custom_domain": true },
+    { "pattern": "www.vana-management.com", "custom_domain": true }
+  ],
+  "workers_dev": true,
+  "observability": { "enabled": true }
+}

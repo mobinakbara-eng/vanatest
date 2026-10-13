@@ -5,12 +5,15 @@
   "description": "Website der VANA Management UG (Sanierung & Trockenbau, Berlin)",
   "scripts": {
     "start": "node tests/static-server.mjs",
+    "dev:cf": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "playwright test",
     "test:functions": "cd supabase/functions && deno test --allow-env",
     "lint:functions": "cd supabase/functions && deno lint && deno fmt --check"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
-    "@playwright/test": "1.56.1"
+    "@playwright/test": "1.56.1",
+    "wrangler": "4.142.0"
   }
 }
