@@ -170,6 +170,8 @@ curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
 > - `www` با 301 به آدرس اصلی ریدایرکت می‌شه (Single Redirect Rule)
 > - Always Use HTTPS روشنه، حداقل TLS 1.2، SSL روی Full (strict)
 > - آدرس موقت Netlify با 301 به `.com` ریدایرکت می‌شه
+> - **Supabase:** پروژه‌ی `dnamzzkduiougwwwiogo` (eu-west-1، ایرلند). Migration اجرا شده و Function `kontakt` منتشر شده (`verify_jwt=false`). Secrets تنظیم‌شده: `ALLOWED_ORIGINS` و `RATE_LIMIT_SALT`. یه درخواست تستی از سایت آنلاین با موفقیت ذخیره و بعد پاک شد.
+> - درخواست‌ها: Supabase → Table Editor → `anfragen`
 > - Cloudflare به‌صورت خودکار اسکریپت Web Analytics رو به صفحه اضافه می‌کنه، ولی CSP سایت جلوش رو می‌گیره و هیچ داده‌ای ارسال نمی‌شه. برای خاموش کردن کاملش: داشبورد Cloudflare → Analytics & Logs → Web Analytics
 فایل [`wrangler.jsonc`](wrangler.jsonc) سایت (`public/`) رو به‌صورت **Workers Static Assets** منتشر می‌کنه و دامنه‌های `vana-management.com` و `www.vana-management.com` رو مستقیم وصل می‌کنه. رکورد DNS رو هم خود Cloudflare می‌سازه. `_headers` (CSP، HSTS و کش) همون‌جا هم کار می‌کنه.
 

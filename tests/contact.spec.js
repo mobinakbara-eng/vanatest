@@ -104,6 +104,7 @@ test.describe('contact form', () => {
   });
 
   test('without backend configuration the form points to e-mail', async ({ page }) => {
+    await useMockApi(page, { apiUrl: '' });
     await page.goto('/#kontakt');
     await fill(page);
     await page.getByRole('button', { name: 'Anfrage senden' }).click();
