@@ -56,6 +56,7 @@
   const word = $('word'), hint = $('hint'), tagline = $('tagline');
   const beamL = $('beamL'), beamR = $('beamR');
   const frameEl = $('frame'), servicesEl = $('services'), stepsEl = $('steps'), roofEl = $('roofAnchor');
+  const valuesEl = document.querySelector('.values-sec'), faqEl = $('fragen');
 
   // Roof geometry in logo (viewBox) coordinates: outer end -> apex
   const VB = { x: 220, y: 230, w: 860 };
@@ -143,12 +144,15 @@
 
     const maxScroll = document.documentElement.scrollHeight - H;
     const fr = holdAround(frameEl, H), sv = holdAround(servicesEl, H), st = holdAround(stepsEl, H);
+    // "Warum VANA" and FAQ: the beams step back to the screen edges, clear of the text
+    const side = valuesEl && faqEl ? [holdAround(valuesEl, H)[0], holdAround(faqEl, H)[1]] : null;
     const timeline = [
       { get: roofLogo,          hold: [0, H * .18] },
       { get: () => edges(W, H), hold: [H * 1.15, fr[0] - H * .7] },
       { get: frame,             hold: fr },
       { get: tracks,            hold: sv },
       { get: rails,             hold: st },
+      ...(side ? [{ get: () => edges(W, H), hold: side }] : []),
       { get: roofEnd,           hold: [Math.min(centreAt(roofEl, H) + H * .15, maxScroll - H * .05), Infinity] }
     ];
 

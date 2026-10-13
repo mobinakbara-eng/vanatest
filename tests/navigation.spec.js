@@ -100,6 +100,20 @@ test.describe('navigation', () => {
     expect([...versions], 'one version everywhere').toHaveLength(1);
   });
 
+  test('FAQ answers open and close; FAQ structured data matches the page', async ({ page }) => {
+    await page.goto('/');
+    const q = page.getByText('Wie kommt das Angebot zustande?');
+    const answer = page.getByText(/schriftliches Angebot mit Leistungsbeschreibung, Material und Bauzeit/);
+    await expect(answer).toBeHidden();
+    await q.click();
+    await expect(answer).toBeVisible();
+    await q.click();
+    await expect(answer).toBeHidden();
+    const ld = await page.locator('script[type="application/ld+json"]').evaluateAll((els) => els.map((e) => JSON.parse(e.textContent)));
+    const faq = ld.find((d) => d['@type'] === 'FAQPage');
+    expect(faq.mainEntity.length).toBe(await page.locator('.faq details').count());
+  });
+
   test('unknown pages show the 404 page', async ({ page }) => {
     const res = await page.goto('/gibt-es-nicht');
     expect(res.status()).toBe(404);

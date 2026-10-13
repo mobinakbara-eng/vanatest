@@ -68,7 +68,7 @@ for (const [name, width, height] of VIEWPORTS) {
       await page.screenshot({ path: info.outputPath('01-hero.png') });
       await noHorizontalOverflow(page);
 
-      for (const id of ['ueber-uns', 'frame', 'leistungen', 'ablauf', 'kontakt']) {
+      for (const id of ['ueber-uns', 'frame', 'leistungen', 'ablauf', 'warum-h', 'fragen', 'kontakt']) {
         const y = await page.locator('#' + id).evaluate((el) => el.getBoundingClientRect().top + window.scrollY - 80);
         await scrollToY(page, y);
         await noHorizontalOverflow(page);

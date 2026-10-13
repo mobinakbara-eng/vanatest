@@ -1,6 +1,13 @@
 // Validation of contact form submissions. Pure functions, no I/O.
 
-export const PROJEKTARTEN = ["Sanierung", "Trockenbau", "Sanierung und Trockenbau", "Sonstiges"] as const;
+export const PROJEKTARTEN = [
+  "Sanierung",
+  "Innenausbau",
+  "Bad oder Küche",
+  "Trockenbau",
+  "Sanierung und Trockenbau",
+  "Sonstiges",
+] as const;
 
 export interface Anfrage {
   name: string;
