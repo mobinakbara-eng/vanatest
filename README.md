@@ -137,6 +137,11 @@ npm run test:notify                                              # تست ساخ
 ```
 جایگزین: به‌جای Worker می‌شه از Resend استفاده کرد (`RESEND_API_KEY`, `NOTIFY_TO`, `MAIL_FROM`). اگه `NOTIFY_WEBHOOK_URL` تنظیم باشه، اون اولویت داره.
 
+### ۶ب. ایمیل info@ ✅
+- **دریافت:** Cloudflare Email Routing، `info@vana-management.com` → `vahidnaseri1988@gmail.com`.
+- **ارسال از Gmail با آدرس info@:** دامنه تو **Brevo** احراز شده (DKIM با `brevo1/brevo2._domainkey`، TXT `brevo-code`). تو Gmail از بخش «Send mail as» با `smtp-relay.brevo.com:587` (TLS) و کلید SMTP خود Brevo.
+- **DNS:** SPF `v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com ~all`، DMARC `p=none` (بعد از چند هفته گزارش بدون مشکل → `p=quarantine`).
+
 ### ۷. (اختیاری) Cloudflare Turnstile ضد اسپم
 1. Cloudflare → **Turnstile → Add widget** → دامنه‌ها رو اضافه کن
 2. `supabase secrets set TURNSTILE_SECRET_KEY=...`
