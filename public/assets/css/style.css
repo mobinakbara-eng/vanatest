@@ -167,12 +167,11 @@ a { color: inherit; }
 .services { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 56px clamp(40px, 6vw, 96px); padding-block: 64px; }
 .services header { grid-column: 1 / -1; display: grid; gap: 14px; }
 .trades { grid-column: 1 / -1; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
-.trade { display: grid; grid-template-rows: auto auto 1fr auto; gap: 12px; padding: clamp(22px, 2.4vw, 32px); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; position: relative; background: var(--bg); transition: background-color .4s ease; }
+.trade { display: grid; grid-template-rows: auto auto 1fr; gap: 12px; padding: clamp(22px, 2.4vw, 32px); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; position: relative; background: var(--bg); transition: background-color .4s ease; }
 .trade-icon { width: 44px; height: 44px; margin-bottom: 8px; overflow: visible; }
 .trade-icon path, .trade-icon rect { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .trade h3 { font-size: 20px; overflow-wrap: break-word; hyphens: auto; }
 .trade p { font-size: 15px; overflow-wrap: break-word; hyphens: auto; }
-.trade .spec { padding-top: 10px; }
 .trade::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
 @media (max-width: 1100px) { .trades { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .trades { grid-template-columns: minmax(0, 1fr); } .trade { grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: none; column-gap: 18px; } .trade-icon { grid-row: span 3; width: 40px; height: 40px; } }
