@@ -148,17 +148,34 @@ a { color: inherit; }
   .intro h2 { max-width: none; font-size: clamp(36px, 3.7vw, 54px); }
 }
 
-.frame { max-width: 760px; margin-inline: auto; padding: clamp(36px, 6vw, 72px) clamp(28px, 6vw, 72px); text-align: center; display: grid; gap: 22px; justify-items: center; }
+.frame { max-width: 1080px; margin-inline: auto; padding: clamp(36px, 6vw, 72px) clamp(28px, 6vw, 72px); text-align: center; display: grid; gap: 22px; justify-items: center; }
 .frame h2 { font-size: clamp(28px, 4vw, 46px); }
+.frame-lead { font-family: var(--f-display); font-size: clamp(18px, 1.8vw, 22px); color: var(--body); max-width: 40ch; }
+.name-values { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px clamp(20px, 3vw, 44px); margin-top: 28px; width: 100%; text-align: left; }
+.name-values li { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.name-letter { height: clamp(44px, 4.4vw, 58px); width: auto; overflow: visible; justify-self: start; }
+.name-letter path { fill: none; stroke: var(--ink); stroke-width: 9; stroke-linejoin: miter; stroke-miterlimit: 10; }
+.name-values h3 { font-size: clamp(20px, 1.9vw, 24px); }
+.name-values .initial { font-weight: 500; }
+.name-values p { font-size: 15px; }
+.philosophy { display: grid; gap: 14px; justify-items: center; margin-top: 36px; padding-top: 36px; border-top: 1px solid var(--line); width: 100%; }
+.philosophy p { font-family: var(--f-display); font-weight: 300; font-size: clamp(22px, 2.8vw, 34px); line-height: 1.35; color: var(--ink); text-wrap: balance; }
+.philosophy p span { display: inline-block; }
+@media (max-width: 960px) { .name-values { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .name-values { grid-template-columns: minmax(0, 1fr); } }
 
 .services { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 56px clamp(40px, 6vw, 96px); padding-block: 64px; }
 .services header { grid-column: 1 / -1; display: grid; gap: 14px; }
-.svc { display: grid; gap: 18px; align-content: start; min-width: 0; }
-.svc ul { list-style: none; display: grid; }
-.svc li { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-block: 14px; border-bottom: 1px solid var(--line); }
-.svc li:first-child { border-top: 1px solid var(--line); }
-.svc li span:first-child { min-width: 0; }
-.svc li .spec { white-space: nowrap; }
+.trades { grid-column: 1 / -1; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.trade { display: grid; grid-template-rows: auto auto 1fr auto; gap: 12px; padding: clamp(22px, 2.4vw, 32px); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; position: relative; background: var(--bg); transition: background-color .4s ease; }
+.trade-icon { width: 44px; height: 44px; margin-bottom: 8px; overflow: visible; }
+.trade-icon path, .trade-icon rect { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.trade h3 { font-size: 20px; overflow-wrap: anywhere; hyphens: auto; }
+.trade p { font-size: 15px; }
+.trade .spec { padding-top: 10px; }
+.trade::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+@media (max-width: 1100px) { .trades { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .trades { grid-template-columns: minmax(0, 1fr); } .trade { grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: none; column-gap: 18px; } .trade-icon { grid-row: span 3; width: 40px; height: 40px; } }
 
 .process { display: grid; gap: 40px; }
 .process header { display: grid; gap: 14px; }
@@ -192,10 +209,10 @@ a { color: inherit; }
 
 /* Hover: service lines and values react to the pointer */
 @media (hover: hover) {
-  .svc li > span:first-child { transition: transform .35s cubic-bezier(.2,.7,.2,1); }
-  .svc li:hover > span:first-child { transform: translateX(8px); }
-  .svc li { background: linear-gradient(var(--ink), var(--ink)) left bottom / 0 1px no-repeat; transition: background-size .5s cubic-bezier(.2,.7,.2,1); }
-  .svc li:hover { background-size: 100% 1px; }
+  .trade:hover { background-color: var(--field); }
+  .trade:hover::after { transform: scaleX(1); }
+  .trade:hover .trade-icon { transform: translateY(-3px); }
+  .trade-icon { transition: transform .4s cubic-bezier(.2,.7,.2,1); }
   .faq summary { transition: padding-left .3s cubic-bezier(.2,.7,.2,1); }
   .faq summary:hover { padding-left: 8px; }
 }
@@ -208,6 +225,9 @@ a { color: inherit; }
 /* Lines draw themselves from left to right */
 .motion .facts div.reveal, .motion .values li.reveal { border-top-color: transparent; background: linear-gradient(var(--ink), var(--ink)) left top / 0 1px no-repeat; transition-property: opacity, transform, background-size; }
 .motion .facts div.reveal.in, .motion .values li.reveal.in { background-size: 100% 1px; transition-duration: .9s, .9s, 1.2s; }
+.motion .reveal .name-letter path, .motion .reveal .trade-icon path, .motion .reveal .trade-icon rect { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.4s cubic-bezier(.6,.1,.2,1); transition-delay: calc(var(--d, 0ms) + 200ms); }
+.motion .reveal.in .name-letter path, .motion .reveal.in .trade-icon path, .motion .reveal.in .trade-icon rect { stroke-dashoffset: 0; }
+.motion .philosophy span.reveal { transform: translateY(14px); }
 .motion .steps li.reveal .spec { display: inline-block; opacity: 0; transform: translateX(-12px); transition: opacity .6s ease, transform .6s ease; transition-delay: calc(var(--d, 0ms) + 250ms); }
 .motion .steps li.reveal.in .spec { opacity: 1; transform: none; }
 
@@ -275,7 +295,6 @@ a { color: inherit; }
 @media (max-width: 640px) {
   :root { --gutter: 36px; --header-h: 60px; }
   .services { grid-template-columns: minmax(0, 1fr); }
-  .svc li { flex-wrap: wrap; row-gap: 2px; }
   .section { padding-block: 20vh; }
   .steps { padding-left: 44px; }
 }
@@ -283,7 +302,8 @@ a { color: inherit; }
   html { scroll-behavior: auto; }
   .motion .reveal, .motion .reveal .spec, .motion h2.reveal { opacity: 1; transform: none; filter: none; transition: none; }
   .motion .facts div.reveal, .motion .values li.reveal { background-size: 100% 1px; }
-  .text-link, .text-link::after, .svc li, .svc li > span:first-child, .faq summary { transition: none; }
+  .text-link, .text-link::after, .trade, .trade::after, .trade-icon, .faq summary { transition: none; }
+  .motion .reveal .name-letter path, .motion .reveal .trade-icon path, .motion .reveal .trade-icon rect { stroke-dashoffset: 0; transition: none; }
   .letter, .beam-inner, .roof path, .home .nav { animation: none; opacity: 1; filter: none; transform: none; }
   .scroll-cue { animation: none; opacity: 1; }
   .tagline { animation: none; filter: none; }

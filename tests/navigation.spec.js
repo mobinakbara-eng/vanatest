@@ -60,7 +60,7 @@ test.describe('navigation', () => {
     await page.goto('/');
     await expect(page.locator('.roof')).toBeVisible();
     await expect(page.locator('.beams')).toBeHidden();
-    await expect(page.getByText('Sanierung · Trockenbau · Berlin')).toBeVisible();
+    await expect(page.getByText('Sanierung · Trockenbau · Modernisierung')).toBeVisible();
   });
 
   test('footer links open Impressum and Datenschutz, brand leads back home', async ({ page }) => {
@@ -139,7 +139,7 @@ test.describe('navigation', () => {
     await page.goto('/');
     await page.waitForTimeout(2600);
     await expect(page.locator('.roof')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Was wir bauen.' })).toBeAttached();
+    await expect(page.getByRole('heading', { name: 'Unsere Leistungen.' })).toBeAttached();
     await ctx.close();
   });
 });

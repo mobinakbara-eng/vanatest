@@ -12,9 +12,9 @@
   if ('IntersectionObserver' in window && !reduceMotion) {
     document.documentElement.classList.add('motion');
     const groups = [
-      'main section > .eyebrow, main header > .eyebrow, .intro-head > *, .frame > *, .contact-head > .eyebrow',
-      'main h2', '.intro-body > *, .services header p, .contact-head p',
-      '.facts > div', '.svc h3, .svc > p', '.svc li', '.values li', '.steps li', '.faq details', 'main .cta-row'
+      'main section > .eyebrow, main header > .eyebrow, .intro-head > *, .frame > .eyebrow, .philosophy > .eyebrow, .contact-head > .eyebrow',
+      'main h2', '.intro-body > *, .frame-lead, .services header p, .contact-head p',
+      '.facts > div', '.name-values li', '.philosophy p span', '.trades li', '.values li', '.steps li', '.faq details', 'main .cta-row'
     ];
     const seen = new Set();
     groups.forEach(sel => document.querySelectorAll(sel).forEach(el => {
@@ -22,7 +22,7 @@
       seen.add(el);
       // stagger siblings of the same kind: 0, 90, 180 ... ms (capped)
       const sibs = [...el.parentElement.children].filter(c => c.tagName === el.tagName && c.className === el.className);
-      el.style.setProperty('--d', Math.min(sibs.indexOf(el), 6) * 90 + 'ms');
+      el.style.setProperty('--d', Math.min(sibs.indexOf(el), 7) * (el.closest('.philosophy') ? 380 : 90) + 'ms');
       el.classList.add('reveal');
     }));
     const io = new IntersectionObserver(entries => entries.forEach(en => {
