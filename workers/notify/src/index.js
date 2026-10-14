@@ -23,7 +23,6 @@ export function composeText(a) {
     `E-Mail:    ${a.email}`,
     `Telefon:   ${a.telefon || '–'}`,
     `Ort / PLZ: ${a.ort || '–'}`,
-    `Projekt:   ${a.projektart}`,
     '',
     'Nachricht:',
     a.nachricht,
@@ -69,7 +68,6 @@ export default {
       email: str(body.email, 200),
       telefon: str(body.telefon, 40),
       ort: str(body.ort, 120),
-      projektart: str(body.projektart, 60),
       nachricht: str(body.nachricht, 4000),
     };
     if (!a.name || !a.nachricht || !EMAIL_RE.test(a.email)) return new Response('invalid request', { status: 422 });
@@ -82,7 +80,7 @@ export default {
       // address the message was sent to" then answers the customer from info@.
       headerTo: env.MAIL_FROM,
       replyTo: a.email,
-      subject: `Neue Anfrage: ${a.projektart || 'Projekt'} – ${a.name}`,
+      subject: `Neue Anfrage – ${a.name}`,
       text: composeText(a),
     });
     try {

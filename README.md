@@ -117,7 +117,7 @@ apiUrl: "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt",
 ```bash
 curl -i -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/kontakt" \
   -H "Origin: https://vana-management.com" -H "Content-Type: application/json" \
-  -d '{"name":"Test","email":"test@example.com","projektart":"Sanierung","nachricht":"Testanfrage von der Website","datenschutz_akzeptiert":true,"website":"","elapsed_ms":5000}'
+  -d '{"name":"Test","email":"test@example.com","nachricht":"Testanfrage von der Website","datenschutz_akzeptiert":true,"website":"","elapsed_ms":5000}'
 # → 201 {"ok":true}
 ```
 

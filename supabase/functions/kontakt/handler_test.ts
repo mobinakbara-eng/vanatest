@@ -37,7 +37,6 @@ const valid = {
   email: "Max@Example.com",
   telefon: "+49 30 123456",
   ort: "10115 Berlin",
-  projektart: "Trockenbau",
   nachricht: "Wir möchten eine Trennwand im Wohnzimmer einziehen.",
   datenschutz_akzeptiert: true,
   website: "",
@@ -112,7 +111,6 @@ Deno.test("returns field errors in German", async () => {
       ...valid,
       name: "A",
       email: "nope",
-      projektart: "Dach",
       nachricht: "kurz",
       datenschutz_akzeptiert: false,
       telefon: "abc",
@@ -125,11 +123,18 @@ Deno.test("returns field errors in German", async () => {
     "email",
     "nachricht",
     "name",
-    "projektart",
     "telefon",
   ]);
   assert(body.fields.email.includes("E-Mail"));
   assertEquals(stored.length, 0);
+});
+
+Deno.test("a project type sent by an old cached page is ignored, not rejected", async () => {
+  const { handle, stored } = setup();
+  const res = await handle(post({ ...valid, projektart: "Innenausbau" }));
+  assertEquals(res.status, 201);
+  assertEquals(stored.length, 1);
+  assertEquals("projektart" in stored[0], false);
 });
 
 Deno.test("rate limit: sixth request from the same IP gets 429", async () => {

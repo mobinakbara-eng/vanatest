@@ -60,7 +60,7 @@ test.describe('navigation', () => {
     await page.goto('/');
     await expect(page.locator('.roof')).toBeVisible();
     await expect(page.locator('.beams')).toBeHidden();
-    await expect(page.getByText('Sanierung · Trockenbau · Modernisierung')).toBeVisible();
+    await expect(page.getByText('Sanierung · Modernisierung')).toBeVisible();
   });
 
   test('footer links open Impressum and Datenschutz, brand leads back home', async ({ page }) => {

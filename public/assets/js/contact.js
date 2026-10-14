@@ -14,7 +14,6 @@
     name: 'Bitte geben Sie Ihren Namen ein.',
     email: 'Bitte geben Sie eine gültige E-Mail-Adresse ein.',
     telefon: 'Bitte geben Sie eine gültige Telefonnummer ein.',
-    projektart: 'Bitte wählen Sie die Art des Projekts.',
     nachricht: 'Bitte beschreiben Sie Ihr Projekt in mindestens 10 Zeichen.',
     datenschutz: 'Bitte stimmen Sie der Verarbeitung Ihrer Angaben zu.'
   };
@@ -114,7 +113,6 @@
       email: data.get('email'),
       telefon: data.get('telefon') || '',
       ort: data.get('ort') || '',
-      projektart: data.get('projektart'),
       nachricht: data.get('nachricht'),
       datenschutz_akzeptiert: data.get('datenschutz') === 'on',
       website: data.get('website') || '',

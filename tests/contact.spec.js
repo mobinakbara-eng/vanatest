@@ -4,12 +4,11 @@ const { test, expect, useMockApi } = require('./fixtures');
 const API = 'http://localhost:54329';
 
 async function fill(page, overrides = {}) {
-  const v = { name: 'Erika Musterfrau', email: 'erika@example.com', telefon: '+49 30 1234567', ort: '10437 Berlin', projektart: 'Sanierung', nachricht: 'Altbauwohnung, 3 Zimmer. Bad und Küche erneuern.', ...overrides };
+  const v = { name: 'Erika Musterfrau', email: 'erika@example.com', telefon: '+49 30 1234567', ort: '10437 Berlin', nachricht: 'Altbauwohnung, 3 Zimmer. Bad und Küche erneuern.', ...overrides };
   await page.getByLabel('Name').fill(v.name);
   await page.getByLabel('E-Mail').fill(v.email);
   await page.getByLabel('Telefon').fill(v.telefon);
   await page.getByLabel('Ort / PLZ des Objekts').fill(v.ort);
-  await page.getByLabel('Art des Projekts').selectOption(v.projektart);
   await page.getByLabel('Ihre Nachricht').fill(v.nachricht);
   await page.getByLabel(/Ich bin einverstanden/).check();
 }
@@ -29,7 +28,7 @@ test.describe('contact form', () => {
     await page.getByRole('button', { name: 'Anfrage senden' }).click();
     await expect(page.locator('#f-name-err')).toHaveText('Bitte geben Sie Ihren Namen ein.');
     await expect(page.locator('#f-email-err')).toHaveText(/gültige E-Mail/);
-    await expect(page.locator('#f-projektart-err')).toHaveText(/Art des Projekts/);
+    await expect(page.locator('#f-nachricht-err')).toHaveText(/mindestens 10 Zeichen/);
     await expect(page.getByLabel('Name')).toBeFocused();
     await expect(page.locator('#formStatus')).toHaveText('Bitte prüfen Sie die markierten Felder.');
 
@@ -60,7 +59,8 @@ test.describe('contact form', () => {
 
     const stored = await (await request.get(`${API}/__stored`)).json();
     expect(stored).toHaveLength(1);
-    expect(stored[0]).toMatchObject({ name: 'Erika Musterfrau', email: 'erika@example.com', projektart: 'Sanierung', ort: '10437 Berlin' });
+    expect(stored[0]).toMatchObject({ name: 'Erika Musterfrau', email: 'erika@example.com', ort: '10437 Berlin' });
+    expect(stored[0]).not.toHaveProperty('projektart');
   });
 
   test('bots filling the hidden field are not stored', async ({ page, request }) => {
