@@ -38,6 +38,23 @@ async function textInsideViewport(page) {
   expect(outside, 'elements outside the viewport').toEqual([]);
 }
 
+/** Text must stay inside its card (no long words sticking out). */
+async function textInsideCards(page) {
+  const out = await page.evaluate(() => {
+    const bad = [];
+    for (const card of document.querySelectorAll('.trade, .name-values li, .values li, .facts > div, .faq details')) {
+      const cr = card.getBoundingClientRect();
+      for (const t of card.querySelectorAll('h3, p, dd, dt, summary, .spec')) {
+        const range = document.createRange();
+        range.selectNodeContents(t);
+        if ([...range.getClientRects()].some((r) => r.right > cr.right + 1 || r.left < cr.left - 1)) bad.push(t.textContent.trim().slice(0, 40));
+      }
+    }
+    return bad;
+  });
+  expect(out, 'text sticking out of its card').toEqual([]);
+}
+
 for (const [name, width, height] of VIEWPORTS) {
   test.describe(`${name} ${width}×${height}`, () => {
     test.use({ viewport: { width, height } });
@@ -75,6 +92,7 @@ for (const [name, width, height] of VIEWPORTS) {
         await textInsideViewport(page);
         await page.screenshot({ path: info.outputPath(`02-${id}.png`) });
       }
+      await textInsideCards(page);
       // Bottom of the page: closing roof + footer
       await scrollToY(page, 1e6);
       await textInsideViewport(page);
