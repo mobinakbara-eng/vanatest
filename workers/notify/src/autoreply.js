@@ -8,10 +8,10 @@ const SIGNATURE = [
   '',
   '—',
   'VANA Management UG (haftungsbeschränkt)',
-  'Wöhlertstr. 4, 10115 Berlin',
-  'info@vana-management.com · vana-management.com',
+  'Web: www.vana-management.com',
+  'E-Mail: info@vana-management.com',
+  'Amtsgericht Berlin Charlottenburg HRB 281066 B',
   'Geschäftsführer: M. Sc. Vahid Naseri',
-  'Amtsgericht Charlottenburg, HRB 281066 B',
 ].join('\n');
 
 // Deliberately contains nothing the visitor typed: the form must not become a way

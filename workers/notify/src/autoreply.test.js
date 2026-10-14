@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FORM_REPLY, addressFrom, shouldAutoReply } from './autoreply.js';
+import { FORM_REPLY, MAIL_REPLY, addressFrom, shouldAutoReply } from './autoreply.js';
 
 const H = (o = {}) => new Headers(o);
 
@@ -27,5 +27,6 @@ test('never replies to automated mail, lists, no-reply senders or ourselves', ()
 
 test('form confirmation contains nothing the visitor typed', () => {
   assert.doesNotMatch(FORM_REPLY.text, /\$\{|undefined/);
-  assert.match(FORM_REPLY.text, /HRB 281066 B/);
+  assert.match(FORM_REPLY.text, /Amtsgericht Berlin Charlottenburg HRB 281066 B\nGeschäftsführer: M\. Sc\. Vahid Naseri$/);
+  assert.match(MAIL_REPLY.text, /Web: www\.vana-management\.com\nE-Mail: info@vana-management\.com/);
 });
