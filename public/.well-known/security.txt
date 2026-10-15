@@ -1,0 +1,4 @@
+Contact: mailto:info@vana-management.com
+Expires: 2027-10-15T00:00:00.000Z
+Preferred-Languages: de, en
+Canonical: https://vana-management.com/.well-known/security.txt

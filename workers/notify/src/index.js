@@ -89,13 +89,17 @@ export default {
       console.error('sending failed', e && e.message);
       return new Response('send failed', { status: 502 });
     }
-    // Confirmation for the visitor (every form request). Also marks the address as
-    // known, so a later e-mail to info@ gets no second automatic reply.
+    // Confirmation for the visitor. At most one per address and 24 hours, so the form
+    // cannot be used to flood someone else's inbox. Also marks the address as known,
+    // so a later e-mail to info@ gets no second automatic reply.
     if (env.BREVO_API_KEY) {
+      const to = a.email.toLowerCase();
       ctx.waitUntil((async () => {
         try {
-          await sendViaBrevo(env, { to: a.email.toLowerCase(), ...FORM_REPLY });
-          await env.SEEN.put('seen:' + a.email.toLowerCase(), new Date().toISOString());
+          if (await env.SEEN.get('confirmed:' + to)) return;
+          await env.SEEN.put('confirmed:' + to, '1', { expirationTtl: 86400 });
+          await sendViaBrevo(env, { to, ...FORM_REPLY });
+          await env.SEEN.put('seen:' + to, new Date().toISOString());
         } catch (e) {
           console.error('form confirmation failed', e && e.message);
         }

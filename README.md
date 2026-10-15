@@ -164,6 +164,22 @@ npm run test:notify                                              # تست ساخ
 
 ---
 
+## امنیت (وضعیت فعلی)
+| لایه | چی فعاله |
+|---|---|
+| **HTTPS** | فقط HTTPS، TLS 1.2+، گواهی Strict، HSTS یک‌ساله |
+| **هدرها** | CSP سخت‌گیر (بدون اسکریپت و استایل inline)، `frame-ancestors 'none'`، `X-Frame-Options: DENY`، `nosniff`، COOP/CORP `same-origin`، Permissions-Policy |
+| **فایروال Cloudflare** | Managed Free Ruleset + DDoS L7؛ قانون‌های اختصاصی: بلاک PHP/WordPress/`.env`/`.git`، فقط GET/HEAD/OPTIONS روی سایت؛ Rate Limit ۱۰۰ درخواست در ۱۰ ثانیه برای هر IP |
+| **فرم** | Cloudflare Turnstile (فقط وقتی فرم استفاده می‌شه لود می‌شه)، Honeypot، حداقل زمان پر کردن، Rate Limit ۵ در ساعت برای هر IP (هش‌شده)، چک Origin، حداکثر ۱۶ KB |
+| **ایمیل تأیید** | حداکثر یک تأیید برای هر آدرس در ۲۴ ساعت (جلوگیری از اسپم به آدرس دیگران) |
+| **دیتابیس** | RLS روی همه جدول‌ها، `anon` و `authenticated` هیچ دسترسی‌ای ندارن، ثبت‌نام و ورود ایمیلی Supabase خاموشه |
+| **دامنه** | DNSSEC، CAA (فقط CAهای Cloudflare)، SPF، DKIM، DMARC `p=quarantine` |
+| **گزارش آسیب‌پذیری** | `/.well-known/security.txt` |
+
+Turnstile: کلید عمومی تو `config.js`، کلید مخفی فقط تو Supabase (`TURNSTILE_SECRET_KEY`). ویجت تو داشبورد Cloudflare ← Turnstile ← «VANA Kontaktformular».
+
+---
+
 ## انتشار
 
 ### فعلاً: Netlify

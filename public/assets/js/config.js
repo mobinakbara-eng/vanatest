@@ -5,6 +5,6 @@
    No secret keys belong in this file. */
 window.VANA_CONFIG = {
   apiUrl: "https://dnamzzkduiougwwwiogo.supabase.co/functions/v1/kontakt",
-  turnstileSiteKey: "",
+  turnstileSiteKey: "0x4AAAAAAFXXe9v1sVoxWHjI",
   contactEmail: "info@vana-management.com"
 };

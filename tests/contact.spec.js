@@ -110,4 +110,43 @@ test.describe('contact form', () => {
     await page.getByRole('button', { name: 'Anfrage senden' }).click();
     await expect(page.locator('#formStatus')).toHaveText(/noch nicht freigeschaltet.*info@vana-management\.com/);
   });
+
+  // Cloudflare Turnstile, simulated: the real service blocks automated browsers.
+  async function fakeTurnstile(page, token) {
+    await page.route('https://challenges.cloudflare.com/turnstile/v0/api.js*', (r) => r.fulfill({
+      contentType: 'text/javascript',
+      body: `window.turnstile = { render: () => 'w1', getResponse: () => ${JSON.stringify(token)}, reset() {} };
+             window.vanaTurnstileReady && window.vanaTurnstileReady();`,
+    }));
+  }
+
+  test('Turnstile: loads only when the form is used, then sends its token', async ({ page, request }) => {
+    const loads = [];
+    page.on('request', (r) => r.url().includes('challenges.cloudflare.com') && loads.push(r.url()));
+    await useMockApi(page, { turnstileSiteKey: 'test-key' });
+    await fakeTurnstile(page, 'token-123');
+    let sent;
+    page.on('request', (r) => r.url().endsWith('/kontakt') && r.method() === 'POST' && (sent = r.postDataJSON()));
+    await page.goto('/#kontakt');
+    await page.waitForTimeout(3100);
+    expect(loads, 'nothing loaded from Cloudflare before the form is used').toEqual([]);
+    await fill(page);
+    expect(loads.length).toBe(1);
+    await page.getByRole('button', { name: 'Anfrage senden' }).click();
+    await expect(page.getByRole('heading', { name: 'Vielen Dank, Ihre Anfrage ist angekommen.' })).toBeVisible();
+    expect(sent.turnstile_token).toBe('token-123');
+  });
+
+  test('Turnstile: asks for the checkbox instead of failing when no token arrives', async ({ page, request }) => {
+    await useMockApi(page, { turnstileSiteKey: 'test-key' });
+    await fakeTurnstile(page, '');
+    await page.goto('/#kontakt');
+    await page.waitForTimeout(3100);
+    await fill(page);
+    await page.getByRole('button', { name: 'Anfrage senden' }).click();
+    await expect(page.locator('#formStatus')).toHaveText(/Bestätigen Sie, dass Sie ein Mensch sind/, { timeout: 12000 });
+    expect(await (await request.get(`${API}/__stored`)).json()).toHaveLength(0);
+    await expect(page.getByRole('button', { name: 'Anfrage senden' })).toBeEnabled();
+  });
 });
+

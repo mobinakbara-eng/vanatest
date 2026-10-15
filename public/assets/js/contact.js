@@ -77,8 +77,12 @@
     if (t.getAttribute('aria-invalid') === 'true' && inputValid(t)) fieldError(t, '');
   });
 
-  // Optional Cloudflare Turnstile
-  if (cfg.turnstileSiteKey) {
+  // Cloudflare Turnstile (bot protection). Loaded only once someone starts using the form,
+  // so visitors who just read the page never contact Cloudflare's challenge service.
+  let turnstileLoading = false;
+  function loadTurnstile() {
+    if (!cfg.turnstileSiteKey || turnstileLoading) return;
+    turnstileLoading = true;
     const box = document.createElement('div');
     box.className = 'turnstile';
     form.querySelector('.form-actions').before(box);
@@ -89,6 +93,24 @@
     s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=vanaTurnstileReady&render=explicit';
     s.async = true;
     document.head.append(s);
+  }
+  if (cfg.turnstileSiteKey) {
+    form.addEventListener('focusin', loadTurnstile, { once: true });
+    form.addEventListener('pointerdown', loadTurnstile, { once: true });
+  }
+
+  /** Waits up to 8 s for the Turnstile token (the check usually takes a second or two). */
+  async function turnstileToken() {
+    if (!cfg.turnstileSiteKey) return undefined;
+    loadTurnstile();
+    for (let i = 0; i < 40; i++) {
+      if (turnstileWidget !== null && window.turnstile) {
+        const token = window.turnstile.getResponse(turnstileWidget);
+        if (token) return token;
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    return '';
   }
 
   function setBusy(busy) {
@@ -118,9 +140,15 @@
       website: data.get('website') || '',
       elapsed_ms: Date.now() - openedAt
     };
-    if (turnstileWidget !== null && window.turnstile) payload.turnstile_token = window.turnstile.getResponse(turnstileWidget) || '';
-
     setBusy(true);
+    const token = await turnstileToken();
+    if (token === '') {
+      // Turnstile wants a click (rare): ask for it instead of sending a request that would fail
+      setBusy(false);
+      setStatus('Bitte bestätigen Sie kurz das Kästchen „Bestätigen Sie, dass Sie ein Mensch sind“ oberhalb des Buttons und senden Sie dann erneut.', 'err');
+      return;
+    }
+    if (token !== undefined) payload.turnstile_token = token;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
