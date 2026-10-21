@@ -168,6 +168,56 @@
     el.style.clipPath = `polygon(0 ${b.tip}%, 100% 0, 100% 100%, 0 ${100 - b.tip}%)`;
   }
 
+  // The shapes the beams hold, each over a scroll range ("hold"); between them they travel
+  function stages(W, H) {
+    const maxScroll = document.documentElement.scrollHeight - H;
+    const fr = holdAround(frameEl, H), sv = holdAround(servicesEl, H), st = holdAround(stepsEl, H);
+    // Start holding a little earlier where needed, so the section heading is still on screen
+    // when the shape is complete (see the menu links below)
+    const headingAt = id => { const h2 = document.querySelector('#' + id + ' h2'); return h2 ? h2.getBoundingClientRect().top + scrollY - H * .12 : Infinity; };
+    sv[0] = Math.min(sv[0], headingAt('leistungen'));
+    st[0] = Math.min(st[0], headingAt('ablauf'));
+    // "Warum VANA" and FAQ: the beams step back to the screen edges, clear of the text
+    const side = valuesEl && faqEl ? [holdAround(valuesEl, H)[0], holdAround(faqEl, H)[1]] : null;
+    return [
+      { name: 'logo',   get: roofLogo,          hold: [0, H * .18] },
+      { name: 'edges',  get: () => edges(W, H), hold: [H * 1.15, fr[0] - H * .7] },
+      { name: 'frame',  get: frame,             hold: fr },
+      { name: 'tracks', get: tracks,            hold: sv },
+      { name: 'rails',  get: rails,             hold: st },
+      ...(side ? [{ name: 'side', get: () => edges(W, H), hold: side }] : []),
+      { name: 'roof',   get: roofEnd,           hold: [Math.min(centreAt(roofEl, H) + H * .15, maxScroll - H * .05), Infinity] }
+    ];
+  }
+  window.vanaBeamStages = () => stages(innerWidth, innerHeight).map(({ name, hold }) => ({ name, hold }));
+
+  // Menu and in-page links: stop where the section's shape is complete, not halfway through the motion
+  const STAGE_OF = { 'ueber-uns': 'edges', leistungen: 'tracks', ablauf: 'rails', kontakt: 'roof' };
+  function landingY(id) {
+    const el = document.getElementById(id), name = STAGE_OF[id];
+    if (!el || !name) return null;
+    const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    const natural = el.getBoundingClientRect().top + scrollY - pad;
+    const st = stages(innerWidth, innerHeight).find(x => x.name === name);
+    const maxScroll = document.documentElement.scrollHeight - innerHeight;
+    return Math.min(maxScroll, Math.max(natural, Math.min(st.hold[0] + 4, st.hold[1])));
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    const id = decodeURIComponent(a.getAttribute('href').slice(1));
+    const y = landingY(id);
+    if (y === null) return;
+    e.preventDefault();
+    history.pushState(null, '', '#' + id);
+    scrollTo({ top: y, behavior: 'smooth' });
+  });
+  // Opened with a link like vana-management.com/#kontakt
+  addEventListener('load', () => {
+    const id = location.hash.slice(1), y = id && landingY(id);
+    if (y) scrollTo({ top: y, behavior: 'instant' });
+  });
+
   function update() {
     const W = innerWidth, H = innerHeight, s = scrollY;
     updateHeader();
@@ -183,19 +233,7 @@
     if (tagline) tagline.style.opacity = 1 - f;
     if (brand) brand.classList.toggle('visible', f > .9);
 
-    const maxScroll = document.documentElement.scrollHeight - H;
-    const fr = holdAround(frameEl, H), sv = holdAround(servicesEl, H), st = holdAround(stepsEl, H);
-    // "Warum VANA" and FAQ: the beams step back to the screen edges, clear of the text
-    const side = valuesEl && faqEl ? [holdAround(valuesEl, H)[0], holdAround(faqEl, H)[1]] : null;
-    const timeline = [
-      { get: roofLogo,          hold: [0, H * .18] },
-      { get: () => edges(W, H), hold: [H * 1.15, fr[0] - H * .7] },
-      { get: frame,             hold: fr },
-      { get: tracks,            hold: sv },
-      { get: rails,             hold: st },
-      ...(side ? [{ get: () => edges(W, H), hold: side }] : []),
-      { get: roofEnd,           hold: [Math.min(centreAt(roofEl, H) + H * .15, maxScroll - H * .05), Infinity] }
-    ];
+    const timeline = stages(W, H);
 
     let pair;
     for (let i = 0; i < timeline.length; i++) {

@@ -17,6 +17,29 @@ test.describe('navigation', () => {
     });
   }
 
+  for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }, { width: 1440, height: 900 }]) {
+    test(`menu links stop where the section's beam shape is complete (${viewport.width}px)`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      for (const [label, id, stage] of [['Über uns', 'ueber-uns', 'edges'], ['Leistungen', 'leistungen', 'tracks'], ['Ablauf', 'ablauf', 'rails'], ['Kontakt', 'kontakt', 'roof']]) {
+        await scrollToY(page, 0);
+        await page.waitForTimeout(300);
+        await page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name: label }).click();
+        // wait until the smooth scroll has stopped
+        let last = -1;
+        await expect.poll(async () => { const y = await page.evaluate(() => scrollY); const still = y === last; last = y; return still; }, { intervals: [150], timeout: 6000 }).toBe(true);
+        const r = await page.evaluate(([stage, id]) => {
+          const st = window.vanaBeamStages().find((x) => x.name === stage);
+          return { y: scrollY, from: st.hold[0], to: st.hold[1], heading: document.querySelector('#' + id + ' h2').getBoundingClientRect().top };
+        }, [stage, id]);
+        expect(r.y, `${label}: inside the complete shape`).toBeGreaterThanOrEqual(r.from);
+        expect(r.y, `${label}: inside the complete shape`).toBeLessThanOrEqual(r.to);
+        expect(r.heading, `${label}: heading still on screen`).toBeGreaterThan(40);
+        await expect(page).toHaveURL(new RegExp('#' + id + '$'));
+      }
+    });
+  }
+
   test('header fades out when scrolling down and returns when scrolling up', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
