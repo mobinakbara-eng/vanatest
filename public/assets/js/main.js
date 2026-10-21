@@ -33,6 +33,21 @@
     seen.forEach(el => io.observe(el));
   }
 
+  // WhatsApp button: shows once the hero is scrolled past, hides again near the contact form
+  const wa = $('waFloat');
+  if (wa) {
+    const form = $('contactForm');
+    const toggleWa = () => {
+      const past = scrollY > innerHeight * .6;
+      const r = form ? form.getBoundingClientRect() : null;
+      const atForm = r && r.top < innerHeight && r.bottom > 0;
+      wa.classList.toggle('show', past && !atForm);
+    };
+    addEventListener('scroll', toggleWa, { passive: true });
+    addEventListener('resize', toggleWa);
+    toggleWa();
+  }
+
   const year = $('year');
   if (year) year.textContent = new Date().getFullYear();
 

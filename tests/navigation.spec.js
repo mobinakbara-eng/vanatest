@@ -127,6 +127,26 @@ test.describe('navigation', () => {
     expect(await page.locator('.reveal').count()).toBeGreaterThan(20);
   });
 
+  test('WhatsApp: link in the contact details and a floating button after the hero', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const wa = /^https:\/\/wa\.me\/491781449227\?text=/;
+    await expect(page.locator('.contact-info a.wa-link')).toHaveAttribute('href', wa);
+    const btn = page.locator('#waFloat'); // hidden at first, so not yet in the accessibility tree
+    await expect(btn).toHaveAttribute('aria-label', /Per WhatsApp schreiben/);
+    await expect(btn).toHaveAttribute('href', wa);
+    await expect(btn).toHaveAttribute('target', '_blank');
+    await expect(btn).toBeHidden(); // not over the logo animation
+    await scrollToY(page, 1600);
+    await expect(btn).toBeVisible();
+    const box = await btn.boundingBox();
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+    expect(box.height).toBeGreaterThanOrEqual(44); // touch target
+    // hidden while the contact form is on screen, so it never covers a field or the send button
+    await page.locator('#contactForm').scrollIntoViewIfNeeded();
+    await expect(btn).toBeHidden();
+  });
+
   test('unknown pages show the 404 page', async ({ page }) => {
     const res = await page.goto('/gibt-es-nicht');
     expect(res.status()).toBe(404);
