@@ -33,6 +33,15 @@ export function composeText(a) {
 }
 
 export default {
+  // Daily: one light request to the contact-form function, so the free Supabase project
+  // never counts as inactive (it would be paused after 7 days without activity).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      const res = await fetch(env.KEEPALIVE_URL, { signal: AbortSignal.timeout(20000) });
+      if (!res.ok) console.error('keep-alive failed', res.status);
+    })());
+  },
+
   // Mail to info@ (Email Routing rule → this Worker): forward it to the team inbox,
   // then confirm receipt to first-time senders.
   async email(message, env, ctx) {

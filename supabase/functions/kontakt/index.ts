@@ -79,6 +79,10 @@ Deno.serve(
       if (error) throw error;
       return data === true;
     },
+    async ping() {
+      const { error } = await supabase.from("anfrage_limits").select("*", { head: true, count: "exact" }).limit(1);
+      if (error) throw error;
+    },
     async insertAnfrage(anfrage) {
       const { error } = await supabase.from("anfragen").insert(anfrage);
       if (error) throw error;

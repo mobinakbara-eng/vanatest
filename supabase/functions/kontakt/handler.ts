@@ -13,6 +13,8 @@ export interface Deps {
   notify?(anfrage: Anfrage): Promise<void>;
   /** Optional: Cloudflare Turnstile verification. When set, a token is required. */
   verifyTurnstile?(token: string, ip: string | null): Promise<boolean>;
+  /** Optional: light database read for GET …/health (keeps the free Supabase project active). */
+  ping?(): Promise<void>;
   log?(message: string, detail?: unknown): void;
 }
 
@@ -55,6 +57,16 @@ export function createHandler(deps: Deps) {
   return async function handle(req: Request): Promise<Response> {
     const origin = req.headers.get("origin");
     const originOk = !origin || deps.allowedOrigins.includes("*") || deps.allowedOrigins.includes(origin);
+
+    if (req.method === "GET" && new URL(req.url).pathname.endsWith("/health")) {
+      try {
+        if (deps.ping) await deps.ping();
+        return json(200, { ok: true }, null);
+      } catch (e) {
+        log("health check failed", e);
+        return json(503, { ok: false }, null);
+      }
+    }
 
     if (req.method === "OPTIONS") {
       return new Response(null, { status: originOk ? 204 : 403, headers: cors(origin) });

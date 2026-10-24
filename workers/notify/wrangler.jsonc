@@ -21,9 +21,12 @@
     // default address instead of info@.
     "NOTIFY_FROM": "website@vana-management.com",
     "MAIL_FROM_NAME": "VANA Website",
-    "MAIL_TO": "vahidnaseri1988@gmail.com"
+    "MAIL_TO": "vahidnaseri1988@gmail.com",
+    "KEEPALIVE_URL": "https://dnamzzkduiougwwwiogo.supabase.co/functions/v1/kontakt/health"
   },
   "send_email": [{ "name": "MAIL", "destination_address": "vahidnaseri1988@gmail.com" }],
   "kv_namespaces": [{ "binding": "SEEN", "id": "46a4fc36b62842f48ac944ec2c3d449d" }],
+  // Keep-alive for Supabase: daily at 06:17 UTC
+  "triggers": { "crons": ["17 6 * * *"] },
   "observability": { "enabled": true }
 }

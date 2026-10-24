@@ -137,6 +137,18 @@ Deno.test("a project type sent by an old cached page is ignored, not rejected", 
   assertEquals("projektart" in stored[0], false);
 });
 
+Deno.test("GET /health reads the database and answers 200; 503 when the database fails", async () => {
+  let pinged = 0;
+  const ok = setup({ ping: () => (pinged++, Promise.resolve()) });
+  const res = await ok.handle(new Request("https://x.supabase.co/functions/v1/kontakt/health"));
+  assertEquals(res.status, 200);
+  assertEquals(pinged, 1);
+  const down = setup({ ping: () => Promise.reject(new Error("db down")) });
+  assertEquals((await down.handle(new Request("https://x.supabase.co/functions/v1/kontakt/health"))).status, 503);
+  // other GET requests are still refused
+  assertEquals((await ok.handle(new Request("https://x.supabase.co/functions/v1/kontakt"))).status, 405);
+});
+
 Deno.test("rate limit: sixth request from the same IP gets 429", async () => {
   const { handle, stored } = setup();
   const statuses = [];
