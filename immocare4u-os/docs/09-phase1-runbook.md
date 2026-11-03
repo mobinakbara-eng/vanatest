@@ -36,6 +36,12 @@ GENERIC_TIMEZONE=Europe/Berlin
 ```
 > اگر سیاست شما خواندن env در Code node را نمی‌پذیرد، جایگزین: n8n External Secrets (نسخه‌ی Enterprise) یا یک Sub-workflow امضا. در هر حال کلیدها هرگز داخل JSON Workflow ذخیره نمی‌شوند.
 
+### مسیر n8n Cloud (Trial یا پلن پولی)
+* در Trial رایگان، **n8n API در دسترس نیست**؛ Import دستی: Workflows → ⋯ → **Import from File** (یا Ctrl+V محتوای JSON روی Canvas).
+* Environment Variable در Cloud قابل تنظیم نیست؛ Workflowها کلیدها را از **Settings → Variables** می‌خوانند (`$vars`): `SMOOBU_API_KEY`, `SMOOBU_API_SECRET`, `SMOOBU_WEBHOOK_TOKEN`. اگر منوی Variables در پلن شما نیست، به Claude اطلاع دهید تا روش جایگزین ساخته شود.
+* `require('crypto')` در Code node کلاود مجاز است (REQ-VERIFY با اجرای WF-00).
+* PostgreSQL باید خارجی باشد (مثلاً Supabase در ریجن EU)؛ اتصال با Credential «ImmoCare4U Postgres».
+
 1. Credential Postgres با نام دقیق **ImmoCare4U Postgres** بسازید (کاربر `n8n_app`).
 2. Import: `n8n/workflows/WF-14-error-monitor-minimal.json`، سپس `WF-00`، سپس `WF-02`. در هر Postgres node Credential را دوباره انتخاب کنید (شناسه‌ی `REPLACE_WITH_CREDENTIAL_ID` placeholder است).
 3. در WF-02 → Settings → Error workflow = WF-14.

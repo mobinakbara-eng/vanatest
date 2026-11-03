@@ -33,7 +33,7 @@ function sql(nodeName, params) {
 function runCode(nodeName, inputJson, outputs) {
   const sandbox = {
     $input: { first: () => ({ json: inputJson }), all: () => [{ json: inputJson }] },
-    $env: { SMOOBU_WEBHOOK_TOKEN: TOKEN, SMOOBU_API_KEY: 'k', SMOOBU_API_SECRET: 's' },
+    $vars: { SMOOBU_WEBHOOK_TOKEN: TOKEN, SMOOBU_API_KEY: 'k', SMOOBU_API_SECRET: 's' },
     $: (n) => ({ first: () => ({ json: outputs[n] }) }),
     require, Buffer, JSON, console,
   };

@@ -19,6 +19,13 @@ const lib = (name) => fs.readFileSync(path.join(__dirname, 'lib', name), 'utf8')
 const HMAC = lib('smoobu-hmac.js');
 const CLASSIFIER = lib('classifier.js');
 
+// Secrets: n8n Variables ($vars, works on n8n Cloud) first, then env (self-hosted).
+const IC_CFG = `function icCfg(name) {
+  try { if (typeof $vars !== 'undefined' && $vars[name]) return String($vars[name]); } catch (e) {}
+  try { if (typeof $env !== 'undefined' && $env[name]) return String($env[name]); } catch (e) {}
+  throw new Error('Missing configuration ' + name + ' (set it in n8n Settings → Variables)');
+}`;
+
 const PG_CRED = { postgres: { id: 'REPLACE_WITH_CREDENTIAL_ID', name: 'ImmoCare4U Postgres' } };
 
 let pos = 0;
@@ -53,12 +60,13 @@ const connect = (pairs) => {
 };
 
 const signerCode = (buildReq) => `const crypto = require('crypto');
+${IC_CFG}
 ${HMAC}
 const out = [];
 for (const item of $input.all()) {
   const j = item.json;
   const spec = (${buildReq})(j);
-  const req = smoobuSign({ ...spec, apiKey: $env.SMOOBU_API_KEY, apiSecret: $env.SMOOBU_API_SECRET, crypto });
+  const req = smoobuSign({ ...spec, apiKey: icCfg('SMOOBU_API_KEY'), apiSecret: icCfg('SMOOBU_API_SECRET'), crypto });
   out.push({ json: { ...j, req: { method: spec.method || 'GET', url: req.url, headers: req.headers } } });
 }
 return out;`;
@@ -118,9 +126,11 @@ function wf02() {
     }, { webhookId: cryptoId('smoobu-inbound') }),
 
     code('Authenticate & Key', `const crypto = require('crypto');
+${IC_CFG}
 const item = $input.first().json;
 const token = String((item.query || {}).token || '');
-const expected = String($env.SMOOBU_WEBHOOK_TOKEN || '');
+let expected = '';
+try { expected = icCfg('SMOOBU_WEBHOOK_TOKEN'); } catch (e) {}
 const a = Buffer.from(token), b = Buffer.from(expected);
 const valid = expected.length >= 32 && a.length === b.length && crypto.timingSafeEqual(a, b);
 const body = item.body || {};
