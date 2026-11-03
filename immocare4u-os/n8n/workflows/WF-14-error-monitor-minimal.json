@@ -1,0 +1,59 @@
+{
+  "name": "WF-14 — Error Monitor (DLQ, minimal)",
+  "nodes": [
+    {
+      "id": "561cdd56-bc4c-50b6-9616-3e35353d6be0",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "58d1cb2a-8aa0-0335-5173-9d73c27213b0",
+      "name": "Write dead letter",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ic.dead_letter_events (workflow, ref_table, ref_id, payload, error)\nVALUES ($1, 'n8n_execution', $2, $3::jsonb, $4) RETURNING dlq_id;",
+        "options": {
+          "queryReplacement": "={{ [ $json.workflow.name, String($json.execution.id), JSON.stringify({ url: $json.execution.url, lastNode: $json.execution.lastNodeExecuted }), String($json.execution.error && $json.execution.error.message) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "ImmoCare4U Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Write dead letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "status": "PLANNED",
+    "generatedBy": "n8n/build-workflows.js"
+  }
+}
