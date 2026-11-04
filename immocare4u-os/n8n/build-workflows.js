@@ -307,11 +307,106 @@ VALUES ($1, 'n8n_execution', $2, $3::jsonb, $4) RETURNING dlq_id;`,
   };
 }
 
+// ======================================================================
+// WF-01 — Smoobu read-only sync (polling). Owner decision 2026-11-04: Smoobu is
+// read-only, so no webhook can be registered; this replaces WF-02 for now.
+//   every 30 min: reservations overlapping [today-2, today+60] → upsert
+//   → messages of each active reservation → store new ones + rule classification
+// ======================================================================
+const SYNC_RESERVATIONS_JS = `const ymd = (d) => d.toISOString().slice(0, 10);
+const now = new Date();
+const from = ymd(new Date(now.getTime() - 2 * 864e5)), to = ymd(new Date(now.getTime() + 60 * 864e5));
+return [{ json: { req: { method: 'GET', path: '/api/reservations', query: { from, to, pageSize: 100, showCancellation: 'true' } } } }];`;
+
+const NORMALIZE_LIST_JS = `const r = $input.first().json;
+if (r.statusCode !== 200) throw new Error('Smoobu reservations HTTP ' + r.statusCode + ' ' + JSON.stringify(r.body).slice(0, 200));
+const PII = ['email','phone','address','guest-name','firstname','lastname','notice','assistant-notice','guest-app-url'];
+const out = [];
+for (const res of (r.body.bookings || [])) {
+  const ch = (res.channel && res.channel.name) || '';
+  if (res['is-blocked-booking'] || /blocked/i.test(ch)) continue;
+  const t = String(res.type || '').toLowerCase();
+  const status = t.includes('cancel') ? 'CANCELLED' : t.includes('modification') ? 'MODIFIED' : 'CONFIRMED';
+  const raw = Object.fromEntries(Object.entries(res).filter(([k]) => !PII.includes(k)));
+  out.push({ json: { reservationId: res.id, status,
+    p: [ Number(res.id), Number((res.apartment && res.apartment.id) || 0), ch || null, res['reference-id'] || null,
+         res.arrival, res.departure, res.adults ?? null, res.children ?? null, status, false, res.price ?? null, JSON.stringify(raw) ] } });
+}
+return out;`;
+
+const SPEC_MESSAGES_JS = `return $input.all()
+  .filter((i) => i.json.status !== 'CANCELLED' && i.json.property_id)
+  .map((i) => ({ json: { reservationId: Number(i.json.reservation_id), propertyId: i.json.property_id,
+    req: { method: 'GET', path: '/api/reservations/' + i.json.reservation_id + '/messages' } } }));`;
+
+const MESSAGES_TO_ROWS_JS = `${CLASSIFIER}
+const specs = $('Spec messages').all();
+const out = [];
+$input.all().forEach((item, idx) => {
+  const r = item.json, spec = specs[idx].json;
+  if (r.statusCode !== 200) throw new Error('Messages HTTP ' + r.statusCode + ' for reservation ' + spec.reservationId);
+  for (const m of (r.body.messages || [])) {
+    const text = String(m.message || m.htmlMessage || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();
+    if (!text) continue;
+    // Smoobu message type: 1 = guest → host, 2 = host → guest (verified on 2,252 historic messages)
+    const isGuest = m.type === 1;
+    const rule = isGuest ? classifyByRules(text) : null;
+    out.push({ json: { p: [ Number(m.id), spec.reservationId, spec.propertyId, isGuest ? 'INBOUND' : 'OUTBOUND',
+      isGuest ? 'GUEST' : 'HOST', m.subject || null, text, m.createdAt || null,
+      rule ? rule.level : null, rule ? rule.intent : null, rule ? '{' + rule.matchedRules.join(',') + '}' : null,
+      rule ? rule.flags.join(',') : null ] } });
+  }
+});
+return out;`;
+
+function wf01() {
+  const w2 = wf02();
+  const q = (n) => w2.nodes.find((x) => x.name === n).parameters.query;
+  pos = 0;
+  const nodes = [
+    node('Every 30 min', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'minutes', minutesInterval: 30 }] } }),
+    node('Test Webhook', 'n8n-nodes-base.webhook', 2, {
+      httpMethod: 'POST', path: 'ic/wf01-run', authentication: 'headerAuth', responseMode: 'lastNode', options: {},
+    }, { webhookId: cryptoId('ic-wf01-run'), credentials: cred('httpHeaderAuth', 'IC Webhook Gate'), y: 500 }),
+    code('Spec reservations', SYNC_RESERVATIONS_JS),
+    http('Smoobu GET reservations'),
+    code('Normalize reservations', NORMALIZE_LIST_JS),
+    pg('Upsert reservation', q('Upsert reservation'), `={{ $json.p }}`),
+    code('Spec messages', SPEC_MESSAGES_JS),
+    http('Smoobu GET messages'),
+    code('Messages to rows', MESSAGES_TO_ROWS_JS),
+    pg('Store message + classification', q('Store message + classification'), `={{ $json.p }}`, { alwaysOutputData: true }),
+    pg('Log run', `INSERT INTO ic.automation_runs (workflow, n8n_execution_id, finished_at, status, summary)
+VALUES ('WF-01', $1, now(), 'SUCCESS', $2::jsonb) RETURNING run_id, summary;`,
+    `={{ [ $execution.id, JSON.stringify({ reservations: $('Normalize reservations').all().length, messagesSeen: $('Messages to rows').all().length, newClassified: $('Store message + classification').all().filter(i => i.json.message_pk).length }) ] }}`,
+    { executeOnce: true }),
+  ];
+  return {
+    name: 'WF-01 — Smoobu Read-only Sync (TEST MODE)',
+    nodes,
+    connections: connect([
+      ['Every 30 min', 'Spec reservations'],
+      ['Test Webhook', 'Spec reservations'],
+      ['Spec reservations', 'Smoobu GET reservations'],
+      ['Smoobu GET reservations', 'Normalize reservations'],
+      ['Normalize reservations', 'Upsert reservation'],
+      ['Upsert reservation', 'Spec messages'],
+      ['Spec messages', 'Smoobu GET messages'],
+      ['Smoobu GET messages', 'Messages to rows'],
+      ['Messages to rows', 'Store message + classification'],
+      ['Store message + classification', 'Log run'],
+    ]),
+    settings: { executionOrder: 'v1' },
+    meta: { status: 'PLANNED', generatedBy: 'n8n/build-workflows.js' },
+  };
+}
+
 const outDir = path.join(__dirname, 'workflows');
 fs.mkdirSync(outDir, { recursive: true });
 for (const [file, wf] of [['WF-00-smoobu-connectivity-test.json', wf00()],
                           ['WF-02-smoobu-webhook-receiver.json', wf02()],
-                          ['WF-14-error-monitor-minimal.json', wf14()]]) {
+                          ['WF-14-error-monitor-minimal.json', wf14()],
+                          ['WF-01-smoobu-readonly-sync.json', wf01()]]) {
   fs.writeFileSync(path.join(outDir, file), JSON.stringify(wf, null, 2) + '\n');
   console.log('wrote', file, `(${wf.nodes.length} nodes)`);
 }
