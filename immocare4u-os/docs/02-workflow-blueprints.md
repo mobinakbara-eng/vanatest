@@ -75,7 +75,7 @@
 * Deadline بر اساس priority (URGENT 4h، HIGH 24h، MEDIUM 72h، LOW 7d)؛ یادآوری خودکار.
 
 ### WF-09 — Property Acquisition Monitor
-* **Trigger:** Schedule **روزی یک بار، 06:47 Europe/Berlin** (تصمیم مدیر 2026-11-04؛ قبلاً هر ۵ ساعت) — گزارش ایمیلی مانیتور (WF-13) بلافاصله پس از آن + **قفل اجرا**: `pg_try_advisory_lock(9009)`؛ اگر false ← خروج.
+* **Trigger:** Schedule هر ۵ ساعت + **قفل اجرا**: `pg_try_advisory_lock(9009)`؛ اگر false ← خروج.
 * **منابع فقط از مسیرهای مجاز (REQ-VERIFY برای هر منبع):** API رسمی/Partner، ایمیل‌های Search Alert پورتال‌ها (Gmail Trigger → Parser)، فیدهای دارای مجوز، وب‌سایت رسمی مدیران املاک با رعایت robots/ToS. **Scraping مخالف ToS طراحی نمی‌شود.**
 * خروجی: آیتم‌های خام → WF-10.
 
