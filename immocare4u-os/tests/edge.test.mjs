@@ -28,8 +28,13 @@ test('route allow-list', () => {
   assert.equal(routeAllowed('DELETE', '/api/reservations/123').ok, false);
   assert.equal(routeAllowed('PUT', '/api/reservations/123').ok, false);
   assert.equal(routeAllowed('GET', '/api/reservations/../users').ok, false);
-  assert.equal(routeAllowed('POST', '/api/reservations/1/messages/send-message-to-guest').ok, false);
-  assert.ok(routeAllowed('POST', '/api/reservations/1/messages/send-message-to-guest', { IC_ALLOW_SEND: 'true' }).ok);
+  // read-only: no write route exists, flags cannot enable one
+  for (const flags of [{}, { IC_ALLOW_SEND: 'true', IC_ALLOW_WEBHOOK_ADMIN: 'true' }]) {
+    assert.equal(routeAllowed('POST', '/api/reservations/1/messages/send-message-to-guest', flags).ok, false);
+    assert.equal(routeAllowed('POST', '/api/users/webhooks', flags).ok, false);
+    assert.equal(routeAllowed('POST', '/api/reservations', flags).ok, false);
+    assert.equal(routeAllowed('PATCH', '/api/users/webhooks/1', flags).ok, false);
+  }
 });
 
 test('safeEqual requires >= 32 chars and exact match', () => {

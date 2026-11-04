@@ -2,8 +2,7 @@
 // Secrets (Supabase → Edge Functions → Secrets):
 //   SMOOBU_API_KEY, SMOOBU_API_SECRET   (entered by the owner, never seen by n8n or Claude)
 //   IC_PROXY_TOKEN                      (shared with n8n Header Auth credential "IC Smoobu Proxy")
-//   IC_ALLOW_SEND=true                  (optional; without it sending to guests is impossible)
-//   IC_ALLOW_WEBHOOK_ADMIN=true         (optional; allows registering webhooks)
+// READ-ONLY by owner decision (2026-11-04): only GET routes exist in the allow-list.
 // Request:  POST {"method":"GET","path":"/api/reservations/123","query":{...},"body":{...}}
 //           header x-ic-proxy-token: <IC_PROXY_TOKEN>
 // Response: {"statusCode":200,"rateLimit":{...},"body":<smoobu json>}

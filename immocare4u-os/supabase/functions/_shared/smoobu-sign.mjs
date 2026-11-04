@@ -40,13 +40,15 @@ export async function sign({ method = 'GET', path, query, body = '', apiKey, api
 }
 
 // Allow-list of Smoobu operations n8n may perform through the proxy.
+// OWNER DECISION 2026-11-04: Smoobu access is READ-ONLY. The apartments are live;
+// nothing may be written, added or sent. Write routes are deliberately absent —
+// re-adding one requires a code change, review and redeploy (not just a flag).
 export const ROUTES = [
   { method: 'GET', re: /^\/api\/apartments(\/\d+)?$/ },
   { method: 'GET', re: /^\/api\/reservations(\/\d+)?$/ },
   { method: 'GET', re: /^\/api\/reservations\/\d+\/messages$/ },
+  { method: 'GET', re: /^\/api\/threads$/ },
   { method: 'GET', re: /^\/api\/users\/webhooks(\/\d+)?$/ },
-  { method: 'POST', re: /^\/api\/users\/webhooks$/, flag: 'IC_ALLOW_WEBHOOK_ADMIN' },
-  { method: 'POST', re: /^\/api\/reservations\/\d+\/messages\/send-message-to-guest$/, flag: 'IC_ALLOW_SEND' },
 ];
 
 export function routeAllowed(method, path, flags = {}) {
