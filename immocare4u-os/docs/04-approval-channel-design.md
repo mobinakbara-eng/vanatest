@@ -1,4 +1,31 @@
-# F. Telegram Approval Design
+# F. Approval Channel Design — WhatsApp (primary)
+
+> تصمیم مدیر (2026-11-04): کانال تأیید و هشدار **WhatsApp** است، نه Telegram. منطق تأیید (شناسه، انقضا، Approve/Edit/Reject، ردیابی) مستقل از کانال است و در ادامه همان می‌ماند؛ هر جا «Telegram» آمده، معادل WhatsApp طبق جدول زیر پیاده می‌شود.
+
+## WhatsApp Business Cloud API — پیش‌نیازها (REQ-VERIFY)
+| مورد | توضیح |
+|---|---|
+| Meta Business Portfolio | https://business.facebook.com — احراز کسب‌وکار ImmoCare4U GbR برای سقف ارسال بالاتر |
+| Meta App (نوع Business) + محصول WhatsApp | https://developers.facebook.com/apps |
+| شماره‌ی فرستنده | شماره‌ای که **در WhatsApp عادی یا WhatsApp Business App فعال نباشد** (یا شماره‌ی تست Meta برای فاز تست) |
+| Permanent token | System User در Business Settings با دسترسی `whatsapp_business_messaging` → در n8n: Credentials → WhatsApp |
+| Phone Number ID + WABA ID | از پنل WhatsApp در Meta App (محرمانه نیستند) |
+| Webhook | Callback URL = Webhook یک Workflow «WhatsApp Trigger» در n8n؛ فیلد `messages` subscribe شود |
+
+## تفاوت‌ها با Telegram و طراحی
+| موضوع | WhatsApp | طراحی ما |
+|---|---|---|
+| دکمه‌ها | Interactive *reply buttons*، حداکثر **۳ دکمه**، عنوان ≤ 20 کاراکتر | `✅ Approve` · `✏️ Edit` · `🛑 Take over` — id دکمه: `ap:<code>:approve` و… |
+| پنجره‌ی ۲۴ ساعته | پیام آزاد فقط تا ۲۴ ساعت پس از آخرین پیام مدیر؛ خارج از آن فقط **Template تأییدشده** | Template utility `ic_approval_request` (متن کوتاه + متغیرها + دکمه‌ها)؛ مدیران روزانه یک پیام «/start» یا پاسخ به گزارش روزانه می‌فرستند تا پنجره باز بماند |
+| هزینه | Template‌ها پولی (به ازای پیام، طبق نرخ Meta برای آلمان — REQ-VERIFY)؛ پاسخ در پنجره‌ی ۲۴h معمولاً رایگان | تجمیع: یک پیام برای چند Approval کم‌اهمیت؛ EMERGENCY همیشه جدا |
+| گروه | Cloud API به گروه‌ها پیام نمی‌دهد | پیام جداگانه به هر مدیر مجاز؛ اولین تصمیم معتبر، بقیه پیام «قبلاً توسط X تأیید شد» |
+| Edit | `force_reply` ندارد | پس از دکمه‌ی Edit، پیام متنی بعدی همان مدیر در ۱۰ دقیقه = متن جدید → پیش‌نمایش + دکمه‌های `Send` / `Cancel` |
+| احراز فرستنده | `from` = شماره‌ی مدیر | فقط شماره‌های ثبت‌شده در `ic.staff.whatsapp_phone` (E.164)؛ بقیه رد + `audit_log` |
+| حریم خصوصی | Meta پردازنده‌ی داده | DPA Meta Business؛ فقط نام کوچک مهمان، بدون ایمیل/تلفن/کد ورود |
+
+---
+
+## (طراحی پایه — Telegram؛ منطق برای WhatsApp یکسان است)
 
 ## کانال‌ها
 | چت | اعضا | محتوا |

@@ -45,7 +45,7 @@
 * **REQ-VERIFY:** محدودیت‌های کانال برای لینک/فایل در پیام (Airbnb/Booking) — قبل از ارسال لینک ویدیو بررسی شود.
 
 ### WF-04 — Human Approval Workflow
-جزئیات در `04-telegram-approval-design.md`. Nodes: Execute Workflow Trigger → Postgres insert approvals (`expires_at` بر اساس سطح) → Telegram sendMessage (inline keyboard) → ذخیره `telegram_message_id`. Workflow جداگانه‌ی `WF-04b Telegram Callback` (Telegram Trigger) → اعتبارسنجی chat_id در `staff` → قفل ردیف (`UPDATE … WHERE status='PENDING' RETURNING`) → ارسال/ویرایش/رد. Schedule هر ۵ دقیقه: approvals منقضی ← `EXPIRED` + یادآوری/Escalation؛ **هرگز ارسال پیش‌فرض.**
+جزئیات در `04-approval-channel-design.md`. Nodes: Execute Workflow Trigger → Postgres insert approvals (`expires_at` بر اساس سطح) → Telegram sendMessage (inline keyboard) → ذخیره `telegram_message_id`. Workflow جداگانه‌ی `WF-04b Telegram Callback` (Telegram Trigger) → اعتبارسنجی chat_id در `staff` → قفل ردیف (`UPDATE … WHERE status='PENDING' RETURNING`) → ارسال/ویرایش/رد. Schedule هر ۵ دقیقه: approvals منقضی ← `EXPIRED` + یادآوری/Escalation؛ **هرگز ارسال پیش‌فرض.**
 
 ### WF-05 — Scheduled Guest Communication
 * **Trigger:** Schedule هر ۵ دقیقه.

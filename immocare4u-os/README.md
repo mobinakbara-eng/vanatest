@@ -26,7 +26,7 @@
 | C | [docs/02-workflow-blueprints.md](docs/02-workflow-blueprints.md) + `n8n/workflows/` |
 | D | [docs/03-ai-guest-agent-system-prompt.md](docs/03-ai-guest-agent-system-prompt.md) |
 | E | [knowledge-base/property-template.yaml](knowledge-base/property-template.yaml) |
-| F | [docs/04-telegram-approval-design.md](docs/04-telegram-approval-design.md) |
+| F | [docs/04-approval-channel-design.md](docs/04-approval-channel-design.md) |
 | G | [docs/05-dashboard-spec.md](docs/05-dashboard-spec.md) |
 | H | [docs/06-testing-plan.md](docs/06-testing-plan.md) |
 | I | [docs/07-security-compliance-checklist.md](docs/07-security-compliance-checklist.md) |
