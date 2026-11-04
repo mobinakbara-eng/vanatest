@@ -16,5 +16,5 @@
 | Q10 | همه | گرمایش / آب گرم: مراحل ساده‌ی رفع مشکل |
 | Q11 | همه | شماره‌ی اضطراری تیم برای مهمان |
 | — | n8n | Credential `IC Gmail` (immocare4u.kontakt@gmail.com) |
-| — | n8n | Credential کلید AI (بسته به انتخاب مدل، `docs/12-ai-model-comparison.md`) |
+| ✅ | n8n | Credential `IC Anthropic` ساخته شد (2026-11-04، Claude Haiku 5.5) — کلید اول (بدون Workspace) را در Console حذف کنید |
 | — | اکسل | بازبینی ردیف‌ها و OK کردن |
