@@ -76,50 +76,100 @@ test('WF-01 uses only the read-only proxy', () => {
   }
 });
 
-// ---------------- drafting (WF-03 inline) ----------------
+// ---------------- drafting (WF-03 inline) + email + approval (WF-04) ----------------
 const { execFileSync } = require('node:child_process');
+const wf04 = require('../n8n/workflows/WF-04-email-approval.json');
+const by4 = Object.fromEntries(wf04.nodes.map((n) => [n.name, n]));
 const aiResp = (obj) => ({ json: { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(obj) }] } });
 const src = (o = {}) => ({ json: { message_pk: 5, reservation_id: 9, property_id: 'P-BER-001', body: 'x', internal_name: 'Loft',
-  rule_level: 'AUTO', rule_intent: 'WIFI', rule_flags: '', channel_name: 'Airbnb', arrival: '2026-11-10', departure: '2026-11-12',
+  rule_level: 'AUTO', rule_intent: 'WIFI', rule_flags: '', channel_name: 'Airbnb', arrival: '2026-11-03T00:00:00.000Z', departure: '2026-11-05T00:00:00.000Z',
   kb: [{ key: 'faq_wifi', lang: 'de', value: 'MagentaWLAN-X382', verified: false }], ...o } });
-const base = { level: 6, intent: 'WIFI', confidence: 0.95, language: 'de', reply: 'Das WLAN heißt MagentaWLAN-X382.', used_kb_keys: ['faq_wifi'], needs_human: false, flags: [], summary_fa: 'سؤال درباره وای‌فای' };
+const base = { level: 6, intent: 'WIFI', confidence: 0.95, language: 'de', reply: 'Das WLAN heißt MagentaWLAN-X382.', used_kb_keys: ['faq_wifi'],
+  needs_human: false, flags: [], guest_fa: 'وای‌فای چیست؟', reply_fa: 'اسم وای‌فای ...', reason_fa: 'سؤال رایج' };
+const decide = (resp, s = src()) => { const [o] = run('Decide level & email', [resp], { 'Build AI request': [s] }); return { p: o.json.p, payload: JSON.parse(o.json.p[7]) }; };
+const render = (payload) => {
+  const sb = { $input: { all: () => [{ json: { payload, approval_code: 'AP-X1', link_token: 'tok123' } }] }, encodeURIComponent, String, JSON };
+  return JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${byName['Render email'].parameters.jsCode} })`, sb)()))[0].json;
+};
 
-test('decide: FAQ stays level 6 but flags unverified KB', () => {
-  const [o] = run('Decide level & email', [aiResp(base)], { 'Build AI request': [src()] });
-  assert.equal(o.json.level, 6);
-  assert.match(o.json.html, /UNGEPRÜFTE/);
-  assert.match(o.json.subject, /^\[IC\]\[L6\]/);
+test('decide: FAQ stays level 6, unverified KB recorded', () => {
+  const { payload } = decide(aiResp(base));
+  assert.equal(payload.level, 6);
+  assert.deepEqual(payload.used_unverified, ['faq_wifi']);
+  assert.equal(payload.arrival, '2026-11-03');
 });
 
 test('decide: rule CRITICAL wins over AI level 6', () => {
-  const [o] = run('Decide level & email', [aiResp(base)], { 'Build AI request': [src({ rule_level: 'CRITICAL', rule_intent: 'REFUND' })] });
-  assert.equal(o.json.level, 2);
+  assert.equal(decide(aiResp(base), src({ rule_level: 'CRITICAL', rule_intent: 'REFUND' })).payload.level, 2);
 });
 
 test('decide: codes are stripped from drafts and level raised', () => {
-  const [o] = run('Decide level & email', [aiResp({ ...base, reply: 'Der Code für den Safe ist 1969.' })], { 'Build AI request': [src()] });
-  assert.ok(!o.json.html.includes('1969'));
-  assert.equal(o.json.level, 2);
+  const { payload, p } = decide(aiResp({ ...base, reply: 'Der Code für den Safe ist 1969.' }));
+  assert.ok(!p[3].includes('1969'));
+  assert.equal(payload.level, 2);
 });
 
-test('decide: invalid AI output → level 4, no crash, guest text escaped', () => {
-  const [o] = run('Decide level & email', [{ json: { content: [{ type: 'text', text: 'not json' }] } }], { 'Build AI request': [src({ body: '<script>x</script>' })] });
-  assert.equal(o.json.level, 4);
-  assert.ok(!o.json.html.includes('<script>'));
+test('decide: invalid AI output → level 4, no crash', () => {
+  assert.equal(decide({ json: { content: [{ type: 'text', text: 'not json' }] } }).payload.level, 4);
 });
 
-test('drafting SQL runs on the real schema and is idempotent', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
+test('email: Persian layout, formatted dates, 3 buttons, escaped guest text', () => {
+  const { payload } = decide(aiResp(base), src({ body: '<script>alert(1)</script>' }));
+  const e = render(payload);
+  assert.match(e.html, /03\.11\.2026 → 05\.11\.2026/);
+  assert.ok(!e.html.includes('<script>'));
+  assert.match(e.html, /a=approve/); assert.match(e.html, /a=edit/); assert.match(e.html, /a=reject/);
+  assert.match(e.html, /c=AP-X1&t=tok123/);
+  assert.match(e.subject, /سطح 6/);
+});
+
+test('email: level 1–2 has no approve button (staff only)', () => {
+  const { payload } = decide(aiResp(base), src({ rule_level: 'CRITICAL', rule_intent: 'REFUND' }));
+  const e = render(payload);
+  assert.ok(!/a=approve/.test(e.html));
+  assert.match(e.html, /a=reject/);
+});
+
+test('approval page: GET only shows a form, never decides', () => {
+  const page = (a, row) => JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Confirm page'].parameters.jsCode} })`, {
+    $: () => ({ first: () => ({ json: { query: { c: 'AP-X1', t: 'tok', a } } }) }),
+    $input: { first: () => ({ json: row }) }, String })()))[0].json.html;
+  assert.match(page('approve', { approval_code: 'AP-X1', proposed_text: 'Hallo' }), /method="post"/);
+  assert.match(page('edit', { approval_code: 'AP-X1', proposed_text: 'Hallo' }), /textarea name="instruction"/);
+  assert.match(page('approve', {}), /معتبر نیست/);
+  // GET branch contains no SQL that writes
+  assert.match(by4['Load approval'].parameters.query, /^SELECT/);
+});
+
+test('drafting + approval SQL on the real schema (idempotent, one-time links, edit chain)', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
   const PG = process.env.PG_TEST_URL;
   const lit = (v) => (v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
-  const sql = (q, p = []) => execFileSync('psql', [PG, '-v', 'ON_ERROR_STOP=1', '-qtA', '-c', q.replace(/\$(\d+)/g, (_, i) => lit(p[i - 1]))]).toString().trim();
+  const sql = (q, p = []) => execFileSync('psql', [PG, '-v', 'ON_ERROR_STOP=1', '-qtA', '-F', '|', '-c', q.replace(/\$(\d+)/g, (_, i) => lit(p[i - 1]))]).toString().trim();
   sql(`INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, raw) VALUES (7001,'P-BER-001',1,current_date,current_date+2,'{}') ON CONFLICT DO NOTHING;
        INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, body, sent_at) VALUES (7001001,7001,'P-BER-001','INBOUND','GUEST','Wifi?', now()) ON CONFLICT DO NOTHING;
        INSERT INTO ic.message_classifications (message_pk, level, intent, rule_level) SELECT message_pk,'AUTO','WIFI','AUTO' FROM ic.messages WHERE smoobu_message_id=7001001;`);
-  const pending = sql(byName['Pending drafts'].parameters.query);
-  assert.match(pending, /Wifi\?/);
+  assert.match(sql(byName['Pending drafts'].parameters.query), /Wifi\?/);
   const pk = Number(sql("SELECT message_pk FROM ic.messages WHERE smoobu_message_id=7001001"));
-  const p = [pk, 7001, 'P-BER-001', 'Hallo', 'AP-TEST1', 'AUTO', 'L6 WIFI'];
-  assert.equal(sql(byName['Record draft'].parameters.query, p), 'AP-TEST1');
-  assert.equal(sql(byName['Record draft'].parameters.query, [...p.slice(0, 4), 'AP-TEST2', ...p.slice(5)]), '');
+  const p = [pk, 7001, 'P-BER-001', 'Hallo', 'AP-T1', 'AUTO', 'L6 WIFI', '{"level":6}', 1, null, null];
+  const [code, token, payload] = sql(byName['Record draft'].parameters.query, p).split('|');
+  assert.equal(code, 'AP-T1'); assert.equal(token.length, 64); assert.match(payload, /"level"/);
+  assert.equal(sql(byName['Record draft'].parameters.query, [...p.slice(0, 4), 'AP-T2', ...p.slice(5)]), '');   // idempotent
   assert.doesNotMatch(sql(byName['Pending drafts'].parameters.query), /Wifi\?/);
+  // GET lookup: wrong token → nothing
+  assert.equal(sql(by4['Load approval'].parameters.query, ['AP-T1', 'wrong']), '');
+  assert.match(sql(by4['Load approval'].parameters.query, ['AP-T1', token]), /AP-T1\|PENDING\|Hallo/);
+  // edit without instruction is refused
+  assert.equal(sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'edit', ' ']), '');
+  // edit with instruction
+  const row = sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'edit', 'kürzer bitte']);
+  assert.match(row, /EDITED/); assert.ok(row.endsWith('|' + pk));
+  // second click on the same link does nothing
+  assert.equal(sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'approve', '']), '');
+  // revision context + revision record
+  assert.match(sql(by4['Revision context'].parameters.query, [pk]), /Wifi\?/);
+  const parent = sql("SELECT approval_id FROM ic.approvals WHERE approval_code='AP-T1'");
+  const [c2] = sql(by4['Record draft'].parameters.query, [pk, 7001, 'P-BER-001', 'Hallo (kurz)', 'AP-T3', 'AUTO', 'L6', '{}', 2, parent, 'kürzer bitte']).split('|');
+  assert.equal(c2, 'AP-T3');
+  assert.equal(sql("SELECT status FROM ic.outbound_messages WHERE idempotency_key='draft:'||" + pk), 'SUPPRESSED');
+  assert.equal(sql("SELECT count(*) FROM ic.audit_log WHERE entity_id='AP-T1'"), '1');
 });
