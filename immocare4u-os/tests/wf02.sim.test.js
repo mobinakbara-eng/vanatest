@@ -46,22 +46,22 @@ function evalParams(nodeName, json, outputs) {
   return vm.runInNewContext(expr, { $json: json, $: (n) => ({ first: () => ({ json: outputs[n] }) }) });
 }
 
-function simulate(body, mocks, query = { token: TOKEN }) {
+function simulate(body, mocks, query = {}) {
   const o = {};
   o['Authenticate & Key'] = runCode('Authenticate & Key', { body, query }, o);
   if (!o['Authenticate & Key'].valid) return { status: 401, o };
   const ins = sql('Inbox (idempotent)', evalParams('Inbox (idempotent)', o['Authenticate & Key'], o));
   o['Inbox (idempotent)'] = ins.length ? { event_id: Number(ins[0][0]) } : {};
   if (!ins.length) return { status: 200, duplicate: true, o };
-  const signedRes = runCode('Sign GET reservation', o['Inbox (idempotent)'], o);
-  assert.match(signedRes.req.url, /\/api\/reservations\/\d+$/);
-  assert.ok(signedRes.req.headers['X-Signature']);
+  const specRes = runCode('Request GET reservation', o['Inbox (idempotent)'], o);
+  assert.match(specRes.req.path, /^\/api\/reservations\/\d+$/);
+  assert.equal(specRes.req.method, 'GET');
   o['Normalize reservation'] = runCode('Normalize reservation', mocks.reservation, o);
   const up = sql('Upsert reservation', o['Normalize reservation'].p);
   o['Upsert reservation'] = { reservation_id: up[0][0], property_id: up[0][1] || null, status: up[0][2] };
   if (o['Authenticate & Key'].action === 'newMessage') {
-    const signedMsg = runCode('Sign GET messages', o['Upsert reservation'], o);
-    assert.match(signedMsg.req.url, /\/messages$/);
+    const specMsg = runCode('Request GET messages', o['Upsert reservation'], o);
+    assert.match(specMsg.req.path, /^\/api\/reservations\/\d+\/messages$/);
     o['Pick & classify message'] = runCode('Pick & classify message', mocks.messages, o);
     o['Store message + classification'] = sql('Store message + classification', o['Pick & classify message'].p);
   }
@@ -77,8 +77,21 @@ const reservation = (id, apt, extra = {}) => ({ statusCode: 200, body: {
 test('WF-02 simulation', { skip: !PG && 'PG_TEST_URL not set' }, async (t) => {
   execFileSync('psql', [PG, '-qc', "UPDATE ic.properties SET smoobu_apartment_id = 777001 WHERE property_id = 'P-BER-001'"]);
 
-  await t.test('rejects missing/invalid token', () => {
-    assert.equal(simulate({ action: 'newMessage', data: { id: 1 } }, {}, { token: 'nope' }).status, 401);
+  await t.test('webhook node enforces header auth; unknown action rejected', () => {
+    const wh = byName['Smoobu Webhook'];
+    assert.equal(wh.parameters.authentication, 'headerAuth');
+    assert.equal(wh.credentials.httpHeaderAuth.name, 'IC Webhook Gate');
+    assert.equal(simulate({ action: 'dropDatabase', data: { id: 1 } }, {}).status, 401);
+  });
+
+  await t.test('all Smoobu calls go through the authenticated proxy', () => {
+    const https = wf.nodes.filter((n) => n.type === 'n8n-nodes-base.httpRequest');
+    assert.ok(https.length >= 2);
+    for (const n of https) {
+      assert.match(n.parameters.url, /\/functions\/v1\/smoobu-proxy$/);
+      assert.equal(n.credentials.httpHeaderAuth.name, 'IC Smoobu Proxy');
+    }
+    assert.ok(!JSON.stringify(wf).includes('SMOOBU_API_SECRET'));
   });
 
   await t.test('newMessage → reservation upserted, message stored, classified, PII stripped', () => {

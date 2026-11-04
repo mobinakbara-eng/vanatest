@@ -13,8 +13,8 @@
       "parameters": {}
     },
     {
-      "id": "1776b247-ead4-67a5-f068-4cfa4c98d6b1",
-      "name": "Sign GET /api/apartments",
+      "id": "5e46bbf8-d0e9-063e-b266-3eff5684fc39",
+      "name": "Request GET /api/apartments",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -22,7 +22,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nfunction icCfg(name) {\n  try { if (typeof $vars !== 'undefined' && $vars[name]) return String($vars[name]); } catch (e) {}\n  try { if (typeof $env !== 'undefined' && $env[name]) return String($env[name]); } catch (e) {}\n  throw new Error('Missing configuration ' + name + ' (set it in n8n Settings → Variables)');\n}\n/**\n * Smoobu API HMAC-SHA256 request signing.\n *\n * Source: https://docs.smoobu.com/ (Authentication → HMAC), read 2026-11-03.\n *   Headers: X-API-Key, X-Timestamp (ISO-8601 UTC, ±5 min), X-Nonce (UUID v4, never reused),\n *            X-Signature = base64(HMAC_SHA256(apiSecret, canonical))\n *   canonical = METHOD \\n PATH \\n SORTED_QUERY \\n TIMESTAMP \\n NONCE \\n BODY_SHA256_HEX \\n API_KEY\n *   Query keys/values RFC 3986 encoded (space → %20), sorted alphabetically.\n *   The legacy `Api-Key` header is deprecated (end-of-life 2026-10-31 according to the docs).\n *\n * Status: REQUIRES_VERIFICATION — unit-tested against the documented algorithm,\n * not yet against the live API with a real key.\n *\n * Runs in Node.js and inside an n8n Code node (needs NODE_FUNCTION_ALLOW_BUILTIN=crypto).\n */\n\nfunction smoobuRfc3986(value) {\n  return encodeURIComponent(String(value)).replace(/[!'()*]/g,\n    (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());\n}\n\n/** query: object {k: v | v[]} or array of [k, v]. Returns \"a=1&b=2\" (sorted by key, then value). */\nfunction smoobuCanonicalQuery(query) {\n  if (!query) return '';\n  const pairs = [];\n  const entries = Array.isArray(query) ? query : Object.entries(query);\n  for (const [k, v] of entries) {\n    if (v === undefined || v === null) continue;\n    if (Array.isArray(v)) v.forEach((x) => pairs.push([smoobuRfc3986(k), smoobuRfc3986(x)]));\n    else pairs.push([smoobuRfc3986(k), smoobuRfc3986(v)]);\n  }\n  pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));\n  return pairs.map(([k, v]) => `${k}=${v}`).join('&');\n}\n\nfunction smoobuTimestamp(date) {\n  return (date || new Date()).toISOString().replace(/\\.\\d{3}Z$/, 'Z');\n}\n\n/**\n * @param {object} o\n * @param {string} o.method   GET|POST|PUT|PATCH|DELETE\n * @param {string} o.path     must include /api prefix, e.g. /api/reservations/123/messages\n * @param {object|Array} [o.query]\n * @param {string|object} [o.body]  serialised exactly as it will be sent\n * @param {string} o.apiKey\n * @param {string} o.apiSecret\n * @param {object} o.crypto   Node crypto module\n * @param {string} [o.timestamp] override for tests\n * @param {string} [o.nonce]     override for tests\n * @returns {{url:string, headers:object, body:string, canonical:string}}\n */\nfunction smoobuSign(o) {\n  const crypto = o.crypto;\n  if (!o.apiKey || !o.apiSecret) throw new Error('Smoobu API key/secret missing');\n  if (!o.path || !o.path.startsWith('/')) throw new Error('path must start with /');\n  const method = String(o.method || 'GET').toUpperCase();\n  const body = o.body === undefined || o.body === null ? ''\n    : typeof o.body === 'string' ? o.body : JSON.stringify(o.body);\n  const query = smoobuCanonicalQuery(o.query);\n  const timestamp = o.timestamp || smoobuTimestamp();\n  const nonce = o.nonce || crypto.randomUUID();\n  const bodyHash = crypto.createHash('sha256').update(body, 'utf8').digest('hex');\n  const canonical = [method, o.path, query, timestamp, nonce, bodyHash, o.apiKey].join('\\n');\n  const signature = crypto.createHmac('sha256', o.apiSecret).update(canonical, 'utf8').digest('base64');\n  const headers = {\n    'X-API-Key': o.apiKey,\n    'X-Timestamp': timestamp,\n    'X-Nonce': nonce,\n    'X-Signature': signature,\n    'Accept': 'application/json',\n  };\n  if (body) headers['Content-Type'] = 'application/json';\n  const base = o.baseUrl || 'https://login.smoobu.com';\n  return { url: base + o.path + (query ? '?' + query : ''), headers, body, canonical };\n}\n\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const spec = (() => ({ method: 'GET', path: '/api/apartments' }))(j);\n  const req = smoobuSign({ ...spec, apiKey: icCfg('SMOOBU_API_KEY'), apiSecret: icCfg('SMOOBU_API_SECRET'), crypto });\n  out.push({ json: { ...j, req: { method: spec.method || 'GET', url: req.url, headers: req.headers } } });\n}\nreturn out;"
+        "jsCode": "return $input.all().map((item) => {\n  const spec = (() => ({ method: 'GET', path: '/api/apartments' }))(item.json);\n  return { json: { ...item.json, req: { method: spec.method || 'GET', path: spec.path, query: spec.query || null } } };\n});"
       }
     },
     {
@@ -35,19 +35,21 @@
         300
       ],
       "parameters": {
-        "method": "={{ $json.req.method }}",
-        "url": "={{ $json.req.url }}",
-        "sendHeaders": true,
-        "specifyHeaders": "json",
-        "jsonHeaders": "={{ JSON.stringify($json.req.headers) }}",
+        "method": "POST",
+        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/smoobu-proxy",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.req) }}",
         "options": {
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true
-            }
-          },
-          "timeout": 15000
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Smoobu Proxy"
         }
       },
       "retryOnFail": true,
@@ -64,7 +66,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const r = $input.first().json;\nconst ok = r.statusCode === 200;\nconst apartments = ok ? (r.body.apartments || []) : [];\nreturn [{ json: {\n  check: 'SMOOBU_API_HMAC',\n  passed: ok,\n  statusCode: r.statusCode,\n  rateLimitRemaining: r.headers && r.headers['x-ratelimit-remaining'],\n  apartmentCount: apartments.length,\n  apartments: apartments.map(a => ({ smoobu_apartment_id: a.id, name: a.name })),\n  hint: ok ? 'Map each smoobu_apartment_id to a property_id in ic.properties' :\n    'Check SMOOBU_API_KEY/SECRET, server clock (±5 min) and that the key has HMAC enabled'\n}}];"
+        "jsCode": "const r = $input.first().json;\nconst ok = r.statusCode === 200 && !r.error;\nconst apartments = ok ? (r.body.apartments || []) : [];\nreturn [{ json: {\n  check: 'SMOOBU_API_HMAC',\n  passed: ok,\n  statusCode: r.statusCode,\n  rateLimitRemaining: r.rateLimit && r.rateLimit.remaining,\n  proxyError: r.error || null,\n  apartmentCount: apartments.length,\n  apartments: apartments.map(a => ({ smoobu_apartment_id: a.id, name: a.name })),\n  hint: ok ? 'Map each smoobu_apartment_id to a property_id in ic.properties' :\n    'Check Supabase secrets SMOOBU_API_KEY/SMOOBU_API_SECRET and that the key has HMAC enabled'\n}}];"
       }
     },
     {
@@ -96,14 +98,14 @@
       "main": [
         [
           {
-            "node": "Sign GET /api/apartments",
+            "node": "Request GET /api/apartments",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Sign GET /api/apartments": {
+    "Request GET /api/apartments": {
       "main": [
         [
           {

@@ -30,4 +30,4 @@ node "$ROOT/n8n/build-workflows.js"
 git -C "$ROOT" diff --quiet -- n8n/workflows || { echo "Generated workflows differ from committed files — commit the rebuild"; }
 
 echo "== node tests (lib + WF-02 simulation)"
-PG_TEST_URL="$URL" node --test "$ROOT"/tests/*.test.js
+PG_TEST_URL="$URL" node --test "$ROOT"/tests/*.test.js "$ROOT"/tests/*.test.mjs

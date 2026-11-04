@@ -5,28 +5,26 @@
  *
  *   node n8n/build-workflows.js      → writes n8n/workflows/*.json
  *
- * Runtime requirements on the n8n instance (see docs/09-phase1-runbook.md):
- *   NODE_FUNCTION_ALLOW_BUILTIN=crypto
- *   N8N_BLOCK_ENV_ACCESS_IN_NODE=false   (Code nodes read SMOOBU_* and IC_* env vars)
- *   SMOOBU_API_KEY, SMOOBU_API_SECRET, SMOOBU_WEBHOOK_TOKEN, IC_TEST_MODE=true
- *   Postgres credential named "ImmoCare4U Postgres" (role ic_n8n)
+ * Architecture (n8n Cloud Starter has no Variables/env):
+ *   Smoobu API calls → Supabase Edge Function `smoobu-proxy` (holds SMOOBU_API_KEY/SECRET, signs HMAC)
+ *   Smoobu webhooks  → Supabase Edge Function `smoobu-webhook` (checks URL token) → n8n WF-02
+ * n8n credentials (names must match):
+ *   "ImmoCare4U Postgres"  (Postgres, role n8n_app)
+ *   "IC Smoobu Proxy"      (Header Auth: x-ic-proxy-token)
+ *   "IC Webhook Gate"      (Header Auth: x-ic-webhook-token)
  */
 const fs = require('fs');
 const path = require('path');
 
 const lib = (name) => fs.readFileSync(path.join(__dirname, 'lib', name), 'utf8')
   .replace(/\/\/ @export-start[\s\S]*?\/\/ @export-end\n?/, '');
-const HMAC = lib('smoobu-hmac.js');
 const CLASSIFIER = lib('classifier.js');
 
-// Secrets: n8n Variables ($vars, works on n8n Cloud) first, then env (self-hosted).
-const IC_CFG = `function icCfg(name) {
-  try { if (typeof $vars !== 'undefined' && $vars[name]) return String($vars[name]); } catch (e) {}
-  try { if (typeof $env !== 'undefined' && $env[name]) return String($env[name]); } catch (e) {}
-  throw new Error('Missing configuration ' + name + ' (set it in n8n Settings → Variables)');
-}`;
 
-const PG_CRED = { postgres: { id: 'REPLACE_WITH_CREDENTIAL_ID', name: 'ImmoCare4U Postgres' } };
+const CRED_IDS = (() => { try { return JSON.parse(process.env.IC_N8N_CRED_IDS || '{}'); } catch { return {}; } })();
+const cred = (type, name) => ({ [type]: { id: CRED_IDS[name] || 'REPLACE_WITH_CREDENTIAL_ID', name } });
+const PG_CRED = cred('postgres', 'ImmoCare4U Postgres');
+const PROXY_URL = process.env.IC_PROXY_URL || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/smoobu-proxy';
 
 let pos = 0;
 const node = (name, type, typeVersion, parameters, extra = {}) =>
@@ -38,14 +36,17 @@ const pg = (name, query, replacement, extra = {}) => node(name, 'n8n-nodes-base.
   operation: 'executeQuery', query, options: { queryReplacement: replacement },
 }, { credentials: PG_CRED, ...extra });
 
+// Calls the Supabase smoobu-proxy; it always answers {statusCode, rateLimit, body}.
 const http = (name, extra = {}) => node(name, 'n8n-nodes-base.httpRequest', 4.2, {
-  method: '={{ $json.req.method }}',
-  url: '={{ $json.req.url }}',
-  sendHeaders: true,
-  specifyHeaders: 'json',
-  jsonHeaders: '={{ JSON.stringify($json.req.headers) }}',
-  options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 15000 },
-}, { retryOnFail: true, maxTries: 3, waitBetweenTries: 2000, ...extra });
+  method: 'POST',
+  url: PROXY_URL,
+  authentication: 'genericCredentialType',
+  genericAuthType: 'httpHeaderAuth',
+  sendBody: true,
+  specifyBody: 'json',
+  jsonBody: '={{ JSON.stringify($json.req) }}',
+  options: { timeout: 20000 },
+}, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy'), retryOnFail: true, maxTries: 3, waitBetweenTries: 2000, ...extra });
 
 const code = (name, js, extra = {}) => node(name, 'n8n-nodes-base.code', 2, { jsCode: js }, extra);
 
@@ -59,17 +60,10 @@ const connect = (pairs) => {
   return c;
 };
 
-const signerCode = (buildReq) => `const crypto = require('crypto');
-${IC_CFG}
-${HMAC}
-const out = [];
-for (const item of $input.all()) {
-  const j = item.json;
-  const spec = (${buildReq})(j);
-  const req = smoobuSign({ ...spec, apiKey: icCfg('SMOOBU_API_KEY'), apiSecret: icCfg('SMOOBU_API_SECRET'), crypto });
-  out.push({ json: { ...j, req: { method: spec.method || 'GET', url: req.url, headers: req.headers } } });
-}
-return out;`;
+const signerCode = (buildReq) => `return $input.all().map((item) => {
+  const spec = (${buildReq})(item.json);
+  return { json: { ...item.json, req: { method: spec.method || 'GET', path: spec.path, query: spec.query || null } } };
+});`;
 
 // ======================================================================
 // WF-00 — Smoobu connectivity test (Phase 1 acceptance: HMAC auth works)
@@ -78,20 +72,21 @@ function wf00() {
   pos = 0;
   const nodes = [
     node('Manual Trigger', 'n8n-nodes-base.manualTrigger', 1, {}),
-    code('Sign GET /api/apartments', signerCode(`() => ({ method: 'GET', path: '/api/apartments' })`)),
+    code('Request GET /api/apartments', signerCode(`() => ({ method: 'GET', path: '/api/apartments' })`)),
     http('Smoobu GET apartments'),
     code('Evaluate', `const r = $input.first().json;
-const ok = r.statusCode === 200;
+const ok = r.statusCode === 200 && !r.error;
 const apartments = ok ? (r.body.apartments || []) : [];
 return [{ json: {
   check: 'SMOOBU_API_HMAC',
   passed: ok,
   statusCode: r.statusCode,
-  rateLimitRemaining: r.headers && r.headers['x-ratelimit-remaining'],
+  rateLimitRemaining: r.rateLimit && r.rateLimit.remaining,
+  proxyError: r.error || null,
   apartmentCount: apartments.length,
   apartments: apartments.map(a => ({ smoobu_apartment_id: a.id, name: a.name })),
   hint: ok ? 'Map each smoobu_apartment_id to a property_id in ic.properties' :
-    'Check SMOOBU_API_KEY/SECRET, server clock (±5 min) and that the key has HMAC enabled'
+    'Check Supabase secrets SMOOBU_API_KEY/SMOOBU_API_SECRET and that the key has HMAC enabled'
 }}];`),
     pg('Record result', `UPDATE ic.integrations SET status = CASE WHEN $1::boolean THEN 'EXISTING'::ic.impl_status ELSE status END,
   verified_at = CASE WHEN $1::boolean THEN now() ELSE verified_at END, notes = $2 WHERE integration_code = 'SMOOBU_API_HMAC'
@@ -102,8 +97,8 @@ RETURNING integration_code, status, verified_at;`,
     name: 'WF-00 — Smoobu Connectivity Test',
     nodes,
     connections: connect([
-      ['Manual Trigger', 'Sign GET /api/apartments'],
-      ['Sign GET /api/apartments', 'Smoobu GET apartments'],
+      ['Manual Trigger', 'Request GET /api/apartments'],
+      ['Request GET /api/apartments', 'Smoobu GET apartments'],
       ['Smoobu GET apartments', 'Evaluate'],
       ['Evaluate', 'Record result'],
     ]),
@@ -122,17 +117,14 @@ function wf02() {
   pos = 0;
   const nodes = [
     node('Smoobu Webhook', 'n8n-nodes-base.webhook', 2, {
-      httpMethod: 'POST', path: 'smoobu/inbound', responseMode: 'responseNode', options: {},
-    }, { webhookId: cryptoId('smoobu-inbound') }),
+      httpMethod: 'POST', path: 'smoobu/inbound', authentication: 'headerAuth', responseMode: 'responseNode', options: {},
+    }, { webhookId: cryptoId('smoobu-inbound'), credentials: cred('httpHeaderAuth', 'IC Webhook Gate') }),
 
     code('Authenticate & Key', `const crypto = require('crypto');
-${IC_CFG}
+// Caller authenticity is enforced by the Webhook node (Header Auth "IC Webhook Gate"),
+// which only the Supabase smoobu-webhook function knows. Here we validate the payload.
 const item = $input.first().json;
-const token = String((item.query || {}).token || '');
-let expected = '';
-try { expected = icCfg('SMOOBU_WEBHOOK_TOKEN'); } catch (e) {}
-const a = Buffer.from(token), b = Buffer.from(expected);
-const valid = expected.length >= 32 && a.length === b.length && crypto.timingSafeEqual(a, b);
+const valid = true;
 const body = item.body || {};
 const action = String(body.action || '');
 const data = body.data || {};
@@ -171,7 +163,7 @@ RETURNING event_id;`,
         combinator: 'and' }, options: {},
     }),
 
-    code('Sign GET reservation', signerCode(`() => ({ method: 'GET', path: '/api/reservations/' + encodeURIComponent($('Authenticate & Key').first().json.reservationId) })`)),
+    code('Request GET reservation', signerCode(`() => ({ method: 'GET', path: '/api/reservations/' + encodeURIComponent($('Authenticate & Key').first().json.reservationId) })`)),
     http('Smoobu GET reservation'),
 
     code('Normalize reservation', `const ev = $('Authenticate & Key').first().json;
@@ -219,7 +211,7 @@ RETURNING reservation_id, property_id, status;`, `={{ $json.p }}`),
         combinator: 'and' }, options: {},
     }),
 
-    code('Sign GET messages', signerCode(`() => ({ method: 'GET', path: '/api/reservations/' + encodeURIComponent($('Authenticate & Key').first().json.reservationId) + '/messages' })`)),
+    code('Request GET messages', signerCode(`() => ({ method: 'GET', path: '/api/reservations/' + encodeURIComponent($('Authenticate & Key').first().json.reservationId) + '/messages' })`)),
     http('Smoobu GET messages'),
 
     code('Pick & classify message', `${CLASSIFIER}
@@ -272,14 +264,14 @@ WHERE event_id = $1::bigint RETURNING event_id, process_status;`,
       ['Valid?', 'Respond 401', 1],
       ['Inbox (idempotent)', 'Respond 200'],
       ['Respond 200', 'New event?'],
-      ['New event?', 'Sign GET reservation', 0],
-      ['Sign GET reservation', 'Smoobu GET reservation'],
+      ['New event?', 'Request GET reservation', 0],
+      ['Request GET reservation', 'Smoobu GET reservation'],
       ['Smoobu GET reservation', 'Normalize reservation'],
       ['Normalize reservation', 'Upsert reservation'],
       ['Upsert reservation', 'Is message?'],
-      ['Is message?', 'Sign GET messages', 0],
+      ['Is message?', 'Request GET messages', 0],
       ['Is message?', 'Mark event DONE', 1],
-      ['Sign GET messages', 'Smoobu GET messages'],
+      ['Request GET messages', 'Smoobu GET messages'],
       ['Smoobu GET messages', 'Pick & classify message'],
       ['Pick & classify message', 'Store message + classification'],
       ['Store message + classification', 'Mark event DONE'],
