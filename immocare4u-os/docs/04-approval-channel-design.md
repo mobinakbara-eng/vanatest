@@ -1,6 +1,26 @@
-# F. Approval Channel Design — WhatsApp (primary)
+# F. Approval Channel Design — Email (primary)
 
-> تصمیم مدیر (2026-11-04): کانال تأیید و هشدار **WhatsApp** است، نه Telegram. منطق تأیید (شناسه، انقضا، Approve/Edit/Reject، ردیابی) مستقل از کانال است و در ادامه همان می‌ماند؛ هر جا «Telegram» آمده، معادل WhatsApp طبق جدول زیر پیاده می‌شود.
+> تصمیم مدیر (2026-11-04): کانال تأیید و هشدار **ایمیل** است: `immocare4u.kontakt@gmail.com`. طراحی WhatsApp و Telegram پایین‌تر به‌عنوان گزینه‌ی آینده حفظ شده‌اند. منطق تأیید (شناسه، انقضا، Approve/Edit/Take over، ردیابی، بدون ارسال پیش‌فرض) مستقل از کانال است.
+
+## طراحی ایمیل
+| موضوع | طراحی |
+|---|---|
+| فرستنده | Gmail `immocare4u.kontakt@gmail.com` از طریق Credential «Gmail OAuth2» در n8n |
+| گیرنده | فقط آدرس‌های `ic.staff.email` با نقش MANAGER/ADMIN (پیش‌فرض: همان آدرس) |
+| Subject | `[IC][CRITICAL] AP-7F3K · P-BER-001 · Refund request` — سطح در ابتدای Subject برای فیلتر Gmail |
+| بدنه | همان محتوای قالب پایه (ملک، رزرو، پیام اصلی، خلاصه‌ی فارسی، پاسخ پیشنهادی، دلیل) — HTML ساده + نسخه‌ی متنی |
+| دکمه‌ها | سه لینک: **Approve** · **Edit** · **Take over** → `https://mobinakbara.app.n8n.cloud/webhook/ic/approval?c=<code>&a=<action>&t=<token>` |
+| امنیت لینک | `token` = HMAC-SHA256(approval_code + action + expires_at) با Secret سرویس امضا؛ یک‌بارمصرف؛ منقضی با `expires_at` |
+| ضد اسکنر ایمیل | Gmail و آنتی‌ویروس‌ها لینک‌ها را خودکار باز می‌کنند ⇒ **GET هیچ تصمیمی ثبت نمی‌کند**؛ فقط صفحه‌ی تأیید با دکمه‌ی POST نشان می‌دهد |
+| Edit | لینک یک n8n Form با متن پیشنهادی از قبل پرشده باز می‌کند → ارسال فرم = متن نهایی |
+| EMERGENCY | ایمیل با Subject `[IC][EMERGENCY]` + برچسب Gmail با اعلان گوشی؛ ⚠️ ایمیل برای اضطرار کند است — پیشنهاد: اعلان Push اپ Gmail برای برچسب IC-EMERGENCY روشن شود؛ کانال تلفنی در Phase 2 بررسی شود |
+| حریم خصوصی | فقط نام کوچک مهمان؛ بدون کد ورود، ایمیل یا تلفن مهمان در ایمیل |
+
+---
+
+## گزینه‌ی آینده — WhatsApp
+
+> (طراحی جایگزین، فعلاً استفاده نمی‌شود.) منطق تأیید (شناسه، انقضا، Approve/Edit/Reject، ردیابی) مستقل از کانال است و در ادامه همان می‌ماند؛ هر جا «Telegram» آمده، معادل WhatsApp طبق جدول زیر پیاده می‌شود.
 
 ## WhatsApp Business Cloud API — پیش‌نیازها (REQ-VERIFY)
 | مورد | توضیح |

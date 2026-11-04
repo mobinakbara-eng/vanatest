@@ -19,7 +19,7 @@ URL="postgresql://postgres@/postgres?host=$TMP&port=$PORT"
 
 echo "== migration + seed"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/001_foundation.sql"
-psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/002_whatsapp_channel.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/002_approval_channels.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/seeds/001_test_property.sql"
 
 echo "== DB guard rails"
