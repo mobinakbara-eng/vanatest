@@ -32,6 +32,7 @@
 | I | [docs/07-security-compliance-checklist.md](docs/07-security-compliance-checklist.md) |
 | J | [docs/08-cost-scalability.md](docs/08-cost-scalability.md) |
 | Phase 1 گام‌به‌گام | [docs/09-phase1-runbook.md](docs/09-phase1-runbook.md) |
+| اتوماسیون مهمان ۶ سطحی + یادگیری | [docs/10-guest-automation-6-levels.md](docs/10-guest-automation-6-levels.md) |
 
 ## ⚠️ یافته‌ی فوری
 طبق مستندات رسمی Smoobu (docs.smoobu.com، خوانده‌شده 2026-11-03)، هدر `Api-Key` **از 2026-10-31 منسوخ است**. هر اتصال موجود با این هدر باید به HMAC-SHA256 (`X-API-Key`, `X-Timestamp`, `X-Nonce`, `X-Signature`) مهاجرت کند — پیاده‌سازی در `n8n/lib/smoobu-hmac.js`.
