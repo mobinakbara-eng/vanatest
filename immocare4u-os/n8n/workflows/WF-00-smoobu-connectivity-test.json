@@ -13,12 +13,36 @@
       "parameters": {}
     },
     {
+      "id": "d7473277-4ace-6cec-be8f-e7929463aac9",
+      "name": "Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        500
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ic/wf00-test",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "1314896a-d0be-e4ad-147c-8890b38a4b81",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "e6afSODEb2ZXjsW8",
+          "name": "IC Webhook Gate"
+        }
+      }
+    },
+    {
       "id": "5e46bbf8-d0e9-063e-b266-3eff5684fc39",
       "name": "Request GET /api/apartments",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        260,
+        520,
         300
       ],
       "parameters": {
@@ -31,7 +55,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        520,
+        780,
         300
       ],
       "parameters": {
@@ -48,7 +72,7 @@
       },
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "EvFXaOOKTGAFBtZV",
           "name": "IC Smoobu Proxy"
         }
       },
@@ -62,7 +86,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        780,
+        1040,
         300
       ],
       "parameters": {
@@ -75,19 +99,19 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1040,
+        1300,
         300
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE ic.integrations SET status = CASE WHEN $1::boolean THEN 'EXISTING'::ic.impl_status ELSE status END,\n  verified_at = CASE WHEN $1::boolean THEN now() ELSE verified_at END, notes = $2 WHERE integration_code = 'SMOOBU_API_HMAC'\nRETURNING integration_code, status, verified_at;",
+        "query": "UPDATE ic.integrations SET status = CASE WHEN $1::boolean THEN 'EXISTING'::ic.impl_status ELSE status END,\n  verified_at = CASE WHEN $1::boolean THEN now() ELSE verified_at END, notes = $2 WHERE integration_code = 'SMOOBU_API_HMAC'\nRETURNING integration_code, status, verified_at, notes;",
         "options": {
           "queryReplacement": "={{ [ $json.passed, 'WF-00 run ' + $now.toISO() + ' → HTTP ' + $json.statusCode + ', apartments: ' + $json.apartmentCount ] }}"
         }
       },
       "credentials": {
         "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
       }
@@ -95,6 +119,17 @@
   ],
   "connections": {
     "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Request GET /api/apartments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Webhook": {
       "main": [
         [
           {

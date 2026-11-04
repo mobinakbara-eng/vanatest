@@ -72,6 +72,10 @@ function wf00() {
   pos = 0;
   const nodes = [
     node('Manual Trigger', 'n8n-nodes-base.manualTrigger', 1, {}),
+    // Remote test trigger (protected by Header Auth) so WF-00 can be run without the UI.
+    node('Test Webhook', 'n8n-nodes-base.webhook', 2, {
+      httpMethod: 'POST', path: 'ic/wf00-test', authentication: 'headerAuth', responseMode: 'lastNode', options: {},
+    }, { webhookId: cryptoId('ic-wf00-test'), credentials: cred('httpHeaderAuth', 'IC Webhook Gate'), y: 500 }),
     code('Request GET /api/apartments', signerCode(`() => ({ method: 'GET', path: '/api/apartments' })`)),
     http('Smoobu GET apartments'),
     code('Evaluate', `const r = $input.first().json;
@@ -90,7 +94,7 @@ return [{ json: {
 }}];`),
     pg('Record result', `UPDATE ic.integrations SET status = CASE WHEN $1::boolean THEN 'EXISTING'::ic.impl_status ELSE status END,
   verified_at = CASE WHEN $1::boolean THEN now() ELSE verified_at END, notes = $2 WHERE integration_code = 'SMOOBU_API_HMAC'
-RETURNING integration_code, status, verified_at;`,
+RETURNING integration_code, status, verified_at, notes;`,
     `={{ [ $json.passed, 'WF-00 run ' + $now.toISO() + ' → HTTP ' + $json.statusCode + ', apartments: ' + $json.apartmentCount ] }}`),
   ];
   return {
@@ -98,6 +102,7 @@ RETURNING integration_code, status, verified_at;`,
     nodes,
     connections: connect([
       ['Manual Trigger', 'Request GET /api/apartments'],
+      ['Test Webhook', 'Request GET /api/apartments'],
       ['Request GET /api/apartments', 'Smoobu GET apartments'],
       ['Smoobu GET apartments', 'Evaluate'],
       ['Evaluate', 'Record result'],

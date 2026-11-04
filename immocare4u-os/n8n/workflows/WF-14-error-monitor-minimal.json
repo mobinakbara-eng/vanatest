@@ -30,7 +30,7 @@
       },
       "credentials": {
         "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
       }

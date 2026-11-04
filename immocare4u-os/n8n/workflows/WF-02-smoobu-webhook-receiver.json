@@ -20,7 +20,7 @@
       "webhookId": "b844f56a-9438-d875-f4db-9af890d4982b",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "e6afSODEb2ZXjsW8",
           "name": "IC Webhook Gate"
         }
       }
@@ -106,7 +106,7 @@
       },
       "credentials": {
         "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
       },
@@ -198,7 +198,7 @@
       },
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "EvFXaOOKTGAFBtZV",
           "name": "IC Smoobu Proxy"
         }
       },
@@ -237,7 +237,7 @@
       },
       "credentials": {
         "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
       }
@@ -310,7 +310,7 @@
       },
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "EvFXaOOKTGAFBtZV",
           "name": "IC Smoobu Proxy"
         }
       },
@@ -349,7 +349,7 @@
       },
       "credentials": {
         "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
       },
@@ -373,7 +373,7 @@
       },
       "credentials": {
         "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
       }
