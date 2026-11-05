@@ -114,13 +114,13 @@ test('decide: invalid AI output → level 4, no crash', () => {
 });
 
 test('email: Persian layout, formatted dates, 3 buttons, escaped guest text', () => {
-  const { payload } = decide(aiResp(base), src({ body: '<script>alert(1)</script>' }));
+  const { payload } = decide(aiResp(base), src({ body: '<script>alert(1)</script>', rule_level: 'REVIEW', rule_intent: 'EARLY_CHECKIN' }));
   const e = render(payload);
   assert.match(e.html, /03\.11\.2026 از ساعت 15:00/); assert.match(e.html, /05\.11\.2026 تا ساعت 11:00/);
   assert.ok(!e.html.includes('<script>'));
   assert.match(e.html, /a=approve/); assert.match(e.html, /a=edit/); assert.match(e.html, /a=reject/);
   assert.match(e.html, /c=AP-X1&t=tok123/);
-  assert.match(e.subject, /سطح 6/);
+  assert.match(e.subject, /سطح 3/);
 });
 
 test('email: level 1–2 has no approve button (staff only)', () => {
@@ -222,12 +222,12 @@ test('scheduled SQL: due window, cancelled excluded, idempotent', { skip: !proce
 test('AI request carries Berlin date and stay phase (regression: "enjoy your stay" on departure day)', () => {
   const mk = (sent) => run('Build AI request', [src({ sent_at: sent, convo: [{ direction: 'INBOUND', body: 'Wir haben den Schlüssel wieder zurück gehängt.' }] })])[0].json.ai;
   const u = (sent) => mk(sent).messages[0].content;
-  assert.match(u('2026-11-05T09:20:00Z'), /STAY PHASE: DEPARTURE_DAY/);
-  assert.match(u('2026-11-04T10:00:00Z'), /STAY PHASE: DURING_STAY/);
-  assert.match(u('2026-11-03T10:00:00Z'), /STAY PHASE: ARRIVAL_DAY/);
-  assert.match(u('2026-11-01T10:00:00Z'), /STAY PHASE: BEFORE_ARRIVAL/);
-  assert.match(u('2026-11-06T10:00:00Z'), /STAY PHASE: AFTER_DEPARTURE/);
-  assert.match(u('2026-11-04T23:30:00Z'), /STAY PHASE: DEPARTURE_DAY/);   // 00:30 Berlin = next day
+  assert.match(u('2026-11-05T09:20:00Z'), /STAY PHASE DEPARTURE_DAY/);
+  assert.match(u('2026-11-04T10:00:00Z'), /STAY PHASE DURING_STAY/);
+  assert.match(u('2026-11-03T10:00:00Z'), /STAY PHASE ARRIVAL_DAY/);
+  assert.match(u('2026-11-01T10:00:00Z'), /STAY PHASE BEFORE_ARRIVAL/);
+  assert.match(u('2026-11-06T10:00:00Z'), /STAY PHASE AFTER_DEPARTURE/);
+  assert.match(u('2026-11-04T23:30:00Z'), /STAY PHASE DEPARTURE_DAY/);   // 00:30 Berlin = next day
   assert.match(mk('2026-11-05T09:20:00Z').system, /never wish a pleasant stay/);
 });
 
@@ -241,4 +241,38 @@ test('AI request has exact stay times, hours to check-out and requires analysis'
   assert.ok(ai.output_config.format.schema.required.includes('analysis_fa'));
   assert.equal(ai.output_config.effort, 'high');
   assert.match(ai.system, /THINK BEFORE YOU WRITE/);
+});
+
+// ---------------- approval policy & privacy guard ----------------
+test('policy: acknowledgement answerable from our data → level 6, no approval button', () => {
+  const ack = { ...base, intent: 'KEY_RETURNED_CHECKOUT', reply: 'Vielen Dank und gute Heimreise!', used_kb_keys: [] };
+  const { payload } = decide(aiResp(ack), src({ rule_level: 'REVIEW', rule_intent: 'UNKNOWN', rule_flags: 'NO_RULE_MATCH' }));
+  assert.equal(payload.level, 6);
+  const e = render(payload);
+  assert.ok(!/a=approve/.test(e.html));
+  assert.match(e.html, /a=edit/);
+  assert.match(e.subject, /خودکار/);
+});
+
+test('policy: real decisions keep approval (early check-in = 3), missing fact → 4', () => {
+  assert.equal(decide(aiResp(base), src({ rule_level: 'REVIEW', rule_intent: 'EARLY_CHECKIN' })).payload.level, 3);
+  assert.equal(decide(aiResp({ ...base, needs_human: true })).payload.level, 4);
+  assert.equal(decide(aiResp({ ...base, flags: ['MISSING_KB_FACT'] })).payload.level, 4);
+  assert.equal(decide(aiResp(base), src({ rule_level: 'REVIEW', rule_intent: 'HEATING', rule_flags: 'MALFUNCTION' })).payload.level, 4);
+});
+
+test('privacy: reply mentioning another unit is blocked; contact data removed', () => {
+  const s2 = src({ other_units: ['Stylisches City-Apartment im Herzen Berlins'] });
+  const leak = decide(aiResp({ ...base, reply: 'Im Stylisches City-Apartment im Herzen Berlins wohnt gerade jemand.' }), s2);
+  assert.equal(leak.payload.level, 2); assert.equal(leak.payload.reply, ''); assert.ok(leak.payload.flags.includes('LEAK_BLOCKED'));
+  const id = decide(aiResp({ ...base, reply: 'Siehe P-BER-002.' }), s2);
+  assert.ok(id.payload.flags.includes('LEAK_BLOCKED'));
+  const c = decide(aiResp({ ...base, reply: 'Schreiben Sie an max@example.com oder +49 160 1234567.' }), s2);
+  assert.ok(!/example\.com|1234567/.test(c.payload.reply)); assert.equal(c.payload.level, 4);
+});
+
+test('privacy rule is in the system prompt', () => {
+  const ai = run('Build AI request', [src()])[0].json.ai;
+  assert.match(ai.system, /PRIVACY – absolute/);
+  assert.match(ai.system, /These need NO approval/);
 });
