@@ -67,7 +67,7 @@ test('messages to rows: type 1 = guest (classified), type 2 = host (not classifi
 
 test('WF-01 uses only the read-only proxy', () => {
   const others = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest' && !x.name.startsWith('Smoobu')).map((x) => x.parameters.url);
-  assert.deepEqual(others, ['https://api.anthropic.com/v1/messages']);
+  assert.deepEqual(others.sort(), ['https://api.anthropic.com/v1/messages', 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-access-pin']);
   for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest' && x.name.startsWith('Smoobu'))) {
     assert.match(n.parameters.url, /smoobu-proxy$/);
   }
@@ -172,4 +172,49 @@ test('drafting + approval SQL on the real schema (idempotent, one-time links, ed
   assert.equal(c2, 'AP-T3');
   assert.equal(sql("SELECT status FROM ic.outbound_messages WHERE idempotency_key='draft:'||" + pk), 'SUPPRESSED');
   assert.equal(sql("SELECT count(*) FROM ic.audit_log WHERE entity_id='AP-T1'"), '1');
+});
+
+// ---------------- scheduled messages (WF-05 inline) ----------------
+const due = (o = {}) => ({ json: { template_code: 'ACCESS_PIN', reservation_id: 11, property_id: 'P-BER-001', internal_name: 'Loft',
+  street_address: 'Geschwister-Scholl-Straße 5', postal_code: '10117', lang: 'de', arrival: '2026-11-10', departure: '2026-11-12', channel_name: 'Airbnb', ...o } });
+
+test('scheduled: PIN text keeps {{PIN}} placeholder, never digits; missing video flagged', () => {
+  const out = run('Render scheduled', [{ json: { ...due().json, pin_check: { ok: true } } }, { json: { ...due({ template_code: 'ARRIVAL_2D' }).json, pin_check: { not_pin: true } } }]);
+  assert.match(out[0].json.body, /\{\{PIN\}\}/);
+  assert.ok(!/\d{4}(?!\d)/.test(out[0].json.body.replace('10117', '').replace(/\d\d:\d\d/g, '')));
+  assert.equal(out[0].json.p[4], true);                 // contains_restricted
+  assert.equal(out[0].json.pin_ok, true);
+  assert.ok(out[1].json.missing.some((m) => /ویدیو/.test(m)));
+  assert.equal(out[1].json.lang, 'de');
+});
+
+test('scheduled: digest masks PIN and only lists newly recorded items', () => {
+  const rendered = run('Render scheduled', [{ json: { ...due().json, pin_check: { ok: true } } }, { json: { ...due({ reservation_id: 12, template_code: 'WELCOME' }).json, pin_check: {} } }]);
+  const out = run('Scheduled digest', [{ json: { idempotency_key: 'sched:11:ACCESS_PIN' } }, { json: {} }], { 'Render scheduled': rendered });
+  assert.equal(out.length, 1);
+  assert.match(out[0].json.subject, /\(1\)/);
+  assert.match(out[0].json.html, /••••/);
+  assert.ok(!out[0].json.html.includes('{{PIN}}'));
+  assert.deepEqual(run('Scheduled digest', [{ json: {} }], { 'Render scheduled': rendered }), []);
+});
+
+test('scheduled SQL: due window, cancelled excluded, idempotent', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
+  const PG = process.env.PG_TEST_URL;
+  const lit = (v) => (v === null ? 'NULL' : typeof v === 'number' || typeof v === 'boolean' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
+  const sql = (q, p = []) => execFileSync('psql', [PG, '-v', 'ON_ERROR_STOP=1', '-qtA', '-F', '|', '-c', q.replace(/\$(\d+)/g, (_, i) => lit(p[i - 1]))]).toString().trim();
+  sql(`INSERT INTO ic.property_message_schedules (property_id, template_code, anchor, offset_minutes, enabled) VALUES ('P-BER-001','ACCESS_PIN','CHECK_IN',-180,true) ON CONFLICT (property_id, template_code) DO UPDATE SET enabled=true, offset_minutes=-180, anchor='CHECK_IN';
+       INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, check_in_at, check_out_at, status, raw) VALUES
+         (8001,'P-BER-001',1,current_date,current_date+2, now() + interval '170 minutes', now() + interval '2 days','CONFIRMED','{"language":"en"}'),
+         (8002,'P-BER-001',1,current_date,current_date+2, now() + interval '170 minutes', now() + interval '2 days','CANCELLED','{}'),
+         (8003,'P-BER-001',1,current_date,current_date+2, now() + interval '5 hours', now() + interval '2 days','CONFIRMED','{}')
+       ON CONFLICT DO NOTHING;`);
+  const rows = sql(byName['Due scheduled'].parameters.query);
+  assert.match(rows, /ACCESS_PIN\|8001\|/);
+  assert.doesNotMatch(rows, /\|8002\|/);   // cancelled
+  assert.doesNotMatch(rows, /\|8003\|/);   // not due yet
+  assert.match(rows, /\|en\|/);
+  const p = ['sched:8001:ACCESS_PIN', 8001, 'P-BER-001', 'Code: {{PIN}}', true];
+  assert.equal(sql(byName['Record scheduled'].parameters.query, p), 'sched:8001:ACCESS_PIN');
+  assert.equal(sql(byName['Record scheduled'].parameters.query, p), '');
+  assert.doesNotMatch(sql(byName['Due scheduled'].parameters.query), /\|8001\|/);
 });

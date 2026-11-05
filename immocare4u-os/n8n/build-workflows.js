@@ -52,10 +52,10 @@ const code = (name, js, extra = {}) => node(name, 'n8n-nodes-base.code', 2, { js
 
 const connect = (pairs) => {
   const c = {};
-  for (const [from, to, out = 0] of pairs) {
+  for (const [from, to, out = 0, inIdx = 0] of pairs) {
     c[from] = c[from] || { main: [] };
     while (c[from].main.length <= out) c[from].main.push([]);
-    c[from].main[out].push({ node: to, type: 'main', index: 0 });
+    c[from].main[out].push({ node: to, type: 'main', index: inIdx });
   }
   return c;
 };
@@ -732,6 +732,117 @@ function wf04() {
   };
 }
 
+// ---------------------------------------------------------------------
+// WF-05 (inline in WF-01, TEST MODE): scheduled guest messages.
+// Welcome · 2 days before (video + rules) · key-box PIN at 12:00 on arrival day ·
+// check-out reminder 18:00 the evening before · review request 4 h after check-out.
+// In the trial week nothing is sent: one preview digest email per run, PIN masked.
+// ---------------------------------------------------------------------
+const PIN_URL = (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1') + '/ic-access-pin';
+
+const DUE_SQL = `SELECT * FROM (
+  SELECT s.template_code, r.reservation_id, r.property_id, p.internal_name, p.street_address, p.postal_code,
+         CASE WHEN lower(coalesce(r.raw->>'language','')) LIKE 'de%' THEN 'de' ELSE 'en' END AS lang,
+         r.arrival::text AS arrival, r.departure::text AS departure, r.channel_name,
+         CASE s.anchor
+           WHEN 'CHECK_IN'  THEN r.check_in_at
+           WHEN 'CHECK_OUT' THEN r.check_out_at
+           ELSE CASE WHEN (r.raw->>'created-at') ~ '^\\d{4}-\\d\\d-\\d\\d' THEN ((r.raw->>'created-at')::timestamp AT TIME ZONE p.timezone) END
+         END + make_interval(mins => s.offset_minutes) AS due_at
+  FROM ic.property_message_schedules s
+  JOIN ic.reservations r ON r.property_id = s.property_id
+  JOIN ic.properties p ON p.property_id = r.property_id
+  WHERE s.enabled AND r.status IN ('CONFIRMED','MODIFIED')
+) d
+WHERE d.due_at BETWEEN now() - interval '2 hours' AND now()
+  AND NOT EXISTS (SELECT 1 FROM ic.outbound_messages o WHERE o.idempotency_key = 'sched:' || d.reservation_id || ':' || d.template_code)
+ORDER BY d.due_at
+LIMIT 50;`;
+
+const TAG_PIN_JS = `const src = $('Due scheduled').all();
+return $input.all().map((it, i) => ({ json: { ...src[i].json, pin_check: it.json } }));`;
+
+const RENDER_SCHEDULED_JS = `const T = {
+  WELCOME: { de: 'Hallo und vielen Dank für Ihre Buchung! Wir freuen uns auf Sie. Der Check-in ist ab 15:00 Uhr per Self-Check-in möglich. Alle Details erhalten Sie automatisch zwei Tage vor Ihrer Anreise. Herzliche Grüße, Ihr ImmoCare4U Team',
+             en: 'Hello and thank you for your booking! We look forward to welcoming you. Check-in is from 3:00 PM via self check-in. You will automatically receive all details two days before your arrival. Kind regards, your ImmoCare4U team' },
+  ARRIVAL_2D: { de: 'Hallo, in zwei Tagen ist es so weit! Adresse: {{ADDRESS}}. So finden Sie die Wohnung (Video): {{VIDEO}}. Hausregeln: Nachtruhe ab 22 Uhr, keine Partys, Check-out bis 11 Uhr. Den Code für die Schlüsselbox erhalten Sie am Anreisetag um 12:00 Uhr. Herzliche Grüße, Ihr ImmoCare4U Team',
+                en: 'Hello, only two days to go! Address: {{ADDRESS}}. How to find the apartment (video): {{VIDEO}}. House rules: quiet hours from 10 PM, no parties, check-out by 11 AM. You will receive the key box code on your arrival day at 12:00 noon. Kind regards, your ImmoCare4U team' },
+  ACCESS_PIN: { de: 'Willkommen in Berlin! Der Code für Ihre Schlüsselbox lautet: {{PIN}}. Die Box hängt am Treppengeländer. Bitte verdrehen Sie nach der Entnahme die Zahlen wieder. Check-in ab 15:00 Uhr. Das WLAN-Passwort liegt auf einem Zettel vor dem Fernseher. Einen schönen Aufenthalt!',
+                en: 'Welcome to Berlin! The code for your key box is: {{PIN}}. The box hangs on the stair railing. Please scramble the numbers again after taking the key. Check-in from 3:00 PM. The Wi-Fi password is on a note in front of the TV. Enjoy your stay!' },
+  CHECKOUT_REMINDER: { de: 'Hallo, wir hoffen, Sie hatten einen schönen Aufenthalt! Kurze Erinnerung: Check-out ist morgen bis 11:00 Uhr. Bitte legen Sie den Schlüssel wieder in die Schlüsselbox und verdrehen Sie die Zahlen. Gute Heimreise!',
+                       en: 'Hello, we hope you enjoyed your stay! A short reminder: check-out is tomorrow by 11:00 AM. Please put the key back into the key box and scramble the numbers. Safe travels home!' },
+  REVIEW_REQUEST: { de: 'Vielen Dank, dass Sie bei uns waren! Wenn alles zu Ihrer Zufriedenheit war, freuen wir uns sehr über eine positive Bewertung – das hilft uns und zukünftigen Gästen sehr. Alles Gute, Ihr ImmoCare4U Team',
+                    en: 'Thank you for staying with us! If you were happy with everything, we would really appreciate a positive review – it helps us and future guests a lot. All the best, your ImmoCare4U team' },
+};
+return $input.all().map((it) => {
+  const j = it.json;
+  const t = (T[j.template_code] || {})[j.lang] || '';
+  const body = t.replace('{{ADDRESS}}', (j.street_address || '') + ', ' + (j.postal_code || '') + ' Berlin')
+                .replace('{{VIDEO}}', '[Video-Link fehlt]');
+  const missing = [];
+  if (body.includes('[Video-Link fehlt]')) missing.push('لینک ویدیو ورودی هنوز نیست (سؤال Q6)');
+  if (/zu bestätigen/.test(j.street_address || '')) missing.push('آدرس هنوز تأیید نشده (Q1)');
+  const isPin = j.template_code === 'ACCESS_PIN';
+  const pin = j.pin_check || null;
+  if (isPin && !(pin && pin.ok)) missing.push('کد آزاد نمی‌شود: ' + (pin ? pin.reason : 'بررسی انجام نشد'));
+  return { json: { ...j, body, is_pin: isPin, pin_ok: isPin ? !!(pin && pin.ok) : null, missing,
+    p: [ 'sched:' + j.reservation_id + ':' + j.template_code, j.reservation_id, j.property_id, body, isPin ] } };
+});`;
+
+const RECORD_SCHEDULED_SQL = `INSERT INTO ic.outbound_messages (idempotency_key, reservation_id, property_id, origin, body, contains_restricted, status, test_mode)
+VALUES ($1, $2::bigint, $3, 'SCHEDULED', $4, $5::boolean, 'DRAFT', true)
+ON CONFLICT (idempotency_key) DO NOTHING
+RETURNING idempotency_key;`;
+
+const DIGEST_JS = `const src = $('Render scheduled').all();
+const done = new Set($input.all().map((i) => i.json.idempotency_key).filter(Boolean));
+const items = src.map((i) => i.json).filter((j) => done.has(j.p[0]));
+if (!items.length) return [];
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };
+const NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 ۲ روز قبل: ویدیو و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };
+const cards = items.map((j) => '<div style="border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0">'
+  + '<div dir="rtl" style="text-align:right;font-weight:bold;font-size:15px">' + (NAME[j.template_code] || j.template_code) + '</div>'
+  + '<div dir="rtl" style="text-align:right;color:#667085;font-size:13px;margin:4px 0 8px">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'
+  + '<div dir="ltr" style="background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828">' + esc(j.body).replace('{{PIN}}', '<b>' + (j.pin_ok ? '••••' : '⛔') + '</b>') + '</div>'
+  + (j.is_pin ? '<div dir="rtl" style="text-align:right;font-size:13px;margin-top:6px;color:' + (j.pin_ok ? '#067647' : '#b42318') + '">' + (j.pin_ok ? '✅ کد در Supabase موجود است و برای این رزرو مجاز است (در ایمیل نشان داده نمی‌شود)' : '⛔ کد برای این رزرو آزاد نمی‌شود') + '</div>' : '')
+  + (j.missing.length ? '<div dir="rtl" style="text-align:right;font-size:13px;margin-top:6px;color:#b54708">⚠️ ' + esc(j.missing.join(' · ')) + '</div>' : '')
+  + '</div>').join('');
+const html = '<div style="background:#f2f4f7;padding:12px 0"><div style="max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden">'
+  + '<div dir="rtl" style="background:#344054;color:#fff;padding:16px 18px;text-align:right"><div style="font-size:20px;font-weight:bold">📅 پیام‌های زمان‌بندی‌شده</div><div style="font-size:14px;margin-top:4px">' + items.length + ' پیام الان موعدش رسیده</div></div>'
+  + '<div style="padding:4px 18px 18px"><div dir="rtl" style="background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right">🧪 حالت آزمایشی: این پیام‌ها برای مهمان ارسال <b>نشده‌اند</b>. فقط ببینید بعد از دوره‌ی آزمایشی چه چیزی و چه زمانی خودکار فرستاده می‌شود.</div>'
+  + cards + '</div></div></div>';
+return [{ json: { subject: '📅 پیش‌نمایش پیام‌های زمان‌بندی‌شده (' + items.length + ')', html } }];`;
+
+function scheduledNodes() {
+  const due = pg('Due scheduled', DUE_SQL, '', { executeOnce: true, y: 520 });
+  delete due.parameters.options.queryReplacement;
+  return [
+    due,
+    node('PIN check', 'n8n-nodes-base.httpRequest', 4.2, {
+      method: 'POST', url: PIN_URL,
+      authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+      sendBody: true, specifyBody: 'json',
+      jsonBody: '={{ JSON.stringify({ reservation_id: $json.reservation_id, template: $json.template_code, preview: true }) }}',
+      options: { timeout: 20000, response: { response: { neverError: true } } },
+    }, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy'), y: 420 }),
+    code('Tag PIN result', TAG_PIN_JS, { y: 420 }),
+    code('Render scheduled', RENDER_SCHEDULED_JS, { y: 520 }),
+    pg('Record scheduled', RECORD_SCHEDULED_SQL, `={{ $json.p }}`, { alwaysOutputData: true, y: 520 }),
+    code('Scheduled digest', DIGEST_JS, { y: 520 }),
+    gmailNode('Email scheduled preview'),
+  ];
+}
+const SCHEDULED_CONNECTIONS = [
+  ['Log run', 'Due scheduled'],
+  ['Due scheduled', 'PIN check'],
+  ['PIN check', 'Tag PIN result'],
+  ['Tag PIN result', 'Render scheduled'],
+  ['Render scheduled', 'Record scheduled'],
+  ['Record scheduled', 'Scheduled digest'],
+  ['Scheduled digest', 'Email scheduled preview'],
+];
+
 function wf01() {
   const w2 = wf02();
   const q = (n) => w2.nodes.find((x) => x.name === n).parameters.query;
@@ -739,7 +850,7 @@ function wf01() {
   const nodes = [
     node('Every 30 min', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'minutes', minutesInterval: 30 }] } }),
     node('Test Webhook', 'n8n-nodes-base.webhook', 2, {
-      httpMethod: 'POST', path: 'ic/wf01-run', authentication: 'headerAuth', responseMode: 'lastNode', options: {},
+      httpMethod: 'POST', path: 'ic/wf01-run', authentication: 'headerAuth', responseMode: 'onReceived', options: {},
     }, { webhookId: cryptoId('ic-wf01-run'), credentials: cred('httpHeaderAuth', 'IC Webhook Gate'), y: 500 }),
     code('Spec reservations', SYNC_RESERVATIONS_JS),
     http('Smoobu GET reservations'),
@@ -754,6 +865,7 @@ VALUES ('WF-01', $1, now(), 'SUCCESS', $2::jsonb) RETURNING run_id, summary;`,
     `={{ [ $execution.id, JSON.stringify({ reservations: $('Normalize reservations').all().length, messagesSeen: $('Messages to rows').all().length, newClassified: $('Store message + classification').all().filter(i => i.json.message_pk).length }) ] }}`,
     { executeOnce: true }),
     ...draftNodes(),
+    ...scheduledNodes(),
   ];
   return {
     name: 'WF-01 — Smoobu Read-only Sync (TEST MODE)',
@@ -771,6 +883,7 @@ VALUES ('WF-01', $1, now(), 'SUCCESS', $2::jsonb) RETURNING run_id, summary;`,
       ['Store message + classification', 'Log run'],
       ['Log run', 'Pending drafts'],
       ...DRAFT_CONNECTIONS,
+      ...SCHEDULED_CONNECTIONS,
     ]),
     settings: { executionOrder: 'v1' },
     meta: { status: 'PLANNED', generatedBy: 'n8n/build-workflows.js' },

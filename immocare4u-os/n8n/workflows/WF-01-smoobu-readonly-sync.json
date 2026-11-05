@@ -34,7 +34,7 @@
         "httpMethod": "POST",
         "path": "ic/wf01-run",
         "authentication": "headerAuth",
-        "responseMode": "lastNode",
+        "responseMode": "onReceived",
         "options": {}
       },
       "webhookId": "80f817b8-95ff-9b3b-7d07-2d33d1a8fd92",
@@ -383,6 +383,149 @@
           "name": "IC Gmail"
         }
       }
+    },
+    {
+      "id": "758679c6-c6a7-f86b-06b6-5786207cd9b3",
+      "name": "Due scheduled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        4680,
+        520
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM (\n  SELECT s.template_code, r.reservation_id, r.property_id, p.internal_name, p.street_address, p.postal_code,\n         CASE WHEN lower(coalesce(r.raw->>'language','')) LIKE 'de%' THEN 'de' ELSE 'en' END AS lang,\n         r.arrival::text AS arrival, r.departure::text AS departure, r.channel_name,\n         CASE s.anchor\n           WHEN 'CHECK_IN'  THEN r.check_in_at\n           WHEN 'CHECK_OUT' THEN r.check_out_at\n           ELSE CASE WHEN (r.raw->>'created-at') ~ '^\\d{4}-\\d\\d-\\d\\d' THEN ((r.raw->>'created-at')::timestamp AT TIME ZONE p.timezone) END\n         END + make_interval(mins => s.offset_minutes) AS due_at\n  FROM ic.property_message_schedules s\n  JOIN ic.reservations r ON r.property_id = s.property_id\n  JOIN ic.properties p ON p.property_id = r.property_id\n  WHERE s.enabled AND r.status IN ('CONFIRMED','MODIFIED')\n) d\nWHERE d.due_at BETWEEN now() - interval '2 hours' AND now()\n  AND NOT EXISTS (SELECT 1 FROM ic.outbound_messages o WHERE o.idempotency_key = 'sched:' || d.reservation_id || ':' || d.template_code)\nORDER BY d.due_at\nLIMIT 50;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "km8GPfb80gdMEYbZ",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "95b32a3d-859d-f674-cdc9-ee000de3bcdb",
+      "name": "PIN check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4940,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-access-pin",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ reservation_id: $json.reservation_id, template: $json.template_code, preview: true }) }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EvFXaOOKTGAFBtZV",
+          "name": "IC Smoobu Proxy"
+        }
+      }
+    },
+    {
+      "id": "fe4c30ae-bc44-a7fa-915e-4f50ea165838",
+      "name": "Tag PIN result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5200,
+        420
+      ],
+      "parameters": {
+        "jsCode": "const src = $('Due scheduled').all();\nreturn $input.all().map((it, i) => ({ json: { ...src[i].json, pin_check: it.json } }));"
+      }
+    },
+    {
+      "id": "27cb38d9-ae11-565e-cdae-e7c8f56bd5e2",
+      "name": "Render scheduled",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5460,
+        520
+      ],
+      "parameters": {
+        "jsCode": "const T = {\n  WELCOME: { de: 'Hallo und vielen Dank für Ihre Buchung! Wir freuen uns auf Sie. Der Check-in ist ab 15:00 Uhr per Self-Check-in möglich. Alle Details erhalten Sie automatisch zwei Tage vor Ihrer Anreise. Herzliche Grüße, Ihr ImmoCare4U Team',\n             en: 'Hello and thank you for your booking! We look forward to welcoming you. Check-in is from 3:00 PM via self check-in. You will automatically receive all details two days before your arrival. Kind regards, your ImmoCare4U team' },\n  ARRIVAL_2D: { de: 'Hallo, in zwei Tagen ist es so weit! Adresse: {{ADDRESS}}. So finden Sie die Wohnung (Video): {{VIDEO}}. Hausregeln: Nachtruhe ab 22 Uhr, keine Partys, Check-out bis 11 Uhr. Den Code für die Schlüsselbox erhalten Sie am Anreisetag um 12:00 Uhr. Herzliche Grüße, Ihr ImmoCare4U Team',\n                en: 'Hello, only two days to go! Address: {{ADDRESS}}. How to find the apartment (video): {{VIDEO}}. House rules: quiet hours from 10 PM, no parties, check-out by 11 AM. You will receive the key box code on your arrival day at 12:00 noon. Kind regards, your ImmoCare4U team' },\n  ACCESS_PIN: { de: 'Willkommen in Berlin! Der Code für Ihre Schlüsselbox lautet: {{PIN}}. Die Box hängt am Treppengeländer. Bitte verdrehen Sie nach der Entnahme die Zahlen wieder. Check-in ab 15:00 Uhr. Das WLAN-Passwort liegt auf einem Zettel vor dem Fernseher. Einen schönen Aufenthalt!',\n                en: 'Welcome to Berlin! The code for your key box is: {{PIN}}. The box hangs on the stair railing. Please scramble the numbers again after taking the key. Check-in from 3:00 PM. The Wi-Fi password is on a note in front of the TV. Enjoy your stay!' },\n  CHECKOUT_REMINDER: { de: 'Hallo, wir hoffen, Sie hatten einen schönen Aufenthalt! Kurze Erinnerung: Check-out ist morgen bis 11:00 Uhr. Bitte legen Sie den Schlüssel wieder in die Schlüsselbox und verdrehen Sie die Zahlen. Gute Heimreise!',\n                       en: 'Hello, we hope you enjoyed your stay! A short reminder: check-out is tomorrow by 11:00 AM. Please put the key back into the key box and scramble the numbers. Safe travels home!' },\n  REVIEW_REQUEST: { de: 'Vielen Dank, dass Sie bei uns waren! Wenn alles zu Ihrer Zufriedenheit war, freuen wir uns sehr über eine positive Bewertung – das hilft uns und zukünftigen Gästen sehr. Alles Gute, Ihr ImmoCare4U Team',\n                    en: 'Thank you for staying with us! If you were happy with everything, we would really appreciate a positive review – it helps us and future guests a lot. All the best, your ImmoCare4U team' },\n};\nreturn $input.all().map((it) => {\n  const j = it.json;\n  const t = (T[j.template_code] || {})[j.lang] || '';\n  const body = t.replace('{{ADDRESS}}', (j.street_address || '') + ', ' + (j.postal_code || '') + ' Berlin')\n                .replace('{{VIDEO}}', '[Video-Link fehlt]');\n  const missing = [];\n  if (body.includes('[Video-Link fehlt]')) missing.push('لینک ویدیو ورودی هنوز نیست (سؤال Q6)');\n  if (/zu bestätigen/.test(j.street_address || '')) missing.push('آدرس هنوز تأیید نشده (Q1)');\n  const isPin = j.template_code === 'ACCESS_PIN';\n  const pin = j.pin_check || null;\n  if (isPin && !(pin && pin.ok)) missing.push('کد آزاد نمی‌شود: ' + (pin ? pin.reason : 'بررسی انجام نشد'));\n  return { json: { ...j, body, is_pin: isPin, pin_ok: isPin ? !!(pin && pin.ok) : null, missing,\n    p: [ 'sched:' + j.reservation_id + ':' + j.template_code, j.reservation_id, j.property_id, body, isPin ] } };\n});"
+      }
+    },
+    {
+      "id": "5fa02819-88dc-927f-313d-737fbc5f600e",
+      "name": "Record scheduled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        5720,
+        520
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ic.outbound_messages (idempotency_key, reservation_id, property_id, origin, body, contains_restricted, status, test_mode)\nVALUES ($1, $2::bigint, $3, 'SCHEDULED', $4, $5::boolean, 'DRAFT', true)\nON CONFLICT (idempotency_key) DO NOTHING\nRETURNING idempotency_key;",
+        "options": {
+          "queryReplacement": "={{ $json.p }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "km8GPfb80gdMEYbZ",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "955ebd44-1b83-ce31-34b9-8c0eadbb8a41",
+      "name": "Scheduled digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5980,
+        520
+      ],
+      "parameters": {
+        "jsCode": "const src = $('Render scheduled').all();\nconst done = new Set($input.all().map((i) => i.json.idempotency_key).filter(Boolean));\nconst items = src.map((i) => i.json).filter((j) => done.has(j.p[0]));\nif (!items.length) return [];\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 ۲ روز قبل: ویدیو و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };\nconst cards = items.map((j) => '<div style=\"border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0\">'\n  + '<div dir=\"rtl\" style=\"text-align:right;font-weight:bold;font-size:15px\">' + (NAME[j.template_code] || j.template_code) + '</div>'\n  + '<div dir=\"rtl\" style=\"text-align:right;color:#667085;font-size:13px;margin:4px 0 8px\">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'\n  + '<div dir=\"ltr\" style=\"background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828\">' + esc(j.body).replace('{{PIN}}', '<b>' + (j.pin_ok ? '••••' : '⛔') + '</b>') + '</div>'\n  + (j.is_pin ? '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;margin-top:6px;color:' + (j.pin_ok ? '#067647' : '#b42318') + '\">' + (j.pin_ok ? '✅ کد در Supabase موجود است و برای این رزرو مجاز است (در ایمیل نشان داده نمی‌شود)' : '⛔ کد برای این رزرو آزاد نمی‌شود') + '</div>' : '')\n  + (j.missing.length ? '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;margin-top:6px;color:#b54708\">⚠️ ' + esc(j.missing.join(' · ')) + '</div>' : '')\n  + '</div>').join('');\nconst html = '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n  + '<div dir=\"rtl\" style=\"background:#344054;color:#fff;padding:16px 18px;text-align:right\"><div style=\"font-size:20px;font-weight:bold\">📅 پیام‌های زمان‌بندی‌شده</div><div style=\"font-size:14px;margin-top:4px\">' + items.length + ' پیام الان موعدش رسیده</div></div>'\n  + '<div style=\"padding:4px 18px 18px\"><div dir=\"rtl\" style=\"background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right\">🧪 حالت آزمایشی: این پیام‌ها برای مهمان ارسال <b>نشده‌اند</b>. فقط ببینید بعد از دوره‌ی آزمایشی چه چیزی و چه زمانی خودکار فرستاده می‌شود.</div>'\n  + cards + '</div></div></div>';\nreturn [{ json: { subject: '📅 پیش‌نمایش پیام‌های زمان‌بندی‌شده (' + items.length + ')', html } }];"
+      }
+    },
+    {
+      "id": "a3009d32-5804-eff1-6653-9bcff92b7024",
+      "name": "Email scheduled preview",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        6240,
+        300
+      ],
+      "parameters": {
+        "sendTo": "immocare4u.kontakt@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Gmail"
+        }
+      }
     }
   ],
   "connections": {
@@ -503,6 +646,11 @@
             "node": "Pending drafts",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Due scheduled",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -567,6 +715,72 @@
         [
           {
             "node": "Email manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Due scheduled": {
+      "main": [
+        [
+          {
+            "node": "PIN check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PIN check": {
+      "main": [
+        [
+          {
+            "node": "Tag PIN result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag PIN result": {
+      "main": [
+        [
+          {
+            "node": "Render scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render scheduled": {
+      "main": [
+        [
+          {
+            "node": "Record scheduled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record scheduled": {
+      "main": [
+        [
+          {
+            "node": "Scheduled digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scheduled digest": {
+      "main": [
+        [
+          {
+            "node": "Email scheduled preview",
             "type": "main",
             "index": 0
           }
