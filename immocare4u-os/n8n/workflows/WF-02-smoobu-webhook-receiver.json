@@ -342,7 +342,7 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH m AS (\n  INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, subject, body, sent_at)\n  VALUES ($1::bigint, $2::bigint, $3, $4::ic.msg_direction, $5, $6, $7, $8::timestamptz)\n  ON CONFLICT (smoobu_message_id) DO NOTHING\n  RETURNING message_pk\n)\nINSERT INTO ic.message_classifications (message_pk, level, intent, rule_level, matched_rules, reason)\nSELECT message_pk,\n       -- Unmapped property ⇒ never auto: force REVIEW at minimum\n       CASE WHEN $3 IS NULL AND $9 = 'AUTO' THEN 'REVIEW' ELSE $9 END::ic.msg_level,\n       $10, $9::ic.msg_level, $11::text[], coalesce($12, '') || CASE WHEN $3 IS NULL THEN ',UNMAPPED_PROPERTY' ELSE '' END\nFROM m WHERE $9 IS NOT NULL\nRETURNING message_pk, level, intent;",
+        "query": "WITH m AS (\n  INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, subject, body, sent_at)\n  VALUES ($1::bigint, $2::bigint, $3, $4::ic.msg_direction, $5, $6, $7, ($8::timestamp AT TIME ZONE 'Europe/Berlin'))\n  ON CONFLICT (smoobu_message_id) DO NOTHING\n  RETURNING message_pk\n)\nINSERT INTO ic.message_classifications (message_pk, level, intent, rule_level, matched_rules, reason)\nSELECT message_pk,\n       -- Unmapped property ⇒ never auto: force REVIEW at minimum\n       CASE WHEN $3 IS NULL AND $9 = 'AUTO' THEN 'REVIEW' ELSE $9 END::ic.msg_level,\n       $10, $9::ic.msg_level, $11::text[], coalesce($12, '') || CASE WHEN $3 IS NULL THEN ',UNMAPPED_PROPERTY' ELSE '' END\nFROM m WHERE $9 IS NOT NULL\nRETURNING message_pk, level, intent;",
         "options": {
           "queryReplacement": "={{ $json.p }}"
         }

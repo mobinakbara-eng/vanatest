@@ -9,7 +9,7 @@ function run(name, items, outputs = {}) {
   const sb = {
     $input: { first: () => items[0], all: () => items },
     $: (n) => ({ all: () => outputs[n], first: () => outputs[n][0] }),
-    JSON, Date, Number, String, Object, require,
+    JSON, Date, Number, String, Object, require, Intl,
   };
   return JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${byName[name].parameters.jsCode} })`, sb)()));
 }
@@ -217,4 +217,16 @@ test('scheduled SQL: due window, cancelled excluded, idempotent', { skip: !proce
   assert.equal(sql(byName['Record scheduled'].parameters.query, p), 'sched:8001:ACCESS_PIN');
   assert.equal(sql(byName['Record scheduled'].parameters.query, p), '');
   assert.doesNotMatch(sql(byName['Due scheduled'].parameters.query), /\|8001\|/);
+});
+
+test('AI request carries Berlin date and stay phase (regression: "enjoy your stay" on departure day)', () => {
+  const mk = (sent) => run('Build AI request', [src({ sent_at: sent, convo: [{ direction: 'INBOUND', body: 'Wir haben den Schlüssel wieder zurück gehängt.' }] })])[0].json.ai;
+  const u = (sent) => mk(sent).messages[0].content;
+  assert.match(u('2026-11-05T09:20:00Z'), /STAY PHASE: DEPARTURE_DAY/);
+  assert.match(u('2026-11-04T10:00:00Z'), /STAY PHASE: DURING_STAY/);
+  assert.match(u('2026-11-03T10:00:00Z'), /STAY PHASE: ARRIVAL_DAY/);
+  assert.match(u('2026-11-01T10:00:00Z'), /STAY PHASE: BEFORE_ARRIVAL/);
+  assert.match(u('2026-11-06T10:00:00Z'), /STAY PHASE: AFTER_DEPARTURE/);
+  assert.match(u('2026-11-04T23:30:00Z'), /STAY PHASE: DEPARTURE_DAY/);   // 00:30 Berlin = next day
+  assert.match(mk('2026-11-05T09:20:00Z').system, /never wish a pleasant stay/);
 });

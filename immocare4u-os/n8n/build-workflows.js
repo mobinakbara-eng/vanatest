@@ -242,7 +242,7 @@ return [{ json: {
 
     pg('Store message + classification', `WITH m AS (
   INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, subject, body, sent_at)
-  VALUES ($1::bigint, $2::bigint, $3, $4::ic.msg_direction, $5, $6, $7, $8::timestamptz)
+  VALUES ($1::bigint, $2::bigint, $3, $4::ic.msg_direction, $5, $6, $7, ($8::timestamp AT TIME ZONE 'Europe/Berlin'))
   ON CONFLICT (smoobu_message_id) DO NOTHING
   RETURNING message_pk
 )
@@ -404,6 +404,13 @@ Hard rules:
 6. Emergencies (fire, smoke, gas, serious water leak, electric danger, medical, threats, someone trapped): tell the guest to call 112 (fire/ambulance) or 110 (police) if in danger, and that the team has been alerted.
 7. Reply in the guest's language (German or English primarily). Warm, professional, concise, natural. Sign as "Ihr ImmoCare4U Team" / "Your ImmoCare4U team".
 8. If unsure about the level, choose the more severe one (lower number).
+9. Respect the STAY PHASE given in the user turn (computed from today's date in Berlin):
+   BEFORE_ARRIVAL – look forward to welcoming them; no "enjoy your stay".
+   ARRIVAL_DAY – welcome; "glad you arrived" only if they say they arrived.
+   DURING_STAY – "enjoy the rest of your stay".
+   DEPARTURE_DAY / AFTER_DEPARTURE – never wish a pleasant stay or say "glad you arrived". If the guest
+   says they returned/left the key or checked out, confirm, thank them for staying, wish a safe journey home.
+   Never contradict what the guest just told you.
 
 Levels (1 = most severe):
 1 Emergency – danger now. Staff only.
@@ -446,7 +453,13 @@ return $input.all().map((it) => {
   const j = it.json;
   const kb = (j.kb || []).map((k) => '- [' + k.key + '|' + k.lang + (k.verified ? '' : '|UNVERIFIED') + '] ' + k.value).join('\\n');
   const convo = (j.convo || []).map((c) => (c.direction === 'INBOUND' ? 'GUEST: ' : 'HOST: ') + c.body).join('\\n');
-  let user = 'Apartment: ' + j.internal_name + ' (' + j.property_id + ')\\n'
+  const berlin = (d) => new Date(d).toLocaleString('sv-SE', { timeZone: 'Europe/Berlin' }).slice(0, 16);
+  const today = berlin(j.sent_at || Date.now()).slice(0, 10);
+  const arr = String(j.arrival).slice(0, 10), dep = String(j.departure).slice(0, 10);
+  const phase = today < arr ? 'BEFORE_ARRIVAL' : today === arr ? 'ARRIVAL_DAY' : today < dep ? 'DURING_STAY' : today === dep ? 'DEPARTURE_DAY' : 'AFTER_DEPARTURE';
+  let user = 'Message sent (Berlin time): ' + berlin(j.sent_at || Date.now()) + '\\n'
+    + 'STAY PHASE: ' + phase + ' (arrival ' + arr + ', departure ' + dep + ')\\n'
+    + 'Apartment: ' + j.internal_name + ' (' + j.property_id + ')\\n'
     + 'Reservation: ' + j.reservation_id + ', status ' + j.reservation_status + ', arrival ' + String(j.arrival).slice(0, 10) + ', departure ' + String(j.departure).slice(0, 10) + ', channel ' + j.channel_name + '\\n'
     + 'Rule-engine pre-classification: ' + j.rule_level + ' / ' + j.rule_intent + ' ' + j.rule_flags + '\\n\\n'
     + 'KNOWLEDGE BASE (only source of facts):\\n' + (kb || '(empty)') + '\\n\\n'
