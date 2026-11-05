@@ -116,7 +116,7 @@ test('decide: invalid AI output → level 4, no crash', () => {
 test('email: Persian layout, formatted dates, 3 buttons, escaped guest text', () => {
   const { payload } = decide(aiResp(base), src({ body: '<script>alert(1)</script>' }));
   const e = render(payload);
-  assert.match(e.html, /03\.11\.2026 → 05\.11\.2026/);
+  assert.match(e.html, /03\.11\.2026 از ساعت 15:00/); assert.match(e.html, /05\.11\.2026 تا ساعت 11:00/);
   assert.ok(!e.html.includes('<script>'));
   assert.match(e.html, /a=approve/); assert.match(e.html, /a=edit/); assert.match(e.html, /a=reject/);
   assert.match(e.html, /c=AP-X1&t=tok123/);
@@ -229,4 +229,16 @@ test('AI request carries Berlin date and stay phase (regression: "enjoy your sta
   assert.match(u('2026-11-06T10:00:00Z'), /STAY PHASE: AFTER_DEPARTURE/);
   assert.match(u('2026-11-04T23:30:00Z'), /STAY PHASE: DEPARTURE_DAY/);   // 00:30 Berlin = next day
   assert.match(mk('2026-11-05T09:20:00Z').system, /never wish a pleasant stay/);
+});
+
+test('AI request has exact stay times, hours to check-out and requires analysis', () => {
+  const ai = run('Build AI request', [src({ sent_at: '2026-11-05T09:28:00Z', check_in_time: '15:00', check_out_time: '11:00', nights: 2, adults: 2, children: 1 })])[0].json.ai;
+  const u = ai.messages[0].content;
+  assert.match(u, /LAST GUEST MESSAGE SENT \(Berlin\): 2026-11-05 10:28/);
+  assert.match(u, /check-in from 15:00 · departure 2026-11-05 check-out by 11:00 · 2 nights · guests: 2 adults, 1 children/);
+  assert.match(u, /hours until check-out time: 0\.5/);
+  assert.match(u, /NOW \(Berlin\): \d{4}-\d\d-\d\d \d\d:\d\d/);
+  assert.ok(ai.output_config.format.schema.required.includes('analysis_fa'));
+  assert.equal(ai.output_config.effort, 'high');
+  assert.match(ai.system, /THINK BEFORE YOU WRITE/);
 });

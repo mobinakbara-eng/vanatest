@@ -370,10 +370,13 @@ const N8N_PUBLIC = process.env.IC_N8N_PUBLIC_URL || 'https://mobinakbara.app.n8n
 const CONTEXT_SELECT = `SELECT m.message_pk, m.reservation_id, m.property_id, m.body, m.sent_at,
   c.level::text AS rule_level, c.intent AS rule_intent, coalesce(c.reason,'') AS rule_flags,
   p.internal_name, r.arrival, r.departure, r.channel_name, r.status AS reservation_status,
+  r.adults, r.children, (r.departure - r.arrival) AS nights,
+  coalesce(nullif(r.raw->>'check-in',''), to_char(p.check_in_time,'HH24:MI'), '15:00') AS check_in_time,
+  coalesce(nullif(r.raw->>'check-out',''), to_char(p.check_out_time,'HH24:MI'), '11:00') AS check_out_time,
   (SELECT json_agg(x ORDER BY x.sent_at) FROM (
-     SELECT h.direction, left(h.body, 600) AS body, h.sent_at FROM ic.messages h
+     SELECT h.direction, left(h.body, 1500) AS body, h.sent_at FROM ic.messages h
      WHERE h.reservation_id = m.reservation_id AND h.sent_at <= m.sent_at
-     ORDER BY h.sent_at DESC LIMIT 8) x) AS convo,
+     ORDER BY h.sent_at DESC LIMIT 30) x) AS convo,
   (SELECT json_agg(json_build_object('key', k.key, 'lang', k.language, 'value', k.value_text,
                                      'verified', k.validity = 'VERIFIED') ORDER BY k.key)
      FROM ic.property_kb_entries k
@@ -411,6 +414,12 @@ Hard rules:
    DEPARTURE_DAY / AFTER_DEPARTURE – never wish a pleasant stay or say "glad you arrived". If the guest
    says they returned/left the key or checked out, confirm, thank them for staying, wish a safe journey home.
    Never contradict what the guest just told you.
+10. THINK BEFORE YOU WRITE. Analyse, in this order: (a) current date/time vs. arrival and departure date AND time,
+   hours until check-out; (b) what the guest actually means, in the context of the whole conversation and the phase
+   (e.g. "key returned" on departure day close to/after check-out time = they checked out; "key returned" earlier in
+   the stay may mean they only left for the day – then do NOT assume check-out; ask briefly if it matters);
+   (c) which KB facts apply to THIS apartment; (d) what is still unclear. If something important is ambiguous,
+   ask the guest one short clarifying question instead of guessing. Put this analysis in "analysis_fa".
 
 Levels (1 = most severe):
 1 Emergency – danger now. Staff only.
@@ -424,7 +433,8 @@ Greetings/thanks with no question: level 6, intent SMALLTALK, short friendly rep
 Return only the JSON object required by the output schema.
 "guest_fa": faithful Persian (Farsi) translation of the LAST guest message.
 "reply_fa": faithful Persian (Farsi) translation of your reply.
-"reason_fa": one short Persian sentence: why this level.`;
+"reason_fa": one short Persian sentence: why this level.
+"analysis_fa": 2–4 short Persian sentences: your analysis from rule 10 (timing, what the guest means, what is unclear).`;
 
 const DRAFT_SCHEMA = {
   type: 'object',
@@ -440,8 +450,9 @@ const DRAFT_SCHEMA = {
     guest_fa: { type: 'string' },
     reply_fa: { type: 'string' },
     reason_fa: { type: 'string' },
+    analysis_fa: { type: 'string' },
   },
-  required: ['level', 'intent', 'confidence', 'language', 'reply', 'used_kb_keys', 'needs_human', 'flags', 'guest_fa', 'reply_fa', 'reason_fa'],
+  required: ['level', 'intent', 'confidence', 'language', 'reply', 'used_kb_keys', 'needs_human', 'flags', 'guest_fa', 'reply_fa', 'reason_fa', 'analysis_fa'],
   additionalProperties: false,
 };
 
@@ -454,11 +465,20 @@ return $input.all().map((it) => {
   const kb = (j.kb || []).map((k) => '- [' + k.key + '|' + k.lang + (k.verified ? '' : '|UNVERIFIED') + '] ' + k.value).join('\\n');
   const convo = (j.convo || []).map((c) => (c.direction === 'INBOUND' ? 'GUEST: ' : 'HOST: ') + c.body).join('\\n');
   const berlin = (d) => new Date(d).toLocaleString('sv-SE', { timeZone: 'Europe/Berlin' }).slice(0, 16);
-  const today = berlin(j.sent_at || Date.now()).slice(0, 10);
+  const nowB = berlin(Date.now()), sentB = berlin(j.sent_at || Date.now());
+  const today = sentB.slice(0, 10);
   const arr = String(j.arrival).slice(0, 10), dep = String(j.departure).slice(0, 10);
+  const cin = String(j.check_in_time || '15:00').slice(0, 5), cout = String(j.check_out_time || '11:00').slice(0, 5);
   const phase = today < arr ? 'BEFORE_ARRIVAL' : today === arr ? 'ARRIVAL_DAY' : today < dep ? 'DURING_STAY' : today === dep ? 'DEPARTURE_DAY' : 'AFTER_DEPARTURE';
-  let user = 'Message sent (Berlin time): ' + berlin(j.sent_at || Date.now()) + '\\n'
-    + 'STAY PHASE: ' + phase + ' (arrival ' + arr + ', departure ' + dep + ')\\n'
+  // hours between message and check-out (both Berlin wall-clock)
+  const asMin = (ymdhm) => Date.parse(ymdhm.replace(' ', 'T') + ':00Z') / 60000;
+  const hToOut = Math.round((asMin(dep + ' ' + cout) - asMin(sentB)) / 6) / 10;
+  const hFromIn = Math.round((asMin(sentB) - asMin(arr + ' ' + cin)) / 6) / 10;
+  let user = 'NOW (Berlin): ' + nowB + '\\n'
+    + 'LAST GUEST MESSAGE SENT (Berlin): ' + sentB + '\\n'
+    + 'STAY: arrival ' + arr + ' check-in from ' + cin + ' · departure ' + dep + ' check-out by ' + cout
+    + ' · ' + (j.nights ?? '?') + ' nights · guests: ' + (j.adults ?? '?') + ' adults, ' + (j.children ?? 0) + ' children\\n'
+    + 'STAY PHASE: ' + phase + ' · hours since check-in time: ' + hFromIn + ' · hours until check-out time: ' + hToOut + '\\n'
     + 'Apartment: ' + j.internal_name + ' (' + j.property_id + ')\\n'
     + 'Reservation: ' + j.reservation_id + ', status ' + j.reservation_status + ', arrival ' + String(j.arrival).slice(0, 10) + ', departure ' + String(j.departure).slice(0, 10) + ', channel ' + j.channel_name + '\\n'
     + 'Rule-engine pre-classification: ' + j.rule_level + ' / ' + j.rule_intent + ' ' + j.rule_flags + '\\n\\n'
@@ -469,8 +489,8 @@ return $input.all().map((it) => {
     user += '\\n\\nPREVIOUS DRAFT:\\n' + j.previous_draft
       + '\\n\\nMANAGER INSTRUCTION (trusted; may be in Persian; rewrite the reply accordingly, keep the hard rules):\\n' + j.instruction;
   }
-  return { json: { ...j, ai: { model: ${JSON.stringify(IC_MODEL)}, max_tokens: 4000,
-    output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
+  return { json: { ...j, ai: { model: ${JSON.stringify(IC_MODEL)}, max_tokens: 16000,
+    output_config: { effort: 'high', format: { type: 'json_schema', schema: SCHEMA } },
     system: SYSTEM, messages: [{ role: 'user', content: user }] } } };
 });`;
 
@@ -504,7 +524,8 @@ return $input.all().map((item, idx) => {
     apartment: src.internal_name, reservation: src.reservation_id, channel: src.channel_name,
     arrival: String(src.arrival).slice(0, 10), departure: String(src.departure).slice(0, 10),
     guest: src.body, guest_fa: ai && ai.guest_fa, reply, reply_fa: ai && ai.reply_fa,
-    reason_fa: ai && ai.reason_fa, flags: allFlags, used_unverified: usedUnverified,
+    reason_fa: ai && ai.reason_fa, analysis_fa: ai && ai.analysis_fa,
+    check_in_time: String(src.check_in_time || '15:00').slice(0, 5), check_out_time: String(src.check_out_time || '11:00').slice(0, 5), flags: allFlags, used_unverified: usedUnverified,
     rule: src.rule_level + ' / ' + src.rule_intent, ai_level: ai && ai.level, confidence: ai && ai.confidence };
   return { json: { p: [ src.message_pk, src.reservation_id, src.property_id, reply || '(no draft)', code(), to4(level),
       'L' + level + ' ' + intent + (allFlags.length ? ' | ' + allFlags.join(',') : ''), JSON.stringify(payload),
@@ -556,9 +577,11 @@ return $input.all().map((it) => {
     + '<div dir="rtl" style="background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right">🧪 حالت آزمایشی: هیچ پیامی برای مهمان ارسال نمی‌شود. تأیید شما فقط ثبت می‌شود تا سیستم یاد بگیرد.</div>'
     + '<table dir="rtl" style="width:100%;margin-top:12px;font-size:14px;color:#344054;border-collapse:collapse">'
     + '<tr><td style="padding:4px 0;color:#667085;width:90px">آپارتمان</td><td style="padding:4px 0;font-weight:bold">' + esc(p.apartment) + '</td></tr>'
-    + '<tr><td style="padding:4px 0;color:#667085">تاریخ</td><td style="padding:4px 0" dir="ltr">' + fmt(p.arrival) + ' → ' + fmt(p.departure) + '</td></tr>'
+    + '<tr><td style="padding:4px 0;color:#667085">ورود</td><td style="padding:4px 0">' + fmt(p.arrival) + ' از ساعت ' + esc(p.check_in_time || '15:00') + '</td></tr>'
+    + '<tr><td style="padding:4px 0;color:#667085">خروج</td><td style="padding:4px 0">' + fmt(p.departure) + ' تا ساعت ' + esc(p.check_out_time || '11:00') + '</td></tr>'
     + '<tr><td style="padding:4px 0;color:#667085">کانال</td><td style="padding:4px 0">' + esc(p.channel) + ' · رزرو ' + esc(p.reservation) + '</td></tr></table>'
     + box('💬 پیام مهمان', text(p.guest, 'ltr', '#f2f4f7') + '<div style="height:6px"></div>' + text(p.guest_fa || '—', 'rtl', '#f9fafb'))
+    + (p.analysis_fa ? box('🧠 تحلیل AI قبل از جواب', text(p.analysis_fa, 'rtl', '#f4f3ff')) : '')
     + (p.instruction ? box('📝 دستور شما', text(p.instruction, 'rtl', '#fdf2fa')) : '')
     + (staffOnly
         ? box('⚠️ این پیام را خودتان جواب دهید', text(p.reason_fa || 'موضوع حساس است.', 'rtl', '#fef3f2'))
