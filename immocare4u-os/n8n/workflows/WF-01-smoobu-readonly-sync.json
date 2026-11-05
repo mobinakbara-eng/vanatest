@@ -231,12 +231,35 @@
       "executeOnce": true
     },
     {
+      "id": "63ed8a34-a4e2-9112-b470-3931be192c3e",
+      "name": "Expire approvals",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2860,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ic.approvals SET status = 'EXPIRED' WHERE status = 'PENDING' AND expires_at < now() RETURNING approval_code;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "km8GPfb80gdMEYbZ",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
       "id": "98c0dcfe-d802-4577-d60b-cc13adc6e18c",
       "name": "Pending drafts",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2860,
+        3120,
         300
       ],
       "parameters": {
@@ -258,7 +281,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
+        3380,
         300
       ],
       "parameters": {
@@ -271,7 +294,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3380,
+        3640,
         300
       ],
       "parameters": {
@@ -316,7 +339,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3640,
+        3900,
         300
       ],
       "parameters": {
@@ -329,7 +352,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3900,
+        4160,
         300
       ],
       "parameters": {
@@ -352,7 +375,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4160,
+        4420,
         300
       ],
       "parameters": {
@@ -365,7 +388,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        4420,
+        4680,
         300
       ],
       "parameters": {
@@ -390,7 +413,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4680,
+        4940,
         520
       ],
       "parameters": {
@@ -412,7 +435,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4940,
+        5200,
         420
       ],
       "parameters": {
@@ -445,7 +468,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5200,
+        5460,
         420
       ],
       "parameters": {
@@ -458,7 +481,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5460,
+        5720,
         520
       ],
       "parameters": {
@@ -471,7 +494,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        5720,
+        5980,
         520
       ],
       "parameters": {
@@ -495,7 +518,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5980,
+        6240,
         520
       ],
       "parameters": {
@@ -508,7 +531,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        6240,
+        6500,
         300
       ],
       "parameters": {
@@ -640,6 +663,17 @@
       ]
     },
     "Log run": {
+      "main": [
+        [
+          {
+            "node": "Expire approvals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expire approvals": {
       "main": [
         [
           {

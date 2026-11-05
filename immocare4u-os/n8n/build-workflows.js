@@ -297,11 +297,22 @@ function wf14() {
     nodes: [
       node('Error Trigger', 'n8n-nodes-base.errorTrigger', 1, {}),
       pg('Write dead letter', `INSERT INTO ic.dead_letter_events (workflow, ref_table, ref_id, payload, error)
-VALUES ($1, 'n8n_execution', $2, $3::jsonb, $4) RETURNING dlq_id;`,
-      `={{ [ $json.workflow.name, String($json.execution.id), JSON.stringify({ url: $json.execution.url, lastNode: $json.execution.lastNodeExecuted }), String($json.execution.error && $json.execution.error.message) ] }}`),
-      // Telegram alert node is added in Phase 2 once the bot credential exists.
+VALUES ($1, 'n8n_execution', $2, $3::jsonb, $4) RETURNING dlq_id, workflow, error;`,
+      `={{ [ $json.workflow.name, String($json.execution.id), JSON.stringify({ url: $json.execution.url, lastNode: $json.execution.lastNodeExecuted }), String($json.execution.error && $json.execution.error.message) ] }}`,
+      { alwaysOutputData: true, continueOnFail: true }),
+      code('Alert text', `const t = $('Error Trigger').first().json, d = $input.first().json || {};
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const wf = (t.workflow && t.workflow.name) || '?', ex = t.execution || {};
+const html = '<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right">'
+  + '<div style="background:#b42318;color:#fff;padding:14px 16px;border-radius:12px 12px 0 0;font-size:18px;font-weight:bold">⚠️ خطا در اتوماسیون</div>'
+  + '<div style="border:1px solid #eaecf0;border-top:0;padding:14px 16px;border-radius:0 0 12px 12px;line-height:1.8">'
+  + 'Workflow: <b dir="ltr">' + esc(wf) + '</b><br>نود: <span dir="ltr">' + esc(ex.lastNodeExecuted) + '</span><br>'
+  + 'خطا: <span dir="ltr">' + esc(ex.error && ex.error.message) + '</span><br>شماره‌ی ثبت: ' + esc(d.dlq_id || '—')
+  + (ex.url ? '<br><a href="' + esc(ex.url) + '">باز کردن در n8n</a>' : '') + '</div></div>';
+return [{ json: { subject: '⚠️ خطا در ' + wf, html } }];`),
+      gmailNode('Email alert'),
     ],
-    connections: connect([['Error Trigger', 'Write dead letter']]),
+    connections: connect([['Error Trigger', 'Write dead letter'], ['Write dead letter', 'Alert text'], ['Alert text', 'Email alert']]),
     settings: { executionOrder: 'v1' },
     meta: { status: 'PLANNED', generatedBy: 'n8n/build-workflows.js' },
   };
@@ -919,6 +930,7 @@ function wf01() {
 VALUES ('WF-01', $1, now(), 'SUCCESS', $2::jsonb) RETURNING run_id, summary;`,
     `={{ [ $execution.id, JSON.stringify({ reservations: $('Normalize reservations').all().length, messagesSeen: $('Messages to rows').all().length, newClassified: $('Store message + classification').all().filter(i => i.json.message_pk).length }) ] }}`,
     { executeOnce: true }),
+    (() => { const n = pg('Expire approvals', `UPDATE ic.approvals SET status = 'EXPIRED' WHERE status = 'PENDING' AND expires_at < now() RETURNING approval_code;`, '', { executeOnce: true, alwaysOutputData: true }); delete n.parameters.options.queryReplacement; return n; })(),
     ...draftNodes(),
     ...scheduledNodes(),
   ];
@@ -936,9 +948,10 @@ VALUES ('WF-01', $1, now(), 'SUCCESS', $2::jsonb) RETURNING run_id, summary;`,
       ['Smoobu GET messages', 'Messages to rows'],
       ['Messages to rows', 'Store message + classification'],
       ['Store message + classification', 'Log run'],
-      ['Log run', 'Pending drafts'],
+      ['Log run', 'Expire approvals'],
+      ['Expire approvals', 'Pending drafts'],
       ...DRAFT_CONNECTIONS,
-      ...SCHEDULED_CONNECTIONS,
+      ...SCHEDULED_CONNECTIONS.map(([a, ...r]) => [a === 'Log run' ? 'Expire approvals' : a, ...r]),
     ]),
     settings: { executionOrder: 'v1' },
     meta: { status: 'PLANNED', generatedBy: 'n8n/build-workflows.js' },
