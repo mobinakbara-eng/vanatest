@@ -7,6 +7,11 @@
 //           With preview=false AND secret IC_ALLOW_PIN_RELEASE=true the PIN is returned.
 //           During the trial week IC_ALLOW_PIN_RELEASE is NOT set → the PIN never leaves.
 //
+// Entrance video (template ARRIVAL_2D / ACCESS_PIN): returns a signed URL (7 days) to the
+// property's video in the PRIVATE Storage bucket "guest-media" – only for a confirmed
+// reservation whose arrival is at most 3 days away and that has not ended. The link grants
+// read access to that one file only; it exposes no key and no other data.
+//
 // Release rules (all must hold):
 //   reservation exists, status CONFIRMED/MODIFIED, mapped to a property
 //   local date (property timezone) is between arrival and departure-1
@@ -25,8 +30,9 @@ Deno.serve(async (req) => {
   if (!safeEqual(req.headers.get('x-ic-proxy-token'), Deno.env.get('IC_PROXY_TOKEN'))) return json(401, { error: 'unauthorized' });
   let body: { reservation_id?: number; preview?: boolean; template?: string };
   try { body = await req.json(); } catch { return json(400, { error: 'invalid json' }); }
-  // Only the access message needs a PIN; everything else is answered without DB access.
-  if (body.template && body.template !== 'ACCESS_PIN') return json(200, { ok: true, not_pin: true });
+  const wantsVideo = body.template === 'ARRIVAL_2D' || body.template === 'ACCESS_PIN';
+  // Only the access message needs a PIN, only arrival messages need the video.
+  if (body.template && !wantsVideo) return json(200, { ok: true, not_pin: true });
   const id = Number(body.reservation_id);
   if (!Number.isSafeInteger(id) || id <= 0) return json(400, { error: 'reservation_id required' });
   const preview = body.preview !== false;
@@ -44,6 +50,28 @@ Deno.serve(async (req) => {
   else if (r.today < r.arrival || r.today >= r.departure) reason = 'outside stay (' + r.arrival + ' – ' + r.departure + ')';
   else if (r.today === r.arrival && r.now_local < RELEASE_TIME) reason = 'before release time ' + RELEASE_TIME;
 
+  let video_url: string | null = null, video_reason = '';
+  if (wantsVideo && r) {
+    const daysToArrival = (Date.parse(r.arrival) - Date.parse(r.today)) / 864e5;
+    if (!['CONFIRMED', 'MODIFIED'].includes(r.status)) video_reason = 'reservation status ' + r.status;
+    else if (r.today >= r.departure) video_reason = 'stay ended';
+    else if (daysToArrival > 3) video_reason = 'more than 3 days before arrival';
+    else {
+      const path = String(r.property_id) + '/eingang.mp4';
+      const res = await fetch(Deno.env.get('SUPABASE_URL') + '/storage/v1/object/sign/guest-media/' + path, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expiresIn: 7 * 24 * 3600 }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.signedURL) video_url = Deno.env.get('SUPABASE_URL') + '/storage/v1' + j.signedURL;
+      else video_reason = 'video not available (' + res.status + ')';
+    }
+  }
+  if (body.template === 'ARRIVAL_2D') {
+    return json(200, { ok: !!video_url, not_pin: true, video_url, reason: video_reason || (video_url ? 'video link created' : 'no reservation') });
+  }
+
   const pin = r ? Deno.env.get('IC_PIN_' + String(r.property_id).replaceAll('-', '_')) : undefined;
   const released = !reason && !!pin && !preview && Deno.env.get('IC_ALLOW_PIN_RELEASE') === 'true';
 
@@ -57,6 +85,7 @@ Deno.serve(async (req) => {
     property_id: r && r.property_id,
     pin_configured: !!pin,
     digits: pin ? pin.length : 0,
+    video_url,
     ...(released ? { pin } : {}),
   });
 });

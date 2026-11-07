@@ -185,6 +185,7 @@ test('scheduled: PIN text keeps {{PIN}} placeholder, never digits; missing video
   assert.equal(out[0].json.p[4], true);                 // contains_restricted
   assert.equal(out[0].json.pin_ok, true);
   assert.ok(out[1].json.missing.some((m) => /ویدیو/.test(m)));
+  assert.match(out[0].json.body, /obere, größere/); assert.match(out[0].json.body, /maps\/search/);
   assert.equal(out[1].json.lang, 'de');
 });
 
