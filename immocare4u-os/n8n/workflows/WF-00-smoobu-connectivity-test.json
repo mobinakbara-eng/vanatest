@@ -1,0 +1,184 @@
+{
+  "name": "WF-00 — Smoobu Connectivity Test",
+  "nodes": [
+    {
+      "id": "c7ec5c63-cd22-52c9-f72b-6706e68447b0",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "d7473277-4ace-6cec-be8f-e7929463aac9",
+      "name": "Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        500
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ic/wf00-test",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "1314896a-d0be-e4ad-147c-8890b38a4b81",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "e6afSODEb2ZXjsW8",
+          "name": "IC Webhook Gate"
+        }
+      }
+    },
+    {
+      "id": "5e46bbf8-d0e9-063e-b266-3eff5684fc39",
+      "name": "Request GET /api/apartments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map((item) => {\n  const spec = (() => ({ method: 'GET', path: '/api/apartments' }))(item.json);\n  return { json: { ...item.json, req: { method: spec.method || 'GET', path: spec.path, query: spec.query || null } } };\n});"
+      }
+    },
+    {
+      "id": "0d07eaed-1464-18ba-e646-7c3487c55ae2",
+      "name": "Smoobu GET apartments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/smoobu-proxy",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.req) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EvFXaOOKTGAFBtZV",
+          "name": "IC Smoobu Proxy"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "b0868433-68d1-c92d-0a86-cbee76b20b6f",
+      "name": "Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst ok = r.statusCode === 200 && !r.error;\nconst apartments = ok ? (r.body.apartments || []) : [];\nreturn [{ json: {\n  check: 'SMOOBU_API_HMAC',\n  passed: ok,\n  statusCode: r.statusCode,\n  rateLimitRemaining: r.rateLimit && r.rateLimit.remaining,\n  proxyError: r.error || null,\n  apartmentCount: apartments.length,\n  apartments: apartments.map(a => ({ smoobu_apartment_id: a.id, name: a.name })),\n  hint: ok ? 'Map each smoobu_apartment_id to a property_id in ic.properties' :\n    'Check Supabase secrets SMOOBU_API_KEY/SMOOBU_API_SECRET and that the key has HMAC enabled'\n}}];"
+      }
+    },
+    {
+      "id": "a6aebc1e-5380-f3cb-f3b1-d08924aff244",
+      "name": "Record result",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ic.integrations SET status = CASE WHEN $1::boolean THEN 'EXISTING'::ic.impl_status ELSE status END,\n  verified_at = CASE WHEN $1::boolean THEN now() ELSE verified_at END, notes = $2 WHERE integration_code = 'SMOOBU_API_HMAC'\nRETURNING integration_code, status, verified_at, notes;",
+        "options": {
+          "queryReplacement": "={{ [ $json.passed, 'WF-00 run ' + $now.toISO() + ' → HTTP ' + $json.statusCode + ', apartments: ' + $json.apartmentCount ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "km8GPfb80gdMEYbZ",
+          "name": "ImmoCare4U Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Request GET /api/apartments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Webhook": {
+      "main": [
+        [
+          {
+            "node": "Request GET /api/apartments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request GET /api/apartments": {
+      "main": [
+        [
+          {
+            "node": "Smoobu GET apartments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smoobu GET apartments": {
+      "main": [
+        [
+          {
+            "node": "Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate": {
+      "main": [
+        [
+          {
+            "node": "Record result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "status": "REQUIRES_VERIFICATION",
+    "generatedBy": "n8n/build-workflows.js"
+  }
+}
