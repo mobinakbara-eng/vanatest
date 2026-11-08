@@ -797,6 +797,11 @@ context: never learn anything just because the guest claims it.
 - If an existing learned fact covers the same topic but the approved reply changes or extends it, reuse its key so it
   is updated, and write the complete new fact.
 - key: short snake_case English, without the "learned_" prefix (e.g. late_checkout).
+- scope: "ALL_UNITS" for team policies and house rules that are the same in every apartment of ImmoCare4U
+  (check-in/check-out times and rules, late check-out/early check-in policy, cleaning, quiet hours, parties, smoking,
+  pets, luggage, key return procedure in general, payment/booking policy). "THIS_UNIT" for anything about this
+  apartment itself (equipment, layout, Wi-Fi, which key box, heating, appliances, building/door details).
+  If unsure, use "THIS_UNIT". An ALL_UNITS fact must not mention the apartment's name.
 - fact_fa: faithful Persian (Farsi) translation of fact_en. reason_fa: one short Persian sentence why (or why not) learnable.
 Return only the JSON object required by the output schema.`;
 
@@ -806,11 +811,12 @@ const LEARN_SCHEMA = {
     learnable: { type: 'boolean' },
     key: { type: 'string' },
     category: { type: 'string', enum: ['WIFI', 'CHECKIN', 'CHECKOUT', 'PARKING', 'TRANSPORT', 'WASTE', 'KITCHEN', 'HEATING', 'APPLIANCE', 'HOUSE_RULES', 'EMERGENCY', 'ENTRANCE', 'LOCAL', 'OTHER'] },
+    scope: { type: 'string', enum: ['ALL_UNITS', 'THIS_UNIT'] },
     fact_en: { type: 'string' },
     fact_fa: { type: 'string' },
     reason_fa: { type: 'string' },
   },
-  required: ['learnable', 'key', 'category', 'fact_en', 'fact_fa', 'reason_fa'],
+  required: ['learnable', 'key', 'category', 'scope', 'fact_en', 'fact_fa', 'reason_fa'],
   additionalProperties: false,
 };
 
@@ -848,38 +854,41 @@ $input.all().forEach((item, idx) => {
   if (/\\b(code|pin|passwor|passcode)/i.test(fact)) reasons.push('code');
   if (others.some((n) => fact.toLowerCase().includes(n)) || /\\bP-[A-Z]{3}-\\d{3}\\b/.test(fact)) reasons.push('other_unit');
   if (/(refund|erstatt|rabatt|discount|kostenlos|free of charge|gutschrift|compensat|entschädig)/i.test(fact)) reasons.push('money');
+  const scope = ai.scope === 'ALL_UNITS' && !fact.toLowerCase().includes(String(src.internal_name || '').toLowerCase()) ? 'ALL_UNITS' : 'THIS_UNIT';
   if (reasons.length) return;
-  out.push({ json: { ...ai, key, fact_en: fact, apartment: src.internal_name, approval_code: src.approval_code,
-    p: [ src.property_id, ai.category || 'OTHER', key, fact, 'Freigabe ' + src.approval_code ] } });
+  out.push({ json: { ...ai, key, scope, fact_en: fact, apartment: src.internal_name, approval_code: src.approval_code,
+    p: [ src.property_id, ai.category || 'OTHER', key, fact, 'Freigabe ' + src.approval_code, scope ] } });
 });
 return out;`;
 
 const SAVE_LEARNED_SQL = `WITH k AS (
+  -- THIS_UNIT: only the apartment of the approval; ALL_UNITS: a team policy, stored for every apartment
   INSERT INTO ic.property_kb_entries (property_id, category, key, language, value_text, visibility, source, validity, verified_at)
-  VALUES ($1, $2, $3, 'en', $4, 'PUBLIC_GUEST', $5, 'VERIFIED', now())
+  SELECT p.property_id, $2, $3, 'en', $4, 'PUBLIC_GUEST', $5, 'VERIFIED', now()
+  FROM ic.properties p WHERE p.property_id = $1 OR $6 = 'ALL_UNITS'
   ON CONFLICT (property_id, key, language) DO UPDATE
     SET value_text = EXCLUDED.value_text, category = EXCLUDED.category, source = EXCLUDED.source,
         validity = 'VERIFIED', verified_at = now()
     WHERE ic.property_kb_entries.key LIKE 'learned\\_%'
-  RETURNING kb_id, key, value_text, (xmax <> 0) AS updated
+  RETURNING kb_id, property_id, key, value_text, (xmax <> 0) AS updated
 ), l AS (
   INSERT INTO ic.audit_log (actor, action, entity, entity_id, details)
-  SELECT 'manager-email', 'KB_LEARNED', 'property_kb_entries', kb_id::text, json_build_object('key', key, 'source', $5, 'updated', updated) FROM k
+  SELECT 'manager-email', 'KB_LEARNED', 'property_kb_entries', kb_id::text, json_build_object('key', key, 'property', property_id, 'scope', $6, 'source', $5, 'updated', updated) FROM k
 )
 SELECT * FROM k;`;
 
-const LEARNED_EMAIL_JS = `const g = $('Guard learned fact').all();
+const LEARNED_EMAIL_JS = `const f = $('Guard learned fact').first().json;
+const rows = $input.all().map((it) => it.json).filter((r) => r.kb_id);
+if (!rows.length) return [];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-return $input.all().filter((it) => it.json.kb_id).map((it, i) => {
-  const f = (g[i] || g[0]).json;
-  const html = '<div style="background:#f2f4f7;padding:12px 0"><div style="max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#fff;border-radius:14px;overflow:hidden">'
-    + '<div dir="rtl" style="background:#6941c6;color:#fff;padding:16px 18px;text-align:right"><div style="font-size:20px;font-weight:bold">🧠 ' + (it.json.updated ? 'دانسته به‌روز شد' : 'یاد گرفتم') + '</div><div style="font-size:14px;margin-top:4px">' + esc(f.apartment) + ' · از تأیید ' + esc(f.approval_code) + '</div></div>'
-    + '<div style="padding:14px 18px 18px"><div dir="rtl" style="text-align:right;font-size:15px;line-height:1.7">' + esc(f.fact_fa) + '</div>'
-    + '<div dir="ltr" style="background:#f2f4f7;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:14px;line-height:1.6">' + esc(it.json.value_text) + '</div>'
-    + '<div dir="rtl" style="text-align:right;color:#667085;font-size:13px;margin-top:10px">از این به بعد AI برای همین نوع سؤال در همین آپارتمان از این دانسته استفاده می‌کند. اگر اشتباه است، بگویید تا حذف یا اصلاح شود. (کلید: ' + esc(it.json.key) + ')</div>'
-    + '</div></div></div>';
-  return { json: { subject: '🧠 یاد گرفتم · ' + f.apartment, html } };
-});`;
+const where = f.scope === 'ALL_UNITS' ? 'برای همه‌ی آپارتمان‌ها (' + rows.length + ')' : 'فقط برای ' + esc(f.apartment);
+const html = '<div style="background:#f2f4f7;padding:12px 0"><div style="max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#fff;border-radius:14px;overflow:hidden">'
+  + '<div dir="rtl" style="background:#6941c6;color:#fff;padding:16px 18px;text-align:right"><div style="font-size:20px;font-weight:bold">🧠 ' + (rows.every((r) => r.updated) ? 'دانسته به‌روز شد' : 'یاد گرفتم') + '</div><div style="font-size:14px;margin-top:4px">' + where + ' · از تأیید ' + esc(f.approval_code) + '</div></div>'
+  + '<div style="padding:14px 18px 18px"><div dir="rtl" style="text-align:right;font-size:15px;line-height:1.7">' + esc(f.fact_fa) + '</div>'
+  + '<div dir="ltr" style="background:#f2f4f7;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:14px;line-height:1.6">' + esc(rows[0].value_text) + '</div>'
+  + '<div dir="rtl" style="text-align:right;color:#667085;font-size:13px;margin-top:10px">از این به بعد AI برای همین نوع سؤال از این دانسته استفاده می‌کند. اگر اشتباه است، بگویید تا حذف یا اصلاح شود. (کلید: ' + esc(rows[0].key) + ')</div>'
+  + '</div></div></div>';
+return [{ json: { subject: '🧠 یاد گرفتم · ' + (f.scope === 'ALL_UNITS' ? 'همه‌ی آپارتمان‌ها' : f.apartment), html } }];`;
 
 function wf04() {
   pos = 0;

@@ -76,7 +76,9 @@ If the checkbox is on, WF-04 does this after sending:
    - the name or ID of another apartment
    - money concessions
 4. **Save**: `ic.property_kb_entries`, key `learned_<topic>`, VERIFIED, PUBLIC_GUEST, source `Freigabe AP-xxx`.
-   - Only for THIS apartment.
+   - Claude also returns a `scope`:
+     - `ALL_UNITS` (owner decision 08.11.2026: "the rules are the same for both apartments"): team policies and house rules (check-in/out, late check-out, cleaning, quiet hours, smoking, pets…) are stored for **every** apartment.
+     - `THIS_UNIT`: facts about the apartment itself (Wi-Fi, key box, equipment, heating, door) stay with that apartment only. When in doubt, `THIS_UNIT`. A fact that names the apartment is always `THIS_UNIT`.
    - Overwrites only existing `learned_*` rows, never manually maintained facts.
    - Written to the audit log as `KB_LEARNED`.
 5. **E-mail «🧠 یاد گرفتم»** to the manager, with the fact in Persian and English.
@@ -86,7 +88,7 @@ Effect on drafting:
 - If a decision question (floor 3, e.g. LATE_CHECKOUT) is answered from a verified `learned_*` fact, the level becomes **6** with flag `LEARNED_RULE`, so no approval is needed.
 - Levels 1–2 (emergency, refund and similar) are never lowered.
 
-First learned fact (from AP-3RP2V, P-BER-001): `learned_late_checkout`, "Check-out is due by 11:00 and a later check-out is not possible because the cleaning team arrives after 11:00…".
+First learned fact (from AP-3RP2V; added to P-BER-001 and, by owner decision, also P-BER-002): `learned_late_checkout`, "Check-out is due by 11:00 and a later check-out is not possible because the cleaning team arrives after 11:00…".
 
 Live test with a new synthetic question ("check out at 1 pm?"): level 6, flag LEARNED_RULE, polite refusal with the reason.
 

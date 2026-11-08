@@ -368,11 +368,14 @@ test('learned rule: a decision question answered by a learned_* fact needs no ap
 const guard = (ai, s = {}) => JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Guard learned fact'].parameters.jsCode} })`, {
   $: () => ({ all: () => [{ json: { property_id: 'P-BER-001', internal_name: 'Loft', approval_code: 'AP-L1', other_units: ['City Apartment'], ...s } }] }),
   $input: { all: () => [aiResp(ai)] }, JSON, String })()));
-const okFact = { learnable: true, key: 'Late Checkout', category: 'CHECKOUT', fact_en: 'Late check-out after 11:00 is not possible because the cleaning team arrives.', fact_fa: 'خروج دیر ممکن نیست', reason_fa: 'قانون کلی' };
+const okFact = { learnable: true, key: 'Late Checkout', category: 'CHECKOUT', scope: 'THIS_UNIT', fact_en: 'Late check-out after 11:00 is not possible because the cleaning team arrives.', fact_fa: 'خروج دیر ممکن نیست', reason_fa: 'قانون کلی' };
 
 test('learn guard: stores a clean general fact under learned_* for this apartment only', () => {
   const [o] = guard(okFact);
-  assert.deepEqual(o.json.p, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', okFact.fact_en, 'Freigabe AP-L1']);
+  assert.deepEqual(o.json.p, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', okFact.fact_en, 'Freigabe AP-L1', 'THIS_UNIT']);
+  assert.equal(guard({ ...okFact, scope: 'ALL_UNITS' })[0].json.p[5], 'ALL_UNITS');
+  // a "house rule" that names this apartment is kept for this apartment only
+  assert.equal(guard({ ...okFact, scope: 'ALL_UNITS', fact_en: 'In the Loft check-out is at 11:00.' })[0].json.p[5], 'THIS_UNIT');
 });
 
 test('learn guard: rejects not-learnable, codes, contact data, other units and money concessions', () => {
@@ -410,16 +413,20 @@ test('learning SQL on the real schema: chain of instructions, VERIFIED row, neve
   const ctx = sql(by4['Learn context'].parameters.query, [c2, t2]);
   assert.match(ctx, /Can we check out at 14:00\?/); assert.match(ctx, /Reinigung kommt/); assert.match(ctx, /not possible/);
   const save = by4['Save learned fact'].parameters.query;
-  assert.match(sql(save, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', 'Late check-out after 11:00 is not possible.', 'Freigabe AP-LRN2']), /learned_late_checkout.*\|f$/);
-  assert.match(sql(save, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', 'Late check-out after 11:00 is not possible (cleaning).', 'Freigabe AP-LRN2']), /\|t$/);
+  assert.match(sql(save, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', 'Late check-out after 11:00 is not possible.', 'Freigabe AP-LRN2', 'THIS_UNIT']), /learned_late_checkout.*\|f$/);
+  assert.match(sql(save, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', 'Late check-out after 11:00 is not possible (cleaning).', 'Freigabe AP-LRN2', 'THIS_UNIT']), /\|t$/);
   assert.equal(sql("SELECT validity||'|'||visibility FROM ic.property_kb_entries WHERE key='learned_late_checkout'"), 'VERIFIED|PUBLIC_GUEST');
   // a manual (non learned_*) fact is never overwritten
   sql("INSERT INTO ic.property_kb_entries (property_id, category, key, language, value_text, source) VALUES ('P-BER-001','WIFI','manual_fact','en','orig','test') ON CONFLICT DO NOTHING");
-  assert.equal(sql(save, ['P-BER-001', 'WIFI', 'manual_fact', 'hacked', 'Freigabe X']), '');
+  assert.equal(sql(save, ['P-BER-001', 'WIFI', 'manual_fact', 'hacked', 'Freigabe X', 'THIS_UNIT']), '');
   assert.equal(sql("SELECT value_text FROM ic.property_kb_entries WHERE key='manual_fact'"), 'orig');
   // the next draft for this apartment sees the learned fact; the other apartment does not
   sql(`INSERT INTO ic.message_classifications (message_pk, level, intent, rule_level) VALUES (${pk},'REVIEW','LATE_CHECKOUT','REVIEW')`);
   assert.match(sql(by4['Revision context'].parameters.query, [pk]), /learned_late_checkout/);
   assert.equal(sql("SELECT count(*) FROM ic.property_kb_entries WHERE key='learned_late_checkout' AND property_id<>'P-BER-001'"), '0');
   assert.equal(sql("SELECT count(*) FROM ic.audit_log WHERE action='KB_LEARNED'"), '2');
+  // a team policy (ALL_UNITS) is stored for every apartment
+  const n = Number(sql('SELECT count(*) FROM ic.properties'));
+  assert.equal(sql(save, ['P-BER-001', 'HOUSE_RULES', 'learned_quiet_hours', 'Quiet hours are from 22:00.', 'Freigabe AP-LRN3', 'ALL_UNITS']).split('\n').length, n);
+  assert.equal(sql("SELECT count(DISTINCT property_id) FROM ic.property_kb_entries WHERE key='learned_quiet_hours'"), String(n));
 });
