@@ -114,7 +114,10 @@
           "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     }
   ],
   "connections": {

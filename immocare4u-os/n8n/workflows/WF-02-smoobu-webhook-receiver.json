@@ -110,6 +110,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "alwaysOutputData": true
     },
     {
@@ -240,7 +243,10 @@
           "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "id": "7cdf5f44-1b82-5c56-5a95-9caa5d401f3c",
@@ -353,6 +359,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "alwaysOutputData": true
     },
     {
@@ -376,7 +385,10 @@
           "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     }
   ],
   "connections": {

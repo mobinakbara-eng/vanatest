@@ -123,7 +123,10 @@
           "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "id": "f2501a82-5007-e139-702e-d078ea9b0827",
@@ -204,6 +207,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "alwaysOutputData": true
     },
     {
@@ -228,6 +234,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "executeOnce": true
     },
     {
@@ -250,6 +259,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "executeOnce": true,
       "alwaysOutputData": true
     },
@@ -273,6 +285,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "executeOnce": true
     },
     {
@@ -367,7 +382,10 @@
           "id": "km8GPfb80gdMEYbZ",
           "name": "ImmoCare4U Postgres"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "id": "adabcba0-1b2d-93a2-9404-2f697bfb20b5",
@@ -379,7 +397,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const BASE = \"https://mobinakbara.app.n8n.cloud/webhook/ic/approval\";\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c])).replace(/\\n/g, '<br>');\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst LV = {\n  1: ['#b42318', 'اضطراری', 'فقط خودتان فوراً پاسخ دهید'],\n  2: ['#c4320a', 'حساس', 'فقط خودتان پاسخ دهید'],\n  3: ['#b54708', 'نیاز به تصمیم', 'پیش‌نویس با تأیید شما'],\n  4: ['#1849a9', 'نیاز به بررسی', 'پیش‌نویس با تأیید شما'],\n  5: ['#067647', 'زمان‌بندی‌شده', 'خودکار'],\n  6: ['#067647', 'جواب خودکار', 'نیاز به تأیید ندارد – بعد از دوره‌ی آزمایشی خودکار ارسال می‌شود'],\n};\nconst FLAG_FA = { MISSING_KB_FACT: 'اطلاعات لازم در اکسل نیست', USES_UNVERIFIED_KB: 'از ردیف تأییدنشده‌ی اکسل استفاده شده',\n  CODE_REMOVED: 'کد از متن حذف شد', MONEY_WORDS: 'موضوع مالی', PROMPT_INJECTION: 'تلاش برای فریب سیستم',\n  AI_INVALID_OUTPUT: 'خطای AI', AI_REFUSAL: 'AI پاسخ نداد', LOW_CONFIDENCE: 'اطمینان پایین' };\nconst btn = (href, bg, label) => '<a href=\"' + href + '\" style=\"display:block;background:' + bg + ';color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 10px;border-radius:10px;text-align:center;margin:8px 0\">' + label + '</a>';\nconst box = (title, inner, dir) => '<div style=\"margin:14px 0\"><div dir=\"rtl\" style=\"font-size:13px;color:#667085;font-weight:bold;margin-bottom:6px;text-align:right\">' + title + '</div>' + inner + '</div>';\nconst text = (s, dir, bg) => '<div dir=\"' + dir + '\" style=\"text-align:' + (dir === 'rtl' ? 'right' : 'left') + ';background:' + bg + ';color:#101828;padding:12px 14px;border-radius:10px;font-size:15px;line-height:1.6\">' + esc(s) + '</div>';\nreturn $input.all().map((it) => {\n  const p = it.json.payload, c = it.json.approval_code, t = it.json.link_token;\n  const [color, title, who] = LV[p.level] || LV[4];\n  const link = (a) => BASE + '?c=' + encodeURIComponent(c) + '&t=' + encodeURIComponent(t) + '&a=' + a;\n  const staffOnly = p.level <= 2;\n  const auto = p.level >= 5;\n  const flags = (p.flags || []).map((f) => FLAG_FA[f]).filter(Boolean);\n  const html = '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n    + '<div dir=\"rtl\" style=\"background:' + color + ';color:#ffffff;padding:16px 18px;text-align:right\">'\n    + '<div style=\"font-size:20px;font-weight:bold\">سطح ' + p.level + ' · ' + title + '</div>'\n    + '<div style=\"font-size:14px;opacity:.95;margin-top:4px\">' + who + (p.revision > 1 ? ' · نسخه‌ی اصلاح‌شده ' + p.revision : '') + '</div></div>'\n    + '<div style=\"padding:4px 18px 18px\">'\n    + '<div dir=\"rtl\" style=\"background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right\">🧪 حالت آزمایشی: هیچ پیامی برای مهمان ارسال نمی‌شود. تأیید شما فقط ثبت می‌شود تا سیستم یاد بگیرد.</div>'\n    + '<table dir=\"rtl\" style=\"width:100%;margin-top:12px;font-size:14px;color:#344054;border-collapse:collapse\">'\n    + '<tr><td style=\"padding:4px 0;color:#667085;width:90px\">آپارتمان</td><td style=\"padding:4px 0;font-weight:bold\">' + esc(p.apartment) + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">ورود</td><td style=\"padding:4px 0\">' + fmt(p.arrival) + ' از ساعت ' + esc(p.check_in_time || '15:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">خروج</td><td style=\"padding:4px 0\">' + fmt(p.departure) + ' تا ساعت ' + esc(p.check_out_time || '11:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">کانال</td><td style=\"padding:4px 0\">' + esc(p.channel) + ' · رزرو ' + esc(p.reservation) + '</td></tr></table>'\n    + box('💬 پیام مهمان', text(p.guest, 'ltr', '#f2f4f7') + '<div style=\"height:6px\"></div>' + text(p.guest_fa || '—', 'rtl', '#f9fafb'))\n    + (p.analysis_fa ? box('🧠 تحلیل AI قبل از جواب', text(p.analysis_fa, 'rtl', '#f4f3ff')) : '')\n    + (p.instruction ? box('📝 دستور شما', text(p.instruction, 'rtl', '#fdf2fa')) : '')\n    + (staffOnly\n        ? box('⚠️ این پیام را خودتان جواب دهید', text(p.reason_fa || 'موضوع حساس است.', 'rtl', '#fef3f2'))\n        : box(auto ? '🤖 جواب خودکار' : '✍️ پیشنهاد جواب', text(p.reply || '(بدون پیشنهاد)', 'ltr', '#eff8ff') + '<div style=\"height:6px\"></div>' + text('ترجمه: ' + (p.reply_fa || '—'), 'rtl', '#f5faff')))\n    + '<div style=\"margin-top:16px\">'\n    + (auto ? '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;color:#067647;margin-bottom:6px\">فقط اگر مشکلی می‌بینید دکمه بزنید؛ در غیر این صورت کاری لازم نیست.</div>' : '')\n    + (staffOnly || auto ? '' : btn(link('approve'), '#079455', '✅ تأیید و ارسال'))\n    + btn(link('edit'), auto ? '#53b1fd' : '#1570ef', '✏️ اصلاح متن با AI')\n    + btn(link('reject'), '#667085', '✋ خودم جواب می‌دهم')\n    + '</div>'\n    + '<div dir=\"rtl\" style=\"margin-top:14px;font-size:12px;color:#667085;text-align:right;line-height:1.7\">'\n    + 'چرا این سطح: ' + esc(p.reason_fa || '—')\n    + (flags.length ? '<br>توجه: ' + esc(flags.join(' · ')) : '')\n    + (p.used_unverified && p.used_unverified.length ? '<br>⚠️ ردیف‌های تأییدنشده‌ی اکسل: ' + esc(p.used_unverified.join(', ')) : '')\n    + '<br>کد: ' + esc(c) + ' · اعتبار لینک‌ها: ۲۴ ساعت</div>'\n    + '</div></div></div>';\n  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.level >= 5 ? 'خودکار · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');\n  return { json: { subject, html, approval_code: c } };\n});"
+        "jsCode": "const BASE = \"https://mobinakbara.app.n8n.cloud/webhook/ic/approval\";\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c])).replace(/\\n/g, '<br>');\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst LV = {\n  1: ['#b42318', 'اضطراری', 'فقط خودتان فوراً پاسخ دهید'],\n  2: ['#c4320a', 'حساس', 'فقط خودتان پاسخ دهید'],\n  3: ['#b54708', 'نیاز به تصمیم', 'پیش‌نویس با تأیید شما'],\n  4: ['#1849a9', 'نیاز به بررسی', 'پیش‌نویس با تأیید شما'],\n  5: ['#067647', 'زمان‌بندی‌شده', 'خودکار'],\n  6: ['#067647', 'جواب خودکار', 'نیاز به تأیید ندارد – بعد از دوره‌ی آزمایشی خودکار ارسال می‌شود'],\n};\nconst FLAG_FA = { MISSING_KB_FACT: 'اطلاعات لازم در اکسل نیست', USES_UNVERIFIED_KB: 'از ردیف تأییدنشده‌ی اکسل استفاده شده',\n  CODE_REMOVED: 'کد از متن حذف شد', MONEY_WORDS: 'موضوع مالی', PROMPT_INJECTION: 'تلاش برای فریب سیستم',\n  AI_INVALID_OUTPUT: 'خطای AI', AI_REFUSAL: 'AI پاسخ نداد', LOW_CONFIDENCE: 'اطمینان پایین' };\nconst btn = (href, bg, label) => '<a href=\"' + href + '\" style=\"display:block;background:' + bg + ';color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 10px;border-radius:10px;text-align:center;margin:8px 0\">' + label + '</a>';\nconst box = (title, inner, dir) => '<div style=\"margin:14px 0\"><div dir=\"rtl\" style=\"font-size:13px;color:#667085;font-weight:bold;margin-bottom:6px;text-align:right\">' + title + '</div>' + inner + '</div>';\nconst text = (s, dir, bg) => '<div dir=\"' + dir + '\" style=\"text-align:' + (dir === 'rtl' ? 'right' : 'left') + ';background:' + bg + ';color:#101828;padding:12px 14px;border-radius:10px;font-size:15px;line-height:1.6\">' + esc(s) + '</div>';\nreturn $input.all().map((it) => {\n  const p = it.json.payload, c = it.json.approval_code, t = it.json.link_token;\n  const [color, title, who] = LV[p.level] || LV[4];\n  const link = (a) => BASE + '?c=' + encodeURIComponent(c) + '&t=' + encodeURIComponent(t) + '&a=' + a;\n  const staffOnly = p.level <= 2;\n  const auto = p.level >= 5 && !(p.revision > 1);   // a version the manager corrected is always approvable\n  const flags = (p.flags || []).map((f) => FLAG_FA[f]).filter(Boolean);\n  const html = '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n    + '<div dir=\"rtl\" style=\"background:' + color + ';color:#ffffff;padding:16px 18px;text-align:right\">'\n    + '<div style=\"font-size:20px;font-weight:bold\">سطح ' + p.level + ' · ' + title + '</div>'\n    + '<div style=\"font-size:14px;opacity:.95;margin-top:4px\">' + who + (p.revision > 1 ? ' · نسخه‌ی اصلاح‌شده ' + p.revision : '') + '</div></div>'\n    + '<div style=\"padding:4px 18px 18px\">'\n    + '<div dir=\"rtl\" style=\"background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right\">🧪 حالت آزمایشی: هیچ پیامی برای مهمان ارسال نمی‌شود. تأیید شما فقط ثبت می‌شود تا سیستم یاد بگیرد.</div>'\n    + '<table dir=\"rtl\" style=\"width:100%;margin-top:12px;font-size:14px;color:#344054;border-collapse:collapse\">'\n    + '<tr><td style=\"padding:4px 0;color:#667085;width:90px\">آپارتمان</td><td style=\"padding:4px 0;font-weight:bold\">' + esc(p.apartment) + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">ورود</td><td style=\"padding:4px 0\">' + fmt(p.arrival) + ' از ساعت ' + esc(p.check_in_time || '15:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">خروج</td><td style=\"padding:4px 0\">' + fmt(p.departure) + ' تا ساعت ' + esc(p.check_out_time || '11:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">کانال</td><td style=\"padding:4px 0\">' + esc(p.channel) + ' · رزرو ' + esc(p.reservation) + '</td></tr></table>'\n    + box('💬 پیام مهمان', text(p.guest, 'ltr', '#f2f4f7') + '<div style=\"height:6px\"></div>' + text(p.guest_fa || '—', 'rtl', '#f9fafb'))\n    + (p.analysis_fa ? box('🧠 تحلیل AI قبل از جواب', text(p.analysis_fa, 'rtl', '#f4f3ff')) : '')\n    + (p.instruction ? box('📝 دستور شما', text(p.instruction, 'rtl', '#fdf2fa')) : '')\n    + (staffOnly\n        ? box('⚠️ این پیام را خودتان جواب دهید', text(p.reason_fa || 'موضوع حساس است.', 'rtl', '#fef3f2'))\n        : box(auto ? '🤖 جواب خودکار' : '✍️ پیشنهاد جواب', text(p.reply || '(بدون پیشنهاد)', 'ltr', '#eff8ff') + '<div style=\"height:6px\"></div>' + text('ترجمه: ' + (p.reply_fa || '—'), 'rtl', '#f5faff')))\n    + '<div style=\"margin-top:16px\">'\n    + (auto ? '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;color:#067647;margin-bottom:6px\">فقط اگر مشکلی می‌بینید دکمه بزنید؛ در غیر این صورت کاری لازم نیست.</div>' : '')\n    + (staffOnly || auto ? '' : btn(link('approve'), '#079455', '✅ تأیید و ارسال'))\n    + btn(link('edit'), auto ? '#53b1fd' : '#1570ef', '✏️ اصلاح متن با AI')\n    + btn(link('reject'), '#667085', '✋ خودم جواب می‌دهم')\n    + '</div>'\n    + '<div dir=\"rtl\" style=\"margin-top:14px;font-size:12px;color:#667085;text-align:right;line-height:1.7\">'\n    + 'چرا این سطح: ' + esc(p.reason_fa || '—')\n    + (flags.length ? '<br>توجه: ' + esc(flags.join(' · ')) : '')\n    + (p.used_unverified && p.used_unverified.length ? '<br>⚠️ ردیف‌های تأییدنشده‌ی اکسل: ' + esc(p.used_unverified.join(', ')) : '')\n    + '<br>کد: ' + esc(c) + ' · اعتبار لینک‌ها: ۲۴ ساعت</div>'\n    + '</div></div></div>';\n  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.level >= 5 ? 'خودکار · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');\n  return { json: { subject, html, approval_code: c } };\n});"
       }
     },
     {
@@ -427,6 +445,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "executeOnce": true
     },
     {
@@ -510,6 +531,9 @@
           "name": "ImmoCare4U Postgres"
         }
       },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "alwaysOutputData": true
     },
     {

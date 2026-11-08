@@ -32,9 +32,11 @@ const node = (name, type, typeVersion, parameters, extra = {}) =>
 function strip(o) { const { y, ...r } = o; return r; }
 function cryptoId(s) { return require('crypto').createHash('md5').update(s).digest('hex').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5'); }
 
+// All queries are idempotent or state-guarded, so transient DB errors (e.g. pooler
+// "Connection timed out") are retried instead of failing the run.
 const pg = (name, query, replacement, extra = {}) => node(name, 'n8n-nodes-base.postgres', 2.5, {
   operation: 'executeQuery', query, options: { queryReplacement: replacement },
-}, { credentials: PG_CRED, ...extra });
+}, { credentials: PG_CRED, retryOnFail: true, maxTries: 3, waitBetweenTries: 5000, ...extra });
 
 // Calls the Supabase smoobu-proxy; it always answers {statusCode, rateLimit, body}.
 const http = (name, extra = {}) => node(name, 'n8n-nodes-base.httpRequest', 4.2, {
@@ -596,7 +598,7 @@ return $input.all().map((it) => {
   const [color, title, who] = LV[p.level] || LV[4];
   const link = (a) => BASE + '?c=' + encodeURIComponent(c) + '&t=' + encodeURIComponent(t) + '&a=' + a;
   const staffOnly = p.level <= 2;
-  const auto = p.level >= 5;
+  const auto = p.level >= 5 && !(p.revision > 1);   // a version the manager corrected is always approvable
   const flags = (p.flags || []).map((f) => FLAG_FA[f]).filter(Boolean);
   const html = '<div style="background:#f2f4f7;padding:12px 0"><div style="max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden">'
     + '<div dir="rtl" style="background:' + color + ';color:#ffffff;padding:16px 18px;text-align:right">'
@@ -686,7 +688,9 @@ const page = (title, inner) => '<!doctype html><html lang="fa" dir="rtl"><head><
   + '<style>body{margin:0;background:#f2f4f7;font-family:Tahoma,Arial,sans-serif;color:#101828}.c{max-width:560px;margin:24px auto;background:#fff;border-radius:14px;padding:20px}h1{font-size:20px;margin:0 0 12px}'
   + '.t{background:#eff8ff;border-radius:10px;padding:12px;direction:ltr;text-align:left;line-height:1.6}textarea{width:100%;box-sizing:border-box;min-height:130px;font-size:16px;padding:10px;border-radius:10px;border:1px solid #d0d5dd;font-family:inherit}'
   + 'button{width:100%;border:0;border-radius:10px;padding:14px;font-size:17px;font-weight:bold;color:#fff;margin-top:14px;cursor:pointer}.m{color:#667085;font-size:13px;margin-top:12px}</style></head>'
-  + '<body><div class="c"><h1>' + title + '</h1>' + inner + '</div></body></html>';
+  + '<body><div class="c"><h1>' + title + '</h1>' + inner + '</div>'
+  + '<script>document.querySelectorAll("form").forEach(function(f){f.addEventListener("submit",function(e){if(f.dataset.sent){e.preventDefault();return;}f.dataset.sent=1;var b=f.querySelector("button");if(b){b.disabled=true;b.style.opacity=.6;b.textContent="در حال ارسال…";}});});</script>'
+  + '</body></html>';
 const q = $('Approval link').first().json.query || {};
 const row = $input.first().json || {};
 let html;
@@ -722,13 +726,18 @@ const DECIDE_APPROVAL_SQL = `WITH a AS (
   INSERT INTO ic.audit_log (actor, action, entity, entity_id, details)
   SELECT 'manager-email', 'APPROVAL_' || status, 'approval', approval_code, json_build_object('instruction', instruction) FROM a
 )
-SELECT a.*, (SELECT in_reply_to FROM o) AS message_pk FROM a;`;
+SELECT a.*, (SELECT in_reply_to FROM o) AS message_pk, false AS already FROM a
+UNION ALL
+SELECT x.approval_id, x.approval_code, x.status::text, x.outbound_id, x.proposed_text, x.revision, x.instruction, NULL::bigint, true
+FROM ic.approvals x WHERE x.approval_code = $1 AND x.link_token = $2 AND NOT EXISTS (SELECT 1 FROM a);`;
 
 const RESULT_JS = `const r = $input.first().json || {};
 const page = (title, inner) => '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ImmoCare4U</title></head>'
   + '<body style="margin:0;background:#f2f4f7;font-family:Tahoma,Arial,sans-serif"><div style="max-width:560px;margin:24px auto;background:#fff;border-radius:14px;padding:20px;color:#101828"><h1 style="font-size:20px">' + title + '</h1>' + inner + '</div></body></html>';
 let html;
-if (!r.approval_code) html = page('⛔ ثبت نشد', '<p>لینک منقضی شده یا قبلاً استفاده شده است.</p>');
+const ST = { APPROVED: 'تأیید شد', EDITED: 'برای اصلاح به AI فرستاده شد', TAKEN_OVER: 'خودتان جواب می‌دهید', EXPIRED: 'منقضی شد' };
+if (r.already && r.status !== 'PENDING') html = page('✅ قبلاً ثبت شده', '<p>این درخواست قبلاً ثبت شده است: <b>' + (ST[r.status] || r.status) + '</b>.</p>' + (r.status === 'EDITED' ? '<p>نسخه‌ی اصلاح‌شده به ایمیل شما فرستاده شده یا تا یک دقیقه‌ی دیگر می‌رسد.</p>' : '') + '<p style="color:#667085;font-size:13px">لازم نیست دوباره بزنید.</p>');
+else if (!r.approval_code || r.already) html = page('⛔ ثبت نشد', '<p>لینک منقضی شده یا معتبر نیست.</p>');
 else if (r.status === 'APPROVED') html = page('✅ ثبت شد', '<p>تأیید شما ثبت شد. در حالت آزمایشی برای مهمان ارسال نمی‌شود؛ لطفاً خودتان در Smoobu بفرستید.</p>');
 else if (r.status === 'EDITED') html = page('✏️ در حال اصلاح…', '<p>AI متن را طبق دستور شما بازنویسی می‌کند. نسخه‌ی جدید تا یک دقیقه‌ی دیگر به ایمیل شما می‌آید.</p>');
 else html = page('✋ ثبت شد', '<p>این پیام را خودتان جواب می‌دهید. سیستم برای این پیام دیگر پیشنهادی نمی‌فرستد.</p>');
@@ -761,7 +770,7 @@ function wf04() {
     respond('Show result'),
     node('Edit requested?', 'n8n-nodes-base.if', 2, {
       conditions: { options: { caseSensitive: true, typeValidation: 'loose', version: 1 },
-        conditions: [{ id: 'e', leftValue: '={{ $json.status }}', rightValue: 'EDITED', operator: { type: 'string', operation: 'equals' } }],
+        conditions: [{ id: 'e', leftValue: '={{ $json.status === "EDITED" && $json.already === false }}', rightValue: true, operator: { type: 'boolean', operation: 'true', singleValue: true } }],
         combinator: 'and' }, options: {},
     }, { y: 600 }),
     pg('Revision context', REVISION_CONTEXT_SQL, `={{ [ $json.message_pk ] }}`, { y: 600 }),

@@ -159,12 +159,12 @@ test('drafting + approval SQL on the real schema (idempotent, one-time links, ed
   assert.equal(sql(by4['Load approval'].parameters.query, ['AP-T1', 'wrong']), '');
   assert.match(sql(by4['Load approval'].parameters.query, ['AP-T1', token]), /AP-T1\|PENDING\|Hallo/);
   // edit without instruction is refused
-  assert.equal(sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'edit', ' ']), '');
+  assert.match(sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'edit', ' ']), /\|PENDING\|.*\|t$/);   // not applied
   // edit with instruction
   const row = sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'edit', 'kürzer bitte']);
-  assert.match(row, /EDITED/); assert.ok(row.endsWith('|' + pk));
+  assert.match(row, /EDITED/); assert.ok(row.endsWith('|' + pk + '|f'));
   // second click on the same link does nothing
-  assert.equal(sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'approve', '']), '');
+  assert.match(sql(by4['Decide approval'].parameters.query, ['AP-T1', token, 'approve', '']), /\|EDITED\|.*\|t$/);   // no change, reported as already
   // revision context + revision record
   assert.match(sql(by4['Revision context'].parameters.query, [pk]), /Wifi\?/);
   const parent = sql("SELECT approval_id FROM ic.approvals WHERE approval_code='AP-T1'");
@@ -276,4 +276,54 @@ test('privacy rule is in the system prompt', () => {
   const ai = run('Build AI request', [src()])[0].json.ai;
   assert.match(ai.system, /PRIVACY – absolute/);
   assert.match(ai.system, /These need NO approval/);
+});
+
+// ---------------- regression 08.11.2026: double submit of the edit form ----------------
+const resultPage = (row) => JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Result page'].parameters.jsCode} })`,
+  { $input: { first: () => ({ json: row }) }, String, JSON })()))[0].json.html;
+
+test('double submit: second click shows "already recorded", not an error', () => {
+  assert.match(resultPage({ approval_code: 'AP-1', status: 'EDITED', already: false }), /در حال اصلاح/);
+  const second = resultPage({ approval_code: 'AP-1', status: 'EDITED', already: true });
+  assert.match(second, /قبلاً ثبت شده/); assert.doesNotMatch(second, /ثبت نشد/);
+  assert.match(resultPage({}), /ثبت نشد/);
+});
+
+test('confirm page disables the button after the first submit', () => {
+  const html = JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Confirm page'].parameters.jsCode} })`, {
+    $: () => ({ first: () => ({ json: { query: { c: 'AP-1', t: 't', a: 'edit' } } }) }),
+    $input: { first: () => ({ json: { approval_code: 'AP-1', proposed_text: 'x' } }) }, String })()))[0].json.html;
+  assert.match(html, /dataset\.sent/); assert.match(html, /b\.disabled=true/);
+});
+
+test('only the first submission triggers the AI revision', () => {
+  const cond = by4['Edit requested?'].parameters.conditions.conditions[0].leftValue;
+  assert.match(cond, /already === false/);
+});
+
+test('a manager-corrected version (revision 2) always has an approve button, even at level 6', () => {
+  const { payload } = decide(aiResp(base));
+  assert.ok(!/a=approve/.test(render(payload).html));
+  assert.match(render({ ...payload, revision: 2 }).html, /a=approve/);
+});
+
+test('every Postgres node retries transient connection errors', () => {
+  for (const w of [wf, wf04]) for (const n of w.nodes.filter((x) => x.type === 'n8n-nodes-base.postgres')) {
+    assert.equal(n.retryOnFail, true, n.name); assert.equal(n.maxTries, 3, n.name);
+  }
+});
+
+test('double submit SQL: second identical submission returns the existing row with already=true', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
+  const PG = process.env.PG_TEST_URL;
+  const lit = (v) => (v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
+  const sql = (q, p = []) => execFileSync('psql', [PG, '-v', 'ON_ERROR_STOP=1', '-qtA', '-F', '|', '-c', q.replace(/\$(\d+)/g, (_, i) => lit(p[i - 1]))]).toString().trim();
+  sql(`INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, raw) VALUES (9101,'P-BER-001',1,current_date,current_date+2,'{}') ON CONFLICT DO NOTHING;
+       INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, body, sent_at) VALUES (9101001,9101,'P-BER-001','INBOUND','GUEST','Late checkout?', now()) ON CONFLICT DO NOTHING;`);
+  const pk = Number(sql("SELECT message_pk FROM ic.messages WHERE smoobu_message_id=9101001"));
+  const [code, token] = sql(byName['Record draft'].parameters.query, [pk, 9101, 'P-BER-001', 'Draft', 'AP-DBL1', 'REVIEW', 'L3', '{}', 1, null, null]).split('|');
+  const first = sql(by4['Decide approval'].parameters.query, [code, token, 'edit', 'kürzer']);
+  assert.match(first, /\|EDITED\|.*\|f$/);
+  const second = sql(by4['Decide approval'].parameters.query, [code, token, 'edit', 'kürzer']);
+  assert.match(second, /\|EDITED\|.*\|t$/);
+  assert.equal(sql(by4['Decide approval'].parameters.query, [code, 'wrong', 'edit', 'x']), '');
 });
