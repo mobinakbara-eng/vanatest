@@ -347,3 +347,79 @@ test('level 6 automatic replies are still never sent (no approve link)', () => {
   const { payload } = decide(aiResp(base));
   assert.ok(!/a=approve/.test(render(payload).html));
 });
+
+// ---------------- learning loop 08.11.2026: approved answers become KB facts ----------------
+const learnedKb = [{ key: 'learned_late_checkout', lang: 'en', value: 'Late check-out after 11:00 is not possible because the cleaning team arrives.', verified: true }];
+const lateAi = { ...base, level: 6, intent: 'LATE_CHECKOUT', reply: 'Leider ist ein späterer Check-out nicht möglich.', used_kb_keys: ['learned_late_checkout'] };
+
+test('learned rule: a decision question answered by a learned_* fact needs no approval', () => {
+  const s = src({ rule_level: 'REVIEW', rule_intent: 'LATE_CHECKOUT', kb: learnedKb });
+  const d = decide(aiResp(lateAi), s);
+  assert.equal(d.payload.level, 6); assert.ok(d.payload.flags.includes('LEARNED_RULE'));
+  // without a learned fact the decision stays level 3
+  assert.equal(decide(aiResp({ ...lateAi, used_kb_keys: [] }), s).payload.level, 3);
+  // an unverified learned_* row does not count
+  assert.equal(decide(aiResp(lateAi), src({ rule_level: 'REVIEW', rule_intent: 'LATE_CHECKOUT', kb: [{ ...learnedKb[0], verified: false }] })).payload.level, 3);
+  // critical topics are never lowered
+  assert.equal(decide(aiResp(lateAi), src({ rule_level: 'CRITICAL', rule_intent: 'REFUND', kb: learnedKb })).payload.level, 2);
+  assert.match(run('Build AI request', [src()])[0].json.ai.system, /learned_/);
+});
+
+const guard = (ai, s = {}) => JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Guard learned fact'].parameters.jsCode} })`, {
+  $: () => ({ all: () => [{ json: { property_id: 'P-BER-001', internal_name: 'Loft', approval_code: 'AP-L1', other_units: ['City Apartment'], ...s } }] }),
+  $input: { all: () => [aiResp(ai)] }, JSON, String })()));
+const okFact = { learnable: true, key: 'Late Checkout', category: 'CHECKOUT', fact_en: 'Late check-out after 11:00 is not possible because the cleaning team arrives.', fact_fa: 'خروج دیر ممکن نیست', reason_fa: 'قانون کلی' };
+
+test('learn guard: stores a clean general fact under learned_* for this apartment only', () => {
+  const [o] = guard(okFact);
+  assert.deepEqual(o.json.p, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', okFact.fact_en, 'Freigabe AP-L1']);
+});
+
+test('learn guard: rejects not-learnable, codes, contact data, other units and money concessions', () => {
+  assert.equal(guard({ ...okFact, learnable: false }).length, 0);
+  for (const f of ['The key box code is 1809.', 'Call the team at +49 160 1234567 any time.', 'Write to team@example.com for help.',
+                   'The City Apartment has a bigger kitchen.', 'Guests get a refund if the heating fails.', 'See https://example.com/rules for details.'])
+    assert.equal(guard({ ...okFact, fact_en: f }).length, 0, f);
+  assert.equal(guard({ ...okFact, key: '***' }).length, 0);
+});
+
+test('learning runs only after a real, first approval with the checkbox; page offers the checkbox', () => {
+  const cond = by4['Learn?'].parameters.conditions.conditions[0].leftValue;
+  assert.match(cond, /APPROVED/); assert.match(cond, /already === false/); assert.match(cond, /learn/);
+  assert.deepEqual(wf04.connections['Show result'].main[0].map((c) => c.node).sort(), ['Edit requested?', 'Learn?']);
+  const html = JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Confirm page'].parameters.jsCode} })`, {
+    $: () => ({ first: () => ({ json: { query: { c: 'AP-1', t: 't', a: 'approve' } } }) }),
+    $input: { first: () => ({ json: { approval_code: 'AP-1', proposed_text: 'x' } }) }, String })()))[0].json.html;
+  assert.match(html, /name="learn" value="1" checked/);
+});
+
+test('learning SQL on the real schema: chain of instructions, VERIFIED row, never overwrites manual facts', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
+  const PG = process.env.PG_TEST_URL;
+  const lit = (v) => (v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
+  const sql = (q, p = []) => execFileSync('psql', [PG, '-v', 'ON_ERROR_STOP=1', '-qtA', '-F', '|', '-c', q.replace(/\$(\d+)/g, (_, i) => lit(p[i - 1]))]).toString().trim();
+  sql(`INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, raw) VALUES (9201,'P-BER-001',1,current_date,current_date+2,'{}') ON CONFLICT DO NOTHING;
+       INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, body, sent_at) VALUES (9201001,9201,'P-BER-001','INBOUND','GUEST','Can we check out at 14:00?', now()) ON CONFLICT DO NOTHING;`);
+  const pk = Number(sql("SELECT message_pk FROM ic.messages WHERE smoobu_message_id=9201001"));
+  const [c1, t1] = sql(byName['Record draft'].parameters.query, [pk, 9201, 'P-BER-001', 'Draft 1', 'AP-LRN1', 'REVIEW', 'L3', '{}', 1, null, null]).split('|');
+  sql(by4['Decide approval'].parameters.query, [c1, t1, 'edit', 'nach 11 geht nicht, Reinigung kommt']);
+  const parent = sql(`SELECT approval_id FROM ic.approvals WHERE approval_code='${c1}'`);
+  const [c2, t2] = sql(byName['Record draft'].parameters.query, [pk, 9201, 'P-BER-001', 'Sorry, check-out after 11 is not possible.', 'AP-LRN2', 'REVIEW', 'L3', '{}', 2, parent, 'nach 11 geht nicht, Reinigung kommt']).split('|');
+  assert.equal(sql(by4['Learn context'].parameters.query, [c2, t2]), '');          // not approved yet → nothing to learn
+  sql(by4['Decide approval'].parameters.query, [c2, t2, 'approve', '']);
+  assert.equal(sql(by4['Learn context'].parameters.query, [c2, 'wrong']), '');     // token required
+  const ctx = sql(by4['Learn context'].parameters.query, [c2, t2]);
+  assert.match(ctx, /Can we check out at 14:00\?/); assert.match(ctx, /Reinigung kommt/); assert.match(ctx, /not possible/);
+  const save = by4['Save learned fact'].parameters.query;
+  assert.match(sql(save, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', 'Late check-out after 11:00 is not possible.', 'Freigabe AP-LRN2']), /learned_late_checkout.*\|f$/);
+  assert.match(sql(save, ['P-BER-001', 'CHECKOUT', 'learned_late_checkout', 'Late check-out after 11:00 is not possible (cleaning).', 'Freigabe AP-LRN2']), /\|t$/);
+  assert.equal(sql("SELECT validity||'|'||visibility FROM ic.property_kb_entries WHERE key='learned_late_checkout'"), 'VERIFIED|PUBLIC_GUEST');
+  // a manual (non learned_*) fact is never overwritten
+  sql("INSERT INTO ic.property_kb_entries (property_id, category, key, language, value_text, source) VALUES ('P-BER-001','WIFI','manual_fact','en','orig','test') ON CONFLICT DO NOTHING");
+  assert.equal(sql(save, ['P-BER-001', 'WIFI', 'manual_fact', 'hacked', 'Freigabe X']), '');
+  assert.equal(sql("SELECT value_text FROM ic.property_kb_entries WHERE key='manual_fact'"), 'orig');
+  // the next draft for this apartment sees the learned fact; the other apartment does not
+  sql(`INSERT INTO ic.message_classifications (message_pk, level, intent, rule_level) VALUES (${pk},'REVIEW','LATE_CHECKOUT','REVIEW')`);
+  assert.match(sql(by4['Revision context'].parameters.query, [pk]), /learned_late_checkout/);
+  assert.equal(sql("SELECT count(*) FROM ic.property_kb_entries WHERE key='learned_late_checkout' AND property_id<>'P-BER-001'"), '0');
+  assert.equal(sql("SELECT count(*) FROM ic.audit_log WHERE action='KB_LEARNED'"), '2');
+});

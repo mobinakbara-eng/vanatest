@@ -59,3 +59,35 @@ Guest question ─► level 3/4 ─► email to manager with 3 actions:
 2. **سطح ۶ خودکار** برای یک آپارتمان، فقط با اجازه‌ی کتبی مالک.
 3. **سطح ۳ و ۴ با تأیید ایمیلی** (ارسال واقعی).
 4. **سطح ۵** (ویدیو، قوانین و در آخر پین)، بعد از تست قفل.
+
+## Learning loop (EXISTING since 08.11.2026, tested live)
+
+When the manager presses **«تأیید و ارسال»**, the confirm page shows a checkbox, **«🧠 یاد بگیر»** (on by default).
+If the checkbox is on, WF-04 does this after sending:
+
+1. **Learn context**: loads the guest message, the approved text and **all** manager instructions of the edit chain (one-time token required).
+2. **Claude learn** (Haiku, about 1 small call): extracts at most ONE general, reusable fact in English. It is based only on the approved reply and the manager's instructions. The guest text is untrusted context.
+   - No guest names, dates or booking details.
+   - `learnable=false` for one-off exceptions, refunds or compensation, pure thanks, and facts that are already known.
+3. **Guard** (code): blocks the fact if it contains:
+   - 4+ digit numbers (codes; times like 11:00 are allowed)
+   - the words code, PIN or password
+   - phone numbers, e-mail addresses or links
+   - the name or ID of another apartment
+   - money concessions
+4. **Save**: `ic.property_kb_entries`, key `learned_<topic>`, VERIFIED, PUBLIC_GUEST, source `Freigabe AP-xxx`.
+   - Only for THIS apartment.
+   - Overwrites only existing `learned_*` rows, never manually maintained facts.
+   - Written to the audit log as `KB_LEARNED`.
+5. **E-mail «🧠 یاد گرفتم»** to the manager, with the fact in Persian and English.
+
+Effect on drafting:
+- The system prompt treats `learned_*` facts as authoritative standing rules.
+- If a decision question (floor 3, e.g. LATE_CHECKOUT) is answered from a verified `learned_*` fact, the level becomes **6** with flag `LEARNED_RULE`, so no approval is needed.
+- Levels 1–2 (emergency, refund and similar) are never lowered.
+
+First learned fact (from AP-3RP2V, P-BER-001): `learned_late_checkout`, "Check-out is due by 11:00 and a later check-out is not possible because the cleaning team arrives after 11:00…".
+
+Live test with a new synthetic question ("check out at 1 pm?"): level 6, flag LEARNED_RULE, polite refusal with the reason.
+
+To remove or correct a learned fact, delete or update the row in `ic.property_kb_entries`. Claude can do this on request.
