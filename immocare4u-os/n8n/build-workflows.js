@@ -605,7 +605,7 @@ return $input.all().map((it) => {
     + '<div style="font-size:20px;font-weight:bold">سطح ' + p.level + ' · ' + title + '</div>'
     + '<div style="font-size:14px;opacity:.95;margin-top:4px">' + who + (p.revision > 1 ? ' · نسخه‌ی اصلاح‌شده ' + p.revision : '') + '</div></div>'
     + '<div style="padding:4px 18px 18px">'
-    + '<div dir="rtl" style="background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right">🧪 حالت آزمایشی: هیچ پیامی برای مهمان ارسال نمی‌شود. تأیید شما فقط ثبت می‌شود تا سیستم یاد بگیرد.</div>'
+    + '<div dir="rtl" style="background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right">🧪 حالت آزمایشی: جواب‌های خودکار ارسال نمی‌شوند. فقط وقتی «تأیید و ارسال» را بزنید، پیام برای مهمان فرستاده می‌شود.</div>'
     + '<table dir="rtl" style="width:100%;margin-top:12px;font-size:14px;color:#344054;border-collapse:collapse">'
     + '<tr><td style="padding:4px 0;color:#667085;width:90px">آپارتمان</td><td style="padding:4px 0;font-weight:bold">' + esc(p.apartment) + '</td></tr>'
     + '<tr><td style="padding:4px 0;color:#667085">ورود</td><td style="padding:4px 0">' + fmt(p.arrival) + ' از ساعت ' + esc(p.check_in_time || '15:00') + '</td></tr>'
@@ -699,7 +699,7 @@ if (!row.approval_code) {
 } else {
   const hidden = '<input type="hidden" name="c" value="' + esc(q.c) + '"><input type="hidden" name="t" value="' + esc(q.t) + '">';
   const draft = '<p class="m">پیشنهاد فعلی:</p><div class="t">' + esc(row.proposed_text) + '</div>';
-  if (q.a === 'approve') html = page('✅ تأیید این جواب؟', draft + '<form method="post">' + hidden + '<input type="hidden" name="a" value="approve"><button style="background:#079455">بله، تأیید می‌کنم</button></form><p class="m">در حالت آزمایشی فقط ثبت می‌شود و برای مهمان ارسال نمی‌شود.</p>');
+  if (q.a === 'approve') html = page('✅ تأیید این جواب؟', draft + '<form method="post">' + hidden + '<input type="hidden" name="a" value="approve"><button style="background:#079455">بله، تأیید می‌کنم</button></form><p class="m">با تأیید، همین متن از طریق Smoobu برای مهمان ارسال می‌شود.</p>');
   else if (q.a === 'edit') html = page('✏️ چه چیزی تغییر کند؟', draft + '<form method="post">' + hidden + '<input type="hidden" name="a" value="edit"><p class="m">به فارسی یا آلمانی بنویسید، مثلاً: «بگو ساعت ۱۲ می‌تواند چمدان بگذارد» یا «کوتاه‌تر و رسمی‌تر».</p><textarea name="instruction" required maxlength="2000"></textarea><button style="background:#1570ef">ارسال به AI برای اصلاح</button></form><p class="m">متن جدید چند ثانیه بعد دوباره برای تأیید به ایمیل شما می‌آید.</p>');
   else html = page('✋ خودتان جواب می‌دهید؟', draft + '<form method="post">' + hidden + '<input type="hidden" name="a" value="reject"><button style="background:#667085">بله، خودم در Smoobu جواب می‌دهم</button></form>');
 }
@@ -731,17 +731,19 @@ UNION ALL
 SELECT x.approval_id, x.approval_code, x.status::text, x.outbound_id, x.proposed_text, x.revision, x.instruction, NULL::bigint, true
 FROM ic.approvals x WHERE x.approval_code = $1 AND x.link_token = $2 AND NOT EXISTS (SELECT 1 FROM a);`;
 
-const RESULT_JS = `const r = $input.first().json || {};
+const RESULT_JS = `const r = $('Decide approval').first().json || {};
+const send = $input.first().json || {};
 const page = (title, inner) => '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ImmoCare4U</title></head>'
   + '<body style="margin:0;background:#f2f4f7;font-family:Tahoma,Arial,sans-serif"><div style="max-width:560px;margin:24px auto;background:#fff;border-radius:14px;padding:20px;color:#101828"><h1 style="font-size:20px">' + title + '</h1>' + inner + '</div></body></html>';
 let html;
 const ST = { APPROVED: 'تأیید شد', EDITED: 'برای اصلاح به AI فرستاده شد', TAKEN_OVER: 'خودتان جواب می‌دهید', EXPIRED: 'منقضی شد' };
 if (r.already && r.status !== 'PENDING') html = page('✅ قبلاً ثبت شده', '<p>این درخواست قبلاً ثبت شده است: <b>' + (ST[r.status] || r.status) + '</b>.</p>' + (r.status === 'EDITED' ? '<p>نسخه‌ی اصلاح‌شده به ایمیل شما فرستاده شده یا تا یک دقیقه‌ی دیگر می‌رسد.</p>' : '') + '<p style="color:#667085;font-size:13px">لازم نیست دوباره بزنید.</p>');
 else if (!r.approval_code || r.already) html = page('⛔ ثبت نشد', '<p>لینک منقضی شده یا معتبر نیست.</p>');
-else if (r.status === 'APPROVED') html = page('✅ ثبت شد', '<p>تأیید شما ثبت شد. در حالت آزمایشی برای مهمان ارسال نمی‌شود؛ لطفاً خودتان در Smoobu بفرستید.</p>');
+else if (r.status === 'APPROVED' && send.sent) html = page('✅ ارسال شد', '<p>پیام از طریق Smoobu برای مهمان فرستاده شد.</p>');
+else if (r.status === 'APPROVED') html = page('⚠️ تأیید ثبت شد ولی ارسال نشد', '<p>دلیل: ' + String(send.reason || 'نامشخص') + '</p><p>لطفاً پیام را خودتان در Smoobu یا اپ Airbnb/Booking بفرستید.</p>');
 else if (r.status === 'EDITED') html = page('✏️ در حال اصلاح…', '<p>AI متن را طبق دستور شما بازنویسی می‌کند. نسخه‌ی جدید تا یک دقیقه‌ی دیگر به ایمیل شما می‌آید.</p>');
 else html = page('✋ ثبت شد', '<p>این پیام را خودتان جواب می‌دهید. سیستم برای این پیام دیگر پیشنهادی نمی‌فرستد.</p>');
-return [{ json: { ...r, html } }];`;
+return [{ json: { ...r, send, html } }];`;
 
 const REVISION_CONTEXT_SQL = `${CONTEXT_SELECT}
 WHERE m.message_pk = $1::bigint;`;
@@ -766,6 +768,13 @@ function wf04() {
     pg('Decide approval', DECIDE_APPROVAL_SQL,
       `={{ [ String($json.body.c || ''), String($json.body.t || ''), String($json.body.a || ''), String($json.body.instruction || '') ] }}`,
       { alwaysOutputData: true, y: 600 }),
+    node('Send if approved', 'n8n-nodes-base.httpRequest', 4.2, {
+      method: 'POST', url: SEND_URL,
+      authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+      sendBody: true, specifyBody: 'json',
+      jsonBody: "={{ JSON.stringify({ approval_code: $json.approval_code || '', link_token: String($('Approval submit').first().json.body.t || '') }) }}",
+      options: { timeout: 30000, response: { response: { neverError: true } } },
+    }, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy'), y: 600 }),
     code('Result page', RESULT_JS, { y: 600 }),
     respond('Show result'),
     node('Edit requested?', 'n8n-nodes-base.if', 2, {
@@ -790,7 +799,8 @@ function wf04() {
       ['Load approval', 'Confirm page'],
       ['Confirm page', 'Show page'],
       ['Approval submit', 'Decide approval'],
-      ['Decide approval', 'Result page'],
+      ['Decide approval', 'Send if approved'],
+      ['Send if approved', 'Result page'],
       ['Result page', 'Show result'],
       ['Show result', 'Edit requested?'],
       ['Edit requested?', 'Revision context', 0],
@@ -813,6 +823,7 @@ function wf04() {
 // check-out reminder 18:00 the evening before · review request 4 h after check-out.
 // In the trial week nothing is sent: one preview digest email per run, PIN masked.
 // ---------------------------------------------------------------------
+const SEND_URL = (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1') + '/ic-send-approved';
 const PIN_URL = (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1') + '/ic-access-pin';
 
 const DUE_SQL = `SELECT * FROM (

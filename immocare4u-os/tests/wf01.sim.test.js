@@ -279,8 +279,8 @@ test('privacy rule is in the system prompt', () => {
 });
 
 // ---------------- regression 08.11.2026: double submit of the edit form ----------------
-const resultPage = (row) => JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Result page'].parameters.jsCode} })`,
-  { $input: { first: () => ({ json: row }) }, String, JSON })()))[0].json.html;
+const resultPage = (row, send = {}) => JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${by4['Result page'].parameters.jsCode} })`,
+  { $: () => ({ first: () => ({ json: row }) }), $input: { first: () => ({ json: send }) }, String, JSON })()))[0].json.html;
 
 test('double submit: second click shows "already recorded", not an error', () => {
   assert.match(resultPage({ approval_code: 'AP-1', status: 'EDITED', already: false }), /در حال اصلاح/);
@@ -326,4 +326,24 @@ test('double submit SQL: second identical submission returns the existing row wi
   const second = sql(by4['Decide approval'].parameters.query, [code, token, 'edit', 'kürzer']);
   assert.match(second, /\|EDITED\|.*\|t$/);
   assert.equal(sql(by4['Decide approval'].parameters.query, [code, 'wrong', 'edit', 'x']), '');
+});
+
+// ---------------- owner decision 08.11.2026: approved replies are really sent ----------------
+test('approve: result page reports sent / not sent honestly', () => {
+  assert.match(resultPage({ approval_code: 'AP-1', status: 'APPROVED', already: false }, { sent: true }), /ارسال شد/);
+  const failed = resultPage({ approval_code: 'AP-1', status: 'APPROVED', already: false }, { sent: false, reason: 'stay already ended' });
+  assert.match(failed, /ارسال نشد/); assert.match(failed, /stay already ended/);
+});
+
+test('send step: only through ic-send-approved, text never taken from the request', () => {
+  const n = by4['Send if approved'];
+  assert.match(n.parameters.url, /\/ic-send-approved$/);
+  assert.equal(n.credentials.httpHeaderAuth.name, 'IC Smoobu Proxy');
+  assert.doesNotMatch(n.parameters.jsonBody, /proposed_text|final_text|messageBody/);
+  assert.deepEqual(wf04.connections['Decide approval'].main[0].map((c) => c.node), ['Send if approved']);
+});
+
+test('level 6 automatic replies are still never sent (no approve link)', () => {
+  const { payload } = decide(aiResp(base));
+  assert.ok(!/a=approve/.test(render(payload).html));
 });
