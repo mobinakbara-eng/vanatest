@@ -629,7 +629,7 @@ return $input.all().map((it) => {
     + (p.used_unverified && p.used_unverified.length ? '<br>⚠️ ردیف‌های تأییدنشده‌ی اکسل: ' + esc(p.used_unverified.join(', ')) : '')
     + '<br>کد: ' + esc(c) + ' · اعتبار لینک‌ها: ۲۴ ساعت</div>'
     + '</div></div></div>';
-  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.level >= 5 ? 'خودکار · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');
+  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.revision > 1 ? '✏️ اصلاح‌شده، آماده‌ی تأیید · ' : p.level >= 5 ? 'خودکار · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');
   return { json: { subject, html, approval_code: c } };
 });`;
 
