@@ -326,10 +326,6 @@ return [{ json: { subject: '⚠️ خطا در ' + wf, html } }];`),
 //   every 30 min: reservations overlapping [today-2, today+60] → upsert
 //   → messages of each active reservation → store new ones + rule classification
 // ======================================================================
-const SYNC_RESERVATIONS_JS = `const ymd = (d) => d.toISOString().slice(0, 10);
-const now = new Date();
-const from = ymd(new Date(now.getTime() - 2 * 864e5)), to = ymd(new Date(now.getTime() + 60 * 864e5));
-return [{ json: { req: { method: 'GET', path: '/api/reservations', query: { from, to, pageSize: 100, showCancellation: 'true' } } } }];`;
 
 const NORMALIZE_LIST_JS = `const r = $input.first().json;
 if (r.statusCode !== 200) throw new Error('Smoobu reservations HTTP ' + r.statusCode + ' ' + JSON.stringify(r.body).slice(0, 200));
@@ -347,10 +343,6 @@ for (const res of (r.body.bookings || [])) {
 }
 return out;`;
 
-const SPEC_MESSAGES_JS = `return $input.all()
-  .filter((i) => i.json.status !== 'CANCELLED' && i.json.property_id)
-  .map((i) => ({ json: { reservationId: Number(i.json.reservation_id), propertyId: i.json.property_id,
-    req: { method: 'GET', path: '/api/reservations/' + i.json.reservation_id + '/messages' } } }));`;
 
 const MESSAGES_TO_ROWS_JS = `${CLASSIFIER}
 const specs = $('Spec messages').all();
@@ -401,16 +393,27 @@ JOIN ic.message_classifications c USING (message_pk)
 JOIN ic.reservations r ON r.reservation_id = m.reservation_id
 JOIN ic.properties p ON p.property_id = m.property_id`;
 
-const PENDING_SQL = `${CONTEXT_SELECT}
-WHERE m.direction = 'INBOUND' AND m.sent_at > now() - interval '48 hours'
+const PENDING_WHERE = `WHERE m.direction = 'INBOUND' AND m.sent_at > now() - interval '48 hours'
   AND NOT EXISTS (SELECT 1 FROM ic.outbound_messages o WHERE o.idempotency_key = 'draft:' || m.message_pk)
   AND NOT EXISTS (SELECT 1 FROM ic.messages h WHERE h.reservation_id = m.reservation_id
                   AND h.direction = 'OUTBOUND' AND h.sent_at > m.sent_at)
   -- one draft per conversation: only the guest's latest message (earlier ones are in the conversation)
   AND NOT EXISTS (SELECT 1 FROM ic.messages n WHERE n.reservation_id = m.reservation_id
-                  AND n.direction = 'INBOUND' AND n.sent_at > m.sent_at)
+                  AND n.direction = 'INBOUND' AND n.sent_at > m.sent_at)`;
+const PENDING_SQL = `${CONTEXT_SELECT}
+${PENDING_WHERE}
 ORDER BY m.sent_at
 LIMIT 10;`;
+// Supabase ic-tick: wake n8n only for messages that need a draft (each message at most every 15 min).
+const TRIGGER_DRAFTS_SQL = `INSERT INTO ic.draft_triggers (message_pk)
+SELECT m.message_pk FROM ic.messages m
+JOIN ic.message_classifications c USING (message_pk)
+JOIN ic.reservations r ON r.reservation_id = m.reservation_id
+JOIN ic.properties p ON p.property_id = m.property_id
+${PENDING_WHERE}
+ON CONFLICT (message_pk) DO UPDATE SET triggered_at = now()
+  WHERE ic.draft_triggers.triggered_at < now() - interval '15 minutes'
+RETURNING message_pk;`;
 
 const SYSTEM_PROMPT = `You are the guest-service assistant of ImmoCare4U, a professional short-term rental operator in Berlin.
 You draft replies for ONE apartment. You never send anything; a manager reviews every draft.
@@ -596,7 +599,7 @@ const LV = {
   3: ['#b54708', 'نیاز به تصمیم', 'پیش‌نویس با تأیید شما'],
   4: ['#1849a9', 'نیاز به بررسی', 'پیش‌نویس با تأیید شما'],
   5: ['#067647', 'زمان‌بندی‌شده', 'خودکار'],
-  6: ['#067647', 'جواب خودکار', 'تا ۳۰ دقیقه‌ی دیگر خودکار برای مهمان ارسال می‌شود'],
+  6: ['#067647', 'جواب خودکار', 'حدود ۲۰ دقیقه‌ی دیگر خودکار برای مهمان ارسال می‌شود'],
 };
 const FLAG_FA = { LEARNED_RULE: 'با قانونی جواب داده شد که قبلاً از تأیید شما یاد گرفته شده', MISSING_KB_FACT: 'اطلاعات لازم در اکسل نیست', USES_UNVERIFIED_KB: 'از ردیف تأییدنشده‌ی اکسل استفاده شده',
   CODE_REMOVED: 'کد از متن حذف شد', MONEY_WORDS: 'موضوع مالی', PROMPT_INJECTION: 'تلاش برای فریب سیستم',
@@ -614,9 +617,9 @@ return $input.all().map((it) => {
   const html = '<div style="background:#f2f4f7;padding:12px 0"><div style="max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden">'
     + '<div dir="rtl" style="background:' + color + ';color:#ffffff;padding:16px 18px;text-align:right">'
     + '<div style="font-size:20px;font-weight:bold">سطح ' + p.level + ' · ' + title + '</div>'
-    + '<div style="font-size:14px;opacity:.95;margin-top:4px">' + who + (p.revision > 1 ? ' · نسخه‌ی اصلاح‌شده ' + p.revision : '') + '</div></div>'
+    + '<div style="font-size:14px;opacity:.95;margin-top:4px">' + (!auto && p.level >= 5 ? 'فقط با تأیید شما ارسال می‌شود' : who) + (p.revision > 1 ? ' · نسخه‌ی اصلاح‌شده ' + p.revision : '') + '</div></div>'
     + '<div style="padding:4px 18px 18px">'
-    + (auto ? '<div dir="rtl" style="background:#ecfdf3;color:#05603a;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right">🟢 این جواب در اجرای بعدی سیستم (حداکثر ۳۰ دقیقه) <b>خودکار</b> برای مهمان ارسال می‌شود. اگر نمی‌خواهید، «✏️ اصلاح» یا «✋ خودم جواب می‌دهم» را بزنید. «ارسال فوری» همین الان می‌فرستد.</div>'
+    + (auto ? '<div dir="rtl" style="background:#ecfdf3;color:#05603a;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right">🟢 این جواب حدود ۲۰ دقیقه‌ی دیگر <b>خودکار</b> برای مهمان ارسال می‌شود. اگر نمی‌خواهید، «✏️ اصلاح» یا «✋ خودم جواب می‌دهم» را بزنید. «ارسال فوری» همین الان می‌فرستد.</div>'
        : staffOnly ? '' : '<div dir="rtl" style="background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right">این جواب فقط وقتی برای مهمان فرستاده می‌شود که «✅ تأیید و ارسال» را بزنید.</div>')
     + '<table dir="rtl" style="width:100%;margin-top:12px;font-size:14px;color:#344054;border-collapse:collapse">'
     + '<tr><td style="padding:4px 0;color:#667085;width:90px">آپارتمان</td><td style="padding:4px 0;font-weight:bold">' + esc(p.apartment) + '</td></tr>'
@@ -641,7 +644,7 @@ return $input.all().map((it) => {
     + (p.used_unverified && p.used_unverified.length ? '<br>⚠️ ردیف‌های تأییدنشده‌ی اکسل: ' + esc(p.used_unverified.join(', ')) : '')
     + '<br>کد: ' + esc(c) + ' · اعتبار لینک‌ها: ۲۴ ساعت</div>'
     + '</div></div></div>';
-  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.revision > 1 ? '✏️ اصلاح‌شده، آماده‌ی تأیید · ' : p.level >= 5 ? 'ارسال خودکار تا ۳۰ دقیقه · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');
+  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.revision > 1 ? '✏️ اصلاح‌شده، آماده‌ی تأیید · ' : p.level >= 5 ? 'ارسال خودکار تا ۲۰ دقیقه · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');
   return { json: { subject, html, approval_code: c } };
 });`;
 
@@ -1020,8 +1023,6 @@ WHERE x.due_at <= now()
 ORDER BY x.due_at
 LIMIT 50;`;
 
-const TAG_PIN_JS = `const src = $('Due scheduled').all();
-return $input.all().map((it, i) => ({ json: { ...src[i].json, pin_check: it.json } }));`;
 
 const RENDER_SCHEDULED_JS = `const T = {
   WELCOME: { de: 'Hallo und vielen Dank für Ihre Buchung! Wir freuen uns auf Sie. Der Check-in ist ab 15:00 Uhr per Self-Check-in möglich. Alle Details zur Anreise erhalten Sie automatisch rechtzeitig vor Ihrer Ankunft. Herzliche Grüße, Ihr ImmoCare4U Team',
@@ -1063,27 +1064,34 @@ VALUES ($1, $2::bigint, $3, 'SCHEDULED', $4, $5::boolean, 'DRAFT', true)
 ON CONFLICT (idempotency_key) DO NOTHING
 RETURNING idempotency_key;`;
 
-const DIGEST_JS = `const src = $('Render scheduled').all();
-const rec = $('Record scheduled').all().map((i) => i.json.idempotency_key);
-const sent = Object.fromEntries($input.all().map((i, k) => [rec[k], i.json || {}]).filter(([k]) => k));
-const items = src.map((i) => i.json).filter((j) => j.p[0] in sent);
-if (!items.length) return [];
+const TICK_REPORT_JS = `const b = $('Work webhook').first().json.body || {};
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };
-const NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 قبل از ورود: ویدیو، مسیر و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CAFE_TIP: '☕ صبح اول: تخفیف کافه Einstein', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };
-const ok = items.filter((j) => sent[j.p[0]].sent).length;
-const cards = items.map((j) => { const r = sent[j.p[0]];
-  return '<div style="border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0">'
-  + '<div dir="rtl" style="text-align:right;font-weight:bold;font-size:15px">' + (r.sent ? '✅ ' : '⛔ ') + (NAME[j.template_code] || j.template_code) + '</div>'
-  + '<div dir="rtl" style="text-align:right;color:#667085;font-size:13px;margin:4px 0 8px">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'
-  + '<div dir="ltr" style="background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828;white-space:pre-wrap;word-break:break-all">' + esc(j.body).replace('{{PIN}}', '<b>••••</b>') + '</div>'
-  + '<div dir="rtl" style="text-align:right;font-size:13px;margin-top:6px;color:' + (r.sent ? '#067647' : '#b42318') + '">'
-  + (r.sent ? 'از طریق Smoobu برای مهمان ارسال شد' + (j.is_pin ? ' (کد فقط در Supabase درج شد و در هیچ ایمیلی نیست)' : '') : 'ارسال نشد: ' + esc(r.reason || r.error || 'نامشخص') + ' — لطفاً خودتان بفرستید')
-  + '</div></div>'; }).join('');
-const html = '<div style="background:#f2f4f7;padding:12px 0"><div style="max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden">'
-  + '<div dir="rtl" style="background:' + (ok === items.length ? '#067647' : '#b42318') + ';color:#fff;padding:16px 18px;text-align:right"><div style="font-size:20px;font-weight:bold">📅 پیام‌های زمان‌بندی‌شده</div><div style="font-size:14px;margin-top:4px">' + ok + ' از ' + items.length + ' پیام ارسال شد</div></div>'
-  + '<div style="padding:4px 18px 18px">' + cards + '</div></div></div>';
-return [{ json: { subject: (ok === items.length ? '📅 ' : '⛔ ') + 'پیام‌های زمان‌بندی‌شده: ' + ok + ' از ' + items.length + ' ارسال شد', html } }];`;
+const wrap = (color, title, sub, inner) => '<div style="background:#f2f4f7;padding:12px 0"><div style="max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden">'
+  + '<div dir="rtl" style="background:' + color + ';color:#fff;padding:16px 18px;text-align:right"><div style="font-size:20px;font-weight:bold">' + title + '</div><div style="font-size:14px;margin-top:4px">' + sub + '</div></div>'
+  + '<div style="padding:4px 18px 18px">' + inner + '</div></div></div>';
+const out = [];
+const items = (b.scheduled || []).filter((j) => j && j.template_code);
+if (items.length) {
+  const NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 قبل از ورود: ویدیو، مسیر و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CAFE_TIP: '☕ صبح اول: تخفیف کافه Einstein', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };
+  const ok = items.filter((j) => j.sent).length;
+  const cards = items.map((j) => '<div style="border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0">'
+    + '<div dir="rtl" style="text-align:right;font-weight:bold;font-size:15px">' + (j.sent ? '✅ ' : '⛔ ') + (NAME[j.template_code] || esc(j.template_code)) + '</div>'
+    + '<div dir="rtl" style="text-align:right;color:#667085;font-size:13px;margin:4px 0 8px">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'
+    + '<div dir="ltr" style="background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828;white-space:pre-wrap;word-break:break-all">' + esc(j.body).split('{{PIN}}').join('<b>••••</b>') + '</div>'
+    + '<div dir="rtl" style="text-align:right;font-size:13px;margin-top:6px;color:' + (j.sent ? '#067647' : '#b42318') + '">'
+    + (j.sent ? 'از طریق Smoobu برای مهمان ارسال شد' + (j.is_pin ? ' (کد فقط در Supabase درج شد و در هیچ ایمیلی نیست)' : '') : 'ارسال نشد: ' + esc(j.reason || 'نامشخص') + ' — لطفاً خودتان بفرستید')
+    + '</div></div>').join('');
+  out.push({ subject: (ok === items.length ? '📅 ' : '⛔ ') + 'پیام‌های زمان‌بندی‌شده: ' + ok + ' از ' + items.length + ' ارسال شد',
+    html: wrap(ok === items.length ? '#067647' : '#b42318', '📅 پیام‌های زمان‌بندی‌شده', ok + ' از ' + items.length + ' پیام ارسال شد', cards) });
+}
+const bad = (b.auto_failures || []).filter((x) => x && x.approval_code);
+if (bad.length) out.push({ subject: '⛔ جواب خودکار ارسال نشد (' + bad.length + ')',
+  html: wrap('#b42318', '⛔ جواب خودکار ارسال نشد', bad.length + ' مورد', bad.map((x) => '<p dir="rtl" style="text-align:right">' + esc(x.approval_code) + ': ' + esc(x.reason || 'نامشخص') + '</p>').join('') + '<p dir="rtl" style="text-align:right">لطفاً خودتان به مهمان جواب دهید.</p>') });
+const errs = (b.errors || []).filter(Boolean);
+if (errs.length) out.push({ subject: '⚠️ خطا در زمان‌بند (Supabase ic-tick)',
+  html: wrap('#b42318', '⚠️ خطا در زمان‌بند', 'Supabase ic-tick', errs.map((e) => '<p dir="ltr" style="text-align:left;font-size:13px">' + esc(e) + '</p>').join('') + '<p dir="rtl" style="text-align:right">زمان‌بند ۵ دقیقه‌ی دیگر دوباره تلاش می‌کند.</p>') });
+return out.map((json) => ({ json }));`;
 
 // Level-6 replies: sent automatically in the NEXT run (≥10 min after the e-mail), so the manager
 // can still press Edit / Take over. Only while LIVE_SENDING = 'on', only the first version,
@@ -1094,7 +1102,7 @@ const DUE_AUTO_SQL = `WITH cand AS (
   JOIN ic.messages m ON m.message_pk = o.in_reply_to
   WHERE EXISTS (SELECT 1 FROM ic.settings s WHERE s.key = 'LIVE_SENDING' AND s.value = 'on')
     AND a.status = 'PENDING' AND a.level = 'AUTO' AND a.subject_type = 'GUEST_REPLY' AND a.revision = 1
-    AND a.requested_at BETWEEN now() - interval '100 minutes' AND now() - interval '10 minutes'
+    AND a.requested_at BETWEEN now() - interval '100 minutes' AND now() - interval '15 minutes'
     AND a.expires_at > now() AND o.status = 'DRAFT'
     AND length(trim(coalesce(a.proposed_text, ''))) > 0 AND a.proposed_text <> '(no draft)'
     AND NOT EXISTS (SELECT 1 FROM ic.messages n WHERE n.reservation_id = m.reservation_id
@@ -1110,124 +1118,108 @@ const DUE_AUTO_SQL = `WITH cand AS (
 )
 SELECT * FROM upd;`;
 
-const AUTO_FAIL_JS = `const src = $('Due auto replies').all();
-const bad = $input.all().map((i, k) => ({ r: i.json || {}, c: src[k] && src[k].json.approval_code })).filter((x) => x.c && !x.r.sent);
-if (!bad.length) return [];
-const html = '<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8">'
-  + '<div style="background:#b42318;color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold">⛔ جواب خودکار ارسال نشد</div>'
-  + bad.map((x) => '<p>' + x.c + ': ' + String(x.r.reason || x.r.error || 'نامشخص').replace(/[<>&]/g, '') + '</p>').join('')
-  + '<p>لطفاً خودتان به مهمان جواب دهید.</p></div>';
-return [{ json: { subject: '⛔ جواب خودکار ارسال نشد (' + bad.length + ')', html } }];`;
-
-function autoReplyNodes() {
-  const due = pg('Due auto replies', DUE_AUTO_SQL, '', { executeOnce: true, y: 760 });
-  delete due.parameters.options.queryReplacement;
-  return [
-    due,
-    node('Send auto reply', 'n8n-nodes-base.httpRequest', 4.2, {
-      method: 'POST', url: SEND_URL,
-      authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-      sendBody: true, specifyBody: 'json',
-      jsonBody: '={{ JSON.stringify({ approval_code: $json.approval_code, link_token: $json.link_token }) }}',
-      options: { timeout: 30000, response: { response: { neverError: true } } },
-    }, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy'), y: 760 }),
-    code('Auto reply failures', AUTO_FAIL_JS, { y: 760 }),
-    gmailNode('Email auto failure'),
-  ];
-}
-const AUTO_CONNECTIONS = [
-  ['Expire approvals', 'Due auto replies'],
-  ['Due auto replies', 'Send auto reply'],
-  ['Send auto reply', 'Auto reply failures'],
-  ['Auto reply failures', 'Email auto failure'],
-];
-
-function scheduledNodes() {
-  const due = pg('Due scheduled', DUE_SQL, '', { executeOnce: true, y: 520 });
-  delete due.parameters.options.queryReplacement;
-  return [
-    due,
-    node('PIN check', 'n8n-nodes-base.httpRequest', 4.2, {
-      method: 'POST', url: PIN_URL,
-      authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-      sendBody: true, specifyBody: 'json',
-      jsonBody: '={{ JSON.stringify({ reservation_id: $json.reservation_id, template: $json.template_code, preview: true }) }}',
-      options: { timeout: 20000, response: { response: { neverError: true } } },
-    }, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy'), y: 420 }),
-    code('Tag PIN result', TAG_PIN_JS, { y: 420 }),
-    code('Render scheduled', RENDER_SCHEDULED_JS, { y: 520 }),
-    pg('Record scheduled', RECORD_SCHEDULED_SQL, `={{ $json.p }}`, { y: 520 }),
-    node('Send scheduled', 'n8n-nodes-base.httpRequest', 4.2, {
-      method: 'POST', url: SEND_SCHED_URL,
-      authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-      sendBody: true, specifyBody: 'json',
-      jsonBody: '={{ JSON.stringify({ idempotency_key: $json.idempotency_key }) }}',
-      options: { timeout: 30000, response: { response: { neverError: true } } },
-    }, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy'), y: 520 }),
-    code('Scheduled digest', DIGEST_JS, { y: 520 }),
-    gmailNode('Email scheduled preview'),
-  ];
-}
-const SCHEDULED_CONNECTIONS = [
-  ['Log run', 'Due scheduled'],
-  ['Due scheduled', 'PIN check'],
-  ['PIN check', 'Tag PIN result'],
-  ['Tag PIN result', 'Render scheduled'],
-  ['Render scheduled', 'Record scheduled'],
-  ['Record scheduled', 'Send scheduled'],
-  ['Send scheduled', 'Scheduled digest'],
-  ['Scheduled digest', 'Email scheduled preview'],
-];
+// Supabase pg_cron → Edge Function ic-tick (every 5 min, costs no n8n executions) does the Smoobu
+// sync, scheduled messages, auto replies and approval expiry. It wakes this workflow ONLY when
+// there is work: a guest message that needs an AI draft, or a report to e-mail.
+const TICK_HEALTH_SQL = `SELECT max(finished_at) AS last_tick FROM ic.automation_runs WHERE workflow = 'ic-tick'
+HAVING coalesce(max(finished_at), 'epoch') < now() - interval '30 minutes';`;
+const HEALTH_JS = `const t = $input.first().json.last_tick;
+return [{ json: { subject: '⚠️ زمان‌بند پیام‌ها کار نمی‌کند',
+  html: '<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8"><div style="background:#b42318;color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold">⚠️ زمان‌بند پیام‌ها کار نمی‌کند</div><p>آخرین اجرای موفق Supabase ic-tick: ' + String(t || 'هرگز') + '</p><p>تا رفع مشکل، پیام‌های زمان‌بندی‌شده (کد، مسیر، …) ارسال نمی‌شوند. لطفاً به Claude خبر دهید.</p></div>' } }];`;
 
 function wf01() {
-  const w2 = wf02();
-  const q = (n) => w2.nodes.find((x) => x.name === n).parameters.query;
   pos = 0;
+  const health = pg('Tick health', TICK_HEALTH_SQL, '', { y: 760 });
+  delete health.parameters.options.queryReplacement;
   const nodes = [
-    node('Every 30 min', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'minutes', minutesInterval: 30 }] } }),
-    node('Test Webhook', 'n8n-nodes-base.webhook', 2, {
-      httpMethod: 'POST', path: 'ic/wf01-run', authentication: 'headerAuth', responseMode: 'onReceived', options: {},
-    }, { webhookId: cryptoId('ic-wf01-run'), credentials: cred('httpHeaderAuth', 'IC Webhook Gate'), y: 500 }),
-    code('Spec reservations', SYNC_RESERVATIONS_JS),
-    http('Smoobu GET reservations'),
-    code('Normalize reservations', NORMALIZE_LIST_JS),
-    pg('Upsert reservation', q('Upsert reservation'), `={{ $json.p }}`),
-    code('Spec messages', SPEC_MESSAGES_JS),
-    http('Smoobu GET messages'),
-    code('Messages to rows', MESSAGES_TO_ROWS_JS),
-    pg('Store message + classification', q('Store message + classification'), `={{ $json.p }}`, { alwaysOutputData: true }),
-    pg('Log run', `INSERT INTO ic.automation_runs (workflow, n8n_execution_id, finished_at, status, summary)
-VALUES ('WF-01', $1, now(), 'SUCCESS', $2::jsonb) RETURNING run_id, summary;`,
-    `={{ [ $execution.id, JSON.stringify({ reservations: $('Normalize reservations').all().length, messagesSeen: $('Messages to rows').all().length, newClassified: $('Store message + classification').all().filter(i => i.json.message_pk).length }) ] }}`,
-    { executeOnce: true }),
-    (() => { const n = pg('Expire approvals', `UPDATE ic.approvals SET status = 'EXPIRED' WHERE status = 'PENDING' AND expires_at < now() RETURNING approval_code;`, '', { executeOnce: true, alwaysOutputData: true }); delete n.parameters.options.queryReplacement; return n; })(),
+    node('Work webhook', 'n8n-nodes-base.webhook', 2, {
+      httpMethod: 'POST', path: 'ic/wf01-work', authentication: 'headerAuth', responseMode: 'onReceived', options: {},
+    }, { webhookId: cryptoId('ic-wf01-work'), credentials: cred('httpHeaderAuth', 'IC Webhook Gate') }),
     ...draftNodes(),
-    ...scheduledNodes(),
-    ...autoReplyNodes(),
+    code('Tick report', TICK_REPORT_JS, { y: 520 }),
+    gmailNode('Email report'),
+    node('Daily health check', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'cronExpression', expression: '50 7 * * *' }] } }, { y: 760 }),
+    health,
+    code('Health alert', HEALTH_JS, { y: 760 }),
+    gmailNode('Email health alert'),
   ];
   return {
-    name: 'WF-01 — Smoobu Sync + Guest Messaging (LIVE)',
+    name: 'WF-01 — Guest Messaging Worker (LIVE, woken by Supabase)',
     nodes,
     connections: connect([
-      ['Every 30 min', 'Spec reservations'],
-      ['Test Webhook', 'Spec reservations'],
-      ['Spec reservations', 'Smoobu GET reservations'],
-      ['Smoobu GET reservations', 'Normalize reservations'],
-      ['Normalize reservations', 'Upsert reservation'],
-      ['Upsert reservation', 'Spec messages'],
-      ['Spec messages', 'Smoobu GET messages'],
-      ['Smoobu GET messages', 'Messages to rows'],
-      ['Messages to rows', 'Store message + classification'],
-      ['Store message + classification', 'Log run'],
-      ['Log run', 'Expire approvals'],
-      ['Expire approvals', 'Pending drafts'],
+      ['Work webhook', 'Pending drafts'],
+      ['Work webhook', 'Tick report'],
       ...DRAFT_CONNECTIONS,
-      ...SCHEDULED_CONNECTIONS.map(([a, ...r]) => [a === 'Log run' ? 'Expire approvals' : a, ...r]),
-      ...AUTO_CONNECTIONS,
+      ['Tick report', 'Email report'],
+      ['Daily health check', 'Tick health'],
+      ['Tick health', 'Health alert'],
+      ['Health alert', 'Email health alert'],
     ]),
-    settings: { executionOrder: 'v1' },
-    meta: { status: 'PLANNED', generatedBy: 'n8n/build-workflows.js' },
+    settings: { executionOrder: 'v1', timezone: 'Europe/Berlin' },
+    meta: { status: 'EXISTING', generatedBy: 'n8n/build-workflows.js' },
   };
+}
+
+// WF-05 — fallback timer: calls Supabase ic-tick every 30 min. Only needed while pg_cron is not
+// set up (db/ops/ic_tick_cron.sql); deactivate it as soon as the pg_cron job runs.
+function wf05() {
+  pos = 0;
+  return {
+    name: 'WF-05 — Tick fallback (only until pg_cron runs)',
+    nodes: [
+      node('Every 30 min', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'minutes', minutesInterval: 30 }] } }),
+      node('Run ic-tick', 'n8n-nodes-base.httpRequest', 4.2, {
+        method: 'POST', url: (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1') + '/ic-tick',
+        authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+        sendBody: true, specifyBody: 'json', jsonBody: '{}',
+        options: { timeout: 140000 },
+      }, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy') }),
+    ],
+    connections: connect([['Every 30 min', 'Run ic-tick']]),
+    settings: { executionOrder: 'v1' },
+    meta: { status: 'EXISTING', generatedBy: 'n8n/build-workflows.js' },
+  };
+}
+
+// ---------------------------------------------------------------------
+// Shared module for Supabase ic-tick: the SAME tested SQL and code as above,
+// wrapped as plain functions (n8n's $input/$ are shimmed).
+// ---------------------------------------------------------------------
+function generatedModule() {
+  const q = (n) => wf02().nodes.find((x) => x.name === n).parameters.query;
+  const SQL = {
+    UPSERT_RESERVATION: q('Upsert reservation'),
+    STORE_MESSAGE: q('Store message + classification'),
+    EXPIRE_APPROVALS: `UPDATE ic.approvals SET status = 'EXPIRED' WHERE status = 'PENDING' AND expires_at < now() RETURNING approval_code;`,
+    DUE_AUTO: DUE_AUTO_SQL,
+    DUE_SCHEDULED: DUE_SQL,
+    RECORD_SCHEDULED: RECORD_SCHEDULED_SQL,
+    TRIGGER_DRAFTS: TRIGGER_DRAFTS_SQL,
+  };
+  return `// GENERATED by n8n/build-workflows.js – do not edit. Used by supabase/functions/ic-tick.
+export const SQL = ${JSON.stringify(SQL, null, 2)};
+
+const wrapItems = (arr) => arr.map((json) => ({ json }));
+
+/** Smoobu GET /api/reservations response {statusCode, body} → rows {reservationId, status, p[12]} (PII removed). */
+export function normalizeBookings(resp) {
+  const $input = { first: () => ({ json: resp }) };
+  return (function () { ${NORMALIZE_LIST_JS} })().map((x) => x.json);
+}
+
+/** Messages responses (same order as specs {reservationId, propertyId}) → STORE_MESSAGE parameter arrays. */
+export function messageRows(responses, specs) {
+  const $input = { all: () => wrapItems(responses) };
+  const $ = () => ({ all: () => wrapItems(specs) });
+  return (function () { ${MESSAGES_TO_ROWS_JS} })().map((x) => x.json.p);
+}
+
+/** Due scheduled rows (+ pin_check from ic-access-pin) → rendered message with p = RECORD_SCHEDULED params. */
+export function renderScheduled(rows) {
+  const $input = { all: () => wrapItems(rows) };
+  return (function () { ${RENDER_SCHEDULED_JS} })().map((x) => x.json);
+}
+`;
 }
 
 const outDir = path.join(__dirname, 'workflows');
@@ -1236,7 +1228,10 @@ for (const [file, wf] of [['WF-00-smoobu-connectivity-test.json', wf00()],
                           ['WF-02-smoobu-webhook-receiver.json', wf02()],
                           ['WF-14-error-monitor-minimal.json', wf14()],
                           ['WF-01-smoobu-readonly-sync.json', wf01()],
-                          ['WF-04-email-approval.json', wf04()]]) {
+                          ['WF-04-email-approval.json', wf04()],
+                          ['WF-05-tick-fallback.json', wf05()]]) {
   fs.writeFileSync(path.join(outDir, file), JSON.stringify(wf, null, 2) + '\n');
   console.log('wrote', file, `(${wf.nodes.length} nodes)`);
 }
+fs.writeFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'ic-generated.mjs'), generatedModule());
+console.log('wrote supabase/functions/_shared/ic-generated.mjs');

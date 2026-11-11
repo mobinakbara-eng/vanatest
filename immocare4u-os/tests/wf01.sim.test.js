@@ -6,9 +6,20 @@ const fs = require('fs');
 const path = require('path');
 const wf = require('../n8n/workflows/WF-01-smoobu-readonly-sync.json');
 const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
-const by01 = (n) => byName[n].parameters.query;
+
+// Since 11.11.2026 sync / scheduling / auto-send run in Supabase ic-tick, using the generated
+// module with the same SQL and code. Legacy node names map onto it.
+const G = require('../supabase/functions/_shared/ic-generated.mjs');
+const LEGACY_SQL = { 'Due scheduled': G.SQL.DUE_SCHEDULED, 'Due auto replies': G.SQL.DUE_AUTO, 'Record scheduled': G.SQL.RECORD_SCHEDULED };
+const by01 = (n) => LEGACY_SQL[n] || byName[n].parameters.query;
+const LEGACY_RUN = {
+  'Normalize reservations': (items) => G.normalizeBookings(items[0].json).map((json) => ({ json })),
+  'Messages to rows': (items, outputs) => G.messageRows(items.map((i) => i.json), outputs['Spec messages'].map((i) => i.json)).map((p) => ({ json: { p } })),
+  'Render scheduled': (items) => G.renderScheduled(items.map((i) => i.json)).map((json) => ({ json })),
+};
 
 function run(name, items, outputs = {}) {
+  if (LEGACY_RUN[name]) return JSON.parse(JSON.stringify(LEGACY_RUN[name](items, outputs)));
   const sb = {
     $input: { first: () => items[0], all: () => items },
     $: (n) => ({ all: () => outputs[n], first: () => outputs[n][0] }),
@@ -17,11 +28,14 @@ function run(name, items, outputs = {}) {
   return JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${byName[name].parameters.jsCode} })`, sb)()));
 }
 
-test('spec reservations is a read-only GET with a date window', () => {
-  const [o] = run('Spec reservations', [{ json: {} }]);
-  assert.equal(o.json.req.method, 'GET');
-  assert.equal(o.json.req.path, '/api/reservations');
-  assert.match(o.json.req.query.from, /^\d{4}-\d\d-\d\d$/);
+test('ic-tick: Smoobu is only read (GET), with a date window; writes only via the send functions', () => {
+  const t = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-tick/index.ts'), 'utf8');
+  assert.match(t, /sign\(\{ method: 'GET', path, query/);
+  assert.doesNotMatch(t, /method: '(POST|PUT|PATCH|DELETE)', path/);
+  assert.match(t, /from: ymd\(new Date\(now\.getTime\(\) - 2 \* 864e5\)\), to: ymd\(new Date\(now\.getTime\(\) \+ 60 \* 864e5\)\)/);
+  assert.match(t, /fn\('ic-send-approved', \{ approval_code: a\.approval_code, link_token: a\.link_token \}\)/);
+  assert.match(t, /fn\('ic-send-scheduled', \{ idempotency_key: rec\[0\]\.idempotency_key \}\)/);
+  assert.match(t, /pg_try_advisory_lock/);   // no overlapping ticks
 });
 
 test('normalize skips blocked, maps status, strips PII', () => {
@@ -42,13 +56,10 @@ test('normalize throws on proxy error so WF-14 logs it', () => {
   assert.throws(() => run('Normalize reservations', [{ json: { statusCode: 401, body: {} } }]));
 });
 
-test('messages: only active, mapped reservations are fetched', () => {
-  const out = run('Spec messages', [
-    { json: { reservation_id: '1', property_id: 'P-BER-001', status: 'CONFIRMED' } },
-    { json: { reservation_id: '2', property_id: 'P-BER-001', status: 'CANCELLED' } },
-    { json: { reservation_id: '3', property_id: null, status: 'CONFIRMED' } },
-  ]);
-  assert.deepEqual(out.map((o) => o.json.req.path), ['/api/reservations/1/messages']);
+test('ic-tick: messages of cancelled / unmapped bookings are never fetched; far-future ones only every 30 min', () => {
+  const t = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-tick/index.ts'), 'utf8');
+  assert.match(t, /up\.property_id && up\.status !== 'CANCELLED' && \(fullPass \|\| active\)/);
+  assert.match(t, /getUTCMinutes\(\) % 30 < 5/);
 });
 
 test('messages to rows: type 1 = guest (classified), type 2 = host (not classified)', () => {
@@ -68,16 +79,16 @@ test('messages to rows: type 1 = guest (classified), type 2 = host (not classifi
   assert.equal(out[2].json.p[6], 'I want a full refund');
 });
 
-test('WF-01 reads Smoobu only through the read-only proxy; writes only through the two send functions', () => {
-  const others = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest' && !x.name.startsWith('Smoobu')).map((x) => x.parameters.url);
-  const F = 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/';
-  assert.deepEqual(others.sort(), ['https://api.anthropic.com/v1/messages', F + 'ic-access-pin', F + 'ic-send-approved', F + 'ic-send-scheduled']);
-  // send nodes pass only identifiers, never message text or PINs
-  assert.match(byName['Send scheduled'].parameters.jsonBody, /^=\{\{ JSON\.stringify\(\{ idempotency_key: \$json\.idempotency_key \}\) \}\}$/);
-  assert.doesNotMatch(byName['Send auto reply'].parameters.jsonBody, /text|body|pin/i);
-  for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest' && x.name.startsWith('Smoobu'))) {
-    assert.match(n.parameters.url, /smoobu-proxy$/);
-  }
+test('WF-01 (n8n) only drafts and e-mails: no timer, no Smoobu access, no sending', () => {
+  const urls = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest').map((x) => x.parameters.url);
+  assert.deepEqual(urls, ['https://api.anthropic.com/v1/messages']);
+  const triggers = wf.nodes.filter((x) => /Trigger|webhook/i.test(x.type));
+  assert.deepEqual(triggers.map((x) => x.name).sort(), ['Daily health check', 'Work webhook']);
+  assert.equal(byName['Work webhook'].parameters.authentication, 'headerAuth');
+  assert.equal(byName['Daily health check'].parameters.rule.interval[0].expression, '50 7 * * *');
+});
+
+test('no WF-01 code node writes to Smoobu', () => {
   for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
     assert.ok(!/method:\s*'(POST|PUT|PATCH|DELETE)'/.test(n.parameters.jsCode), n.name);
   }
@@ -196,15 +207,38 @@ test('scheduled: PIN text keeps {{PIN}} placeholder, never digits; missing video
   assert.equal(out[1].json.lang, 'de');
 });
 
-test('scheduled: digest masks PIN and only lists newly recorded items', () => {
+const tickReport = (body) => JSON.parse(JSON.stringify(vm.runInNewContext(`(function(){ ${byName['Tick report'].parameters.jsCode} })`,
+  { $: () => ({ first: () => ({ json: { body } }) }), String, JSON })()));
+test('report: scheduled results (PIN masked), auto-send failures and tick errors become e-mails; nothing → no e-mail', () => {
   const rendered = run('Render scheduled', [{ json: { ...due().json, pin_check: { ok: true } } }, { json: { ...due({ reservation_id: 12, template_code: 'WELCOME' }).json, pin_check: {} } }]);
-  const rec = [{ json: { idempotency_key: 'sched:11:ACCESS_PIN' } }, { json: { idempotency_key: 'sched:12:WELCOME' } }];
-  const out = run('Scheduled digest', [{ json: { sent: true } }, { json: { sent: false, reason: 'booking cancelled/blocked in Smoobu' } }], { 'Render scheduled': rendered, 'Record scheduled': rec });
-  assert.equal(out.length, 1);
+  const scheduled = rendered.map((r, i) => ({ ...r.json, sent: i === 0, reason: i ? 'booking cancelled/blocked in Smoobu' : '' }));
+  const out = tickReport({ scheduled, auto_failures: [{ approval_code: 'AP-X', reason: 'Smoobu HTTP 500' }], errors: ['sync: HTTP 401'] });
+  assert.equal(out.length, 3);
   assert.match(out[0].json.subject, /1 از 2/);
   assert.match(out[0].json.html, /••••/); assert.match(out[0].json.html, /booking cancelled/);
   assert.ok(!out[0].json.html.includes('{{PIN}}'));
-  assert.deepEqual(run('Scheduled digest', [], { 'Render scheduled': rendered, 'Record scheduled': [] }), []);
+  assert.match(out[1].json.html, /AP-X/); assert.match(out[2].json.html, /HTTP 401/);
+  assert.deepEqual(tickReport({ drafts: 2, scheduled: [], auto_failures: [], errors: [] }), []);
+});
+
+test('draft trigger: each pending message wakes n8n once, again only after 15 min', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
+  const PG = process.env.PG_TEST_URL;
+  const sql = (q) => execFileSync('psql', [PG, '-v', 'ON_ERROR_STOP=1', '-qtA', '-c', q]).toString().trim();
+  sql(`INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, raw) VALUES (8401,'P-BER-001',1,current_date,current_date+2,'{}') ON CONFLICT DO NOTHING;
+       INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, body, sent_at) VALUES (8401001,8401,'P-BER-001','INBOUND','GUEST','Parking?', now()) ON CONFLICT DO NOTHING;
+       INSERT INTO ic.message_classifications (message_pk, level, intent, rule_level) SELECT message_pk,'AUTO','PARKING','AUTO' FROM ic.messages WHERE smoobu_message_id=8401001;`);
+  const pk = sql('SELECT message_pk FROM ic.messages WHERE smoobu_message_id=8401001');
+  assert.ok(sql(G.SQL.TRIGGER_DRAFTS).split('\n').includes(pk));
+  assert.ok(!sql(G.SQL.TRIGGER_DRAFTS).split('\n').includes(pk));        // not again within 15 min
+  sql(`UPDATE ic.draft_triggers SET triggered_at = now() - interval '16 minutes' WHERE message_pk = ${pk}`);
+  assert.ok(sql(G.SQL.TRIGGER_DRAFTS).split('\n').includes(pk));         // retried if still no draft
+});
+
+test('generated module is in sync with the n8n sources', () => {
+  for (const k of ['DUE_SCHEDULED', 'DUE_AUTO', 'RECORD_SCHEDULED', 'UPSERT_RESERVATION', 'STORE_MESSAGE', 'EXPIRE_APPROVALS', 'TRIGGER_DRAFTS']) assert.ok(G.SQL[k], k);
+  const pending = byName['Pending drafts'].parameters.query;
+  const where = pending.slice(pending.indexOf("WHERE m.direction = 'INBOUND'"), pending.indexOf('ORDER BY'));
+  assert.ok(G.SQL.TRIGGER_DRAFTS.includes(where.trim()));          // same pending rule in n8n and Supabase
 });
 
 test('scheduled SQL: due window, cancelled excluded, idempotent', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
@@ -217,15 +251,15 @@ test('scheduled SQL: due window, cancelled excluded, idempotent', { skip: !proce
          (8002,'P-BER-001',1,current_date,current_date+2, now() + interval '170 minutes', now() + interval '2 days','CANCELLED','{}'),
          (8003,'P-BER-001',1,current_date,current_date+2, now() + interval '5 hours', now() + interval '2 days','CONFIRMED','{}')
        ON CONFLICT DO NOTHING;`);
-  const rows = sql(byName['Due scheduled'].parameters.query);
+  const rows = sql(by01('Due scheduled'));
   assert.match(rows, /ACCESS_PIN\|8001\|/);
   assert.doesNotMatch(rows, /\|8002\|/);   // cancelled
   assert.doesNotMatch(rows, /\|8003\|/);   // not due yet
   assert.match(rows, /\|en\|/);
   const p = ['sched:8001:ACCESS_PIN', 8001, 'P-BER-001', 'Code: {{PIN}}', true];
-  assert.equal(sql(byName['Record scheduled'].parameters.query, p), 'sched:8001:ACCESS_PIN');
-  assert.equal(sql(byName['Record scheduled'].parameters.query, p), '');
-  assert.doesNotMatch(sql(byName['Due scheduled'].parameters.query), /\|8001\|/);
+  assert.equal(sql(by01('Record scheduled'), p), 'sched:8001:ACCESS_PIN');
+  assert.equal(sql(by01('Record scheduled'), p), '');
+  assert.doesNotMatch(sql(by01('Due scheduled')), /\|8001\|/);
 });
 
 test('AI request carries Berlin date and stay phase (regression: "enjoy your stay" on departure day)', () => {
@@ -260,7 +294,7 @@ test('policy: acknowledgement answerable from our data → level 6, sent automat
   const e = render(payload);
   assert.match(e.html, /ارسال فوری/); assert.doesNotMatch(e.html, /تأیید و ارسال/);
   assert.match(e.html, /a=edit/); assert.match(e.html, /a=reject/);
-  assert.match(e.html, /حداکثر ۳۰ دقیقه/);
+  assert.match(e.html, /حدود ۲۰ دقیقه/);
   assert.match(e.subject, /خودکار/);
 });
 
@@ -313,7 +347,7 @@ test('only the first submission triggers the AI revision', () => {
 test('a manager-corrected version (revision 2) is never auto-sent: it needs "approve & send"', () => {
   const { payload } = decide(aiResp(base));
   const r2 = render({ ...payload, revision: 2 }).html;
-  assert.match(r2, /تأیید و ارسال/); assert.doesNotMatch(r2, /حداکثر ۳۰ دقیقه/);
+  assert.match(r2, /تأیید و ارسال/); assert.doesNotMatch(r2, /حدود ۲۰ دقیقه/);
   assert.match(by01('Due auto replies'), /a\.revision = 1/);
 });
 

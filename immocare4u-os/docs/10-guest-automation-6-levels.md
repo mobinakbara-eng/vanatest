@@ -121,3 +121,27 @@ Safety for level 6 (auto replies):
 Last-minute bookings: arrival info and PIN are sent 10 min after the booking if their normal time has already passed.
 
 Partner offer: KB `offer_einstein_cafe` (both apartments). The money guard allows exactly this offer sentence.
+
+## Fewer n8n executions (11.11.2026)
+
+The scheduler moved from n8n to Supabase. **Supabase Edge Function `ic-tick`** runs every 5 min, which costs no n8n executions. It does:
+- the Smoobu sync (read-only; bookings within the next 7 days every tick, the rest every 30 min)
+- approval expiry
+- level-6 auto replies after the 15-min stop window
+- scheduled messages at their time (± 5 min)
+
+It wakes **n8n WF-01** only when there is work: a guest message that needs an AI draft (each message at most every 15 min), or a report e-mail. WF-01 also has a daily 07:50 health check that alerts if `ic-tick` has not run for 30 min.
+
+All SQL and transformation code for `ic-tick` is generated from the same tested sources (`_shared/ic-generated.mjs`, written by `n8n/build-workflows.js`).
+
+Timer:
+- Target: pg_cron (`db/ops/ic_tick_cron.sql`, token in Supabase Vault `ic_proxy_token`).
+- Until that is set up: **WF-05** calls `ic-tick` every 30 min. Deactivate WF-05 once pg_cron runs.
+
+Estimated n8n executions per month:
+
+| | Before | With WF-05 (interim) | With pg_cron |
+|---|---|---|---|
+| Timer | 1,440 | 1,440 | 0 |
+| WF-01 woken for drafts / reports | — | ≈ 300–450 | ≈ 300–450 |
+| Daily health check | — | 30 | 30 |

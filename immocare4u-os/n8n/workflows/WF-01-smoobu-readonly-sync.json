@@ -1,43 +1,23 @@
 {
-  "name": "WF-01 — Smoobu Sync + Guest Messaging (LIVE)",
+  "name": "WF-01 — Guest Messaging Worker (LIVE, woken by Supabase)",
   "nodes": [
     {
-      "id": "f4e76e01-f80d-b61a-6180-d7fa5d9656c3",
-      "name": "Every 30 min",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        0,
-        300
-      ],
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "minutes",
-              "minutesInterval": 30
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "d7473277-4ace-6cec-be8f-e7929463aac9",
-      "name": "Test Webhook",
+      "id": "6995bddf-87b6-9120-a2ce-7b7db2da61c5",
+      "name": "Work webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         260,
-        500
+        300
       ],
       "parameters": {
         "httpMethod": "POST",
-        "path": "ic/wf01-run",
+        "path": "ic/wf01-work",
         "authentication": "headerAuth",
         "responseMode": "onReceived",
         "options": {}
       },
-      "webhookId": "80f817b8-95ff-9b3b-7d07-2d33d1a8fd92",
+      "webhookId": "9925ed51-1167-1898-acfc-bb61dc36a1ba",
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
@@ -46,232 +26,12 @@
       }
     },
     {
-      "id": "c0c24b1f-ca63-94c7-6e99-705fc3154243",
-      "name": "Spec reservations",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        520,
-        300
-      ],
-      "parameters": {
-        "jsCode": "const ymd = (d) => d.toISOString().slice(0, 10);\nconst now = new Date();\nconst from = ymd(new Date(now.getTime() - 2 * 864e5)), to = ymd(new Date(now.getTime() + 60 * 864e5));\nreturn [{ json: { req: { method: 'GET', path: '/api/reservations', query: { from, to, pageSize: 100, showCancellation: 'true' } } } }];"
-      }
-    },
-    {
-      "id": "adaa541f-1a64-0402-9a5e-67745372820f",
-      "name": "Smoobu GET reservations",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        780,
-        300
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/smoobu-proxy",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.req) }}",
-        "options": {
-          "timeout": 20000
-        }
-      },
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "IC Smoobu Proxy"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
-    },
-    {
-      "id": "7d085008-0931-fa8c-d14e-bdbed5493488",
-      "name": "Normalize reservations",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1040,
-        300
-      ],
-      "parameters": {
-        "jsCode": "const r = $input.first().json;\nif (r.statusCode !== 200) throw new Error('Smoobu reservations HTTP ' + r.statusCode + ' ' + JSON.stringify(r.body).slice(0, 200));\nconst PII = ['email','phone','address','guest-name','firstname','lastname','notice','assistant-notice','guest-app-url'];\nconst out = [];\nfor (const res of (r.body.bookings || [])) {\n  const ch = (res.channel && res.channel.name) || '';\n  if (res['is-blocked-booking'] || /blocked/i.test(ch)) continue;\n  const t = String(res.type || '').toLowerCase();\n  const status = t.includes('cancel') ? 'CANCELLED' : t.includes('modification') ? 'MODIFIED' : 'CONFIRMED';\n  const raw = Object.fromEntries(Object.entries(res).filter(([k]) => !PII.includes(k)));\n  out.push({ json: { reservationId: res.id, status,\n    p: [ Number(res.id), Number((res.apartment && res.apartment.id) || 0), ch || null, res['reference-id'] || null,\n         res.arrival, res.departure, res.adults ?? null, res.children ?? null, status, false, res.price ?? null, JSON.stringify(raw) ] } });\n}\nreturn out;"
-      }
-    },
-    {
-      "id": "02a8ba71-aa85-6d6d-26f2-718e30c26391",
-      "name": "Upsert reservation",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        1300,
-        300
-      ],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO ic.reservations AS r (reservation_id, property_id, smoobu_apartment_id, channel_name, reference_id,\n  arrival, departure, check_in_at, check_out_at, adults, children, status, is_blocked_period, price_total, raw, last_synced_at)\nSELECT $1::bigint, p.property_id, $2::bigint, $3, $4, $5::date, $6::date,\n  CASE WHEN p.check_in_time  IS NOT NULL THEN ($5::date + p.check_in_time)  AT TIME ZONE p.timezone END,\n  CASE WHEN p.check_out_time IS NOT NULL THEN ($6::date + p.check_out_time) AT TIME ZONE p.timezone END,\n  $7::int, $8::int, $9, $10::boolean, $11::numeric, $12::jsonb, now()\nFROM (SELECT 1) one LEFT JOIN ic.properties p ON p.smoobu_apartment_id = $2::bigint\nON CONFLICT (reservation_id) DO UPDATE SET\n  property_id = EXCLUDED.property_id, channel_name = EXCLUDED.channel_name, reference_id = EXCLUDED.reference_id,\n  arrival = EXCLUDED.arrival, departure = EXCLUDED.departure, check_in_at = EXCLUDED.check_in_at,\n  check_out_at = EXCLUDED.check_out_at, adults = EXCLUDED.adults, children = EXCLUDED.children,\n  status = EXCLUDED.status, is_blocked_period = EXCLUDED.is_blocked_period, price_total = EXCLUDED.price_total,\n  raw = EXCLUDED.raw, last_synced_at = now()\nRETURNING reservation_id, property_id, status;",
-        "options": {
-          "queryReplacement": "={{ $json.p }}"
-        }
-      },
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "ImmoCare4U Postgres"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000
-    },
-    {
-      "id": "f2501a82-5007-e139-702e-d078ea9b0827",
-      "name": "Spec messages",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1560,
-        300
-      ],
-      "parameters": {
-        "jsCode": "return $input.all()\n  .filter((i) => i.json.status !== 'CANCELLED' && i.json.property_id)\n  .map((i) => ({ json: { reservationId: Number(i.json.reservation_id), propertyId: i.json.property_id,\n    req: { method: 'GET', path: '/api/reservations/' + i.json.reservation_id + '/messages' } } }));"
-      }
-    },
-    {
-      "id": "bf7a6f3d-5263-15f2-cc69-f5aeddba574b",
-      "name": "Smoobu GET messages",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1820,
-        300
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/smoobu-proxy",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.req) }}",
-        "options": {
-          "timeout": 20000
-        }
-      },
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "IC Smoobu Proxy"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
-    },
-    {
-      "id": "7abf770b-d10d-6473-0689-652443ddf549",
-      "name": "Messages to rows",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2080,
-        300
-      ],
-      "parameters": {
-        "jsCode": "/**\n * Deterministic rule engine for guest-message classification (DE/EN).\n *\n * The rule engine is the FIRST and authoritative gate: the LLM may raise the\n * level, never lower it below what a rule matched (see combineClassification).\n * Levels: AUTO < REVIEW < CRITICAL < EMERGENCY.\n *\n * Status: PLANNED → unit-tested; patterns must be tuned on real (anonymised) guest messages.\n */\n\nconst IC_LEVEL_ORDER = ['AUTO', 'REVIEW', 'CRITICAL', 'EMERGENCY'];\n\n// Order matters only for intent naming; the highest level always wins.\nconst IC_RULES = [\n  // ---- EMERGENCY --------------------------------------------------------\n  { id: 'EMG_FIRE', level: 'EMERGENCY', intent: 'EMERGENCY_FIRE',\n    re: /\\b(fire|smoke|burning|feuer|brand|brennt|rauch)\\b/i },\n  { id: 'EMG_GAS', level: 'EMERGENCY', intent: 'EMERGENCY_GAS',\n    re: /\\b(gas\\s?(leak|smell)|smell(s)? (of )?gas|gasgeruch|riecht nach gas)\\b/i },\n  { id: 'EMG_WATER', level: 'EMERGENCY', intent: 'EMERGENCY_WATER',\n    re: /\\b(flood(ing|ed)?|burst pipe|water (everywhere|leak(ing)? (from|through) (the )?ceiling)|überschwemm\\w*|rohrbruch|wasserschaden|wasser (läuft|tropft) (aus|von) der decke)\\b/i },\n  { id: 'EMG_ELEC', level: 'EMERGENCY', intent: 'EMERGENCY_ELECTRIC',\n    re: /\\b(electric(al)? shock|sparks?|stromschlag|funken|kabel (brennt|qualmt))\\b/i },\n  { id: 'EMG_MEDICAL', level: 'EMERGENCY', intent: 'EMERGENCY_MEDICAL',\n    re: /\\b(ambulance|unconscious|heart attack|not breathing|bleeding (heavily|a lot)|krankenwagen|notarzt|bewusstlos|herzinfarkt|atmet nicht)\\b/i },\n  { id: 'EMG_SAFETY', level: 'EMERGENCY', intent: 'EMERGENCY_SAFETY',\n    re: /\\b(break-?in|burglar|intruder|someone (is )?(in|inside) the apartment|threat(en(ed|ing))?|attack(ed)?|einbruch|einbrecher|bedroht|angegriffen|eingesperrt|trapped|locked in)\\b/i },\n  { id: 'EMG_POLICE', level: 'EMERGENCY', intent: 'EMERGENCY_GENERIC',\n    re: /\\b(emergency|notfall|police|polizei|112|110)\\b/i },\n\n  // ---- CRITICAL ---------------------------------------------------------\n  { id: 'CRT_REFUND', level: 'CRITICAL', intent: 'REFUND',\n    re: /\\b(refund|money back|chargeback|erstattung|rückerstattung|geld zurück|erstatten)\\b/i },\n  { id: 'CRT_LEGAL', level: 'CRITICAL', intent: 'LEGAL_THREAT',\n    re: /\\b(lawyer|attorney|sue|lawsuit|legal action|court|anwalt|rechtsanwalt|verklagen|klage|gericht|verbraucherzentrale)\\b/i },\n  { id: 'CRT_MEDIA', level: 'CRITICAL', intent: 'MEDIA_OR_REVIEW_THREAT',\n    re: /\\b(press|journalist|newspaper|bad review|1[- ]star|presse|zeitung|schlechte bewertung)\\b/i },\n  { id: 'CRT_CANCEL_DISPUTE', level: 'CRITICAL', intent: 'CANCELLATION_DISPUTE',\n    re: /\\b(cancel\\w*|storn\\w*)\\b.*\\b(refund|money|compensation|geld|entschädigung|erstatt\\w*)\\b/i },\n  { id: 'CRT_DAMAGE', level: 'CRITICAL', intent: 'SERIOUS_DAMAGE',\n    re: /\\b(broken window|door (is )?broken|damaged|destroyed|kaputt(e|es)? (fenster|tür)|beschädigt|zerstört)\\b/i },\n  { id: 'CRT_SECURITY', level: 'CRITICAL', intent: 'SECURITY_ACCESS',\n    re: /\\b(lost (the |my )?key|key (is )?lost|stolen|change the code|code (doesn'?t|does not) work|can'?t (get|come) in|locked out|schlüssel verloren|gestohlen|code funktioniert nicht|komme nicht rein|ausgesperrt)\\b/i },\n  { id: 'CRT_NEIGHBOUR', level: 'CRITICAL', intent: 'NEIGHBOUR_CONFLICT',\n    re: /\\b(neighbou?r\\w* (complain|angry|shout)|nachbar\\w* (beschwer|streit|schrei))/i },\n  { id: 'CRT_COMPENSATION', level: 'CRITICAL', intent: 'COMPENSATION',\n    re: /\\b(compensation|discount|reimburse|entschädigung|rabatt|preisnachlass|minderung)\\b/i },\n\n  // ---- REVIEW -----------------------------------------------------------\n  { id: 'REV_EARLY_CHECKIN', level: 'REVIEW', intent: 'EARLY_CHECKIN',\n    re: /\\b(early check-?in|arrive (earlier|early)|früher (einchecken|anreisen|kommen)|früh(er|en)? check-?in)\\b/i },\n  { id: 'REV_LATE_CHECKOUT', level: 'REVIEW', intent: 'LATE_CHECKOUT',\n    re: /\\b(late check-?out|leave later|stay longer|später (auschecken|abreisen)|später(er|en)? check-?out)\\b/i },\n  { id: 'REV_EXTRA', level: 'REVIEW', intent: 'EXTRA_SERVICE',\n    re: /\\b(extra (bed|towels?|blanket)|baby ?cot|crib|zusätzlich\\w* (bett|handtücher|decke)|babybett|kinderbett)\\b/i },\n  { id: 'REV_CLEANING', level: 'REVIEW', intent: 'CLEANING_ISSUE',\n    re: /\\b(dirty|not clean|stain|hair|smell(s|y)?|schmutzig|dreckig|nicht sauber|flecken|haare|stinkt)\\b/i },\n  { id: 'REV_CHANGE', level: 'REVIEW', intent: 'BOOKING_CHANGE',\n    re: /\\b(change (my |the )?(booking|reservation|dates)|extend|additional (night|guest)|umbuchen|verlängern|buchung ändern|zusätzlich\\w* (nacht|gast))\\b/i },\n  { id: 'REV_PETS', level: 'REVIEW', intent: 'PETS',\n    re: /\\b(dog|cat|pet|hund|katze|haustier)\\b/i },\n\n  // ---- AUTO candidates (only AUTO if a verified KB fact exists) ----------\n  { id: 'AUTO_WIFI', level: 'AUTO', intent: 'WIFI', kbKeys: ['wifi_ssid', 'wifi_password'],\n    re: /\\b(wi-?fi|wlan|internet|password|passwort)\\b/i },\n  { id: 'AUTO_CHECKOUT', level: 'AUTO', intent: 'CHECKOUT_TIME', kbKeys: ['check_out_time'],\n    re: /\\b(check-?out|auschecken|abreise)\\b/i },\n  { id: 'AUTO_CHECKIN', level: 'AUTO', intent: 'CHECKIN_TIME', kbKeys: ['check_in_time'],\n    re: /\\b(check-?in|einchecken|anreise)\\b/i },\n  { id: 'AUTO_ENTRY', level: 'AUTO', intent: 'ENTRY_GUIDE', kbKeys: ['entry_instructions'],\n    re: /\\b(enter|entrance|get (in|into)|find the (apartment|building|flat)|eingang|reinkommen|wohnung finden|haustür)\\b/i },\n  { id: 'AUTO_PARKING', level: 'AUTO', intent: 'PARKING', kbKeys: ['parking_info'],\n    re: /\\b(park(ing)?|parkplatz|parken|garage)\\b/i },\n  { id: 'AUTO_TRANSPORT', level: 'AUTO', intent: 'TRANSPORT', kbKeys: ['public_transport'],\n    re: /\\b(u-?bahn|s-?bahn|bus|tram|train|airport|flughafen|bahnhof|public transport)\\b/i },\n  { id: 'AUTO_WASTE', level: 'AUTO', intent: 'WASTE', kbKeys: ['waste_disposal'],\n    re: /\\b(trash|garbage|rubbish|waste|bin|müll|abfall|mülltonne)\\b/i },\n  { id: 'AUTO_HEATING', level: 'AUTO', intent: 'HEATING', kbKeys: ['heating_instructions'],\n    re: /\\b(heating|heater|radiator|cold|air ?con\\w*|heizung|heizkörper|kalt|klimaanlage)\\b/i },\n  { id: 'AUTO_RULES', level: 'AUTO', intent: 'HOUSE_RULES', kbKeys: ['house_rules'],\n    re: /\\b(house rules|smok(e|ing)|party|quiet hours|hausordnung|rauchen|ruhezeit)\\b/i },\n  { id: 'AUTO_APPLIANCE', level: 'AUTO', intent: 'APPLIANCE', kbKeys: ['appliance_manual'],\n    re: /\\b(washing machine|dishwasher|oven|stove|coffee|tv|television|waschmaschine|spülmaschine|geschirrspüler|backofen|herd|kaffee|fernseher)\\b/i },\n];\n\n// Something is broken/not working → never purely AUTO; troubleshooting answer + follow-up = REVIEW floor\nconst IC_MALFUNCTION_RE = /\\b(not working|isn'?t working|is not working|won'?t (work|turn on)|doesn'?t work|does not work|broken|no (hot )?water|no power|funktioniert nicht|geht nicht|kaputt|kein (warm)?wasser|kein strom)\\b/i;\n\n// Attempts to steer the agent → never auto-answer.\nconst IC_INJECTION_RE = /(ignore (all |the )?(previous|above) (instructions|rules)|system prompt|you are now|act as|developer mode|reveal (the )?(code|password|prompt)|ignoriere (alle )?(vorherigen )?anweisungen|\\bjailbreak\\b|<\\/?(system|assistant)>)/i;\n\nfunction icMaxLevel(a, b) {\n  return IC_LEVEL_ORDER.indexOf(a) >= IC_LEVEL_ORDER.indexOf(b) ? a : b;\n}\n\n/**\n * @param {string} text guest message\n * @returns {{level:string, intent:string, intents:string[], matchedRules:string[], kbKeys:string[], flags:string[]}}\n */\nfunction classifyByRules(text) {\n  const t = String(text || '').normalize('NFC');\n  const matched = IC_RULES.filter((r) => r.re.test(t));\n  const flags = [];\n  let level = 'AUTO';\n  for (const r of matched) level = icMaxLevel(level, r.level);\n\n  if (IC_INJECTION_RE.test(t)) { flags.push('PROMPT_INJECTION_SUSPECTED'); level = icMaxLevel(level, 'REVIEW'); }\n  if (IC_MALFUNCTION_RE.test(t)) { flags.push('MALFUNCTION'); level = icMaxLevel(level, 'REVIEW'); }\n  if (matched.length === 0) { flags.push('NO_RULE_MATCH'); level = icMaxLevel(level, 'REVIEW'); }\n  if (t.length > 1200) { flags.push('LONG_MESSAGE'); level = icMaxLevel(level, 'REVIEW'); }\n\n  const top = matched.filter((r) => r.level === level);\n  const intent = (top[0] || matched[0] || { intent: 'UNKNOWN' }).intent;\n  return {\n    level,\n    intent,\n    intents: [...new Set(matched.map((r) => r.intent))],\n    matchedRules: matched.map((r) => r.id),\n    kbKeys: [...new Set(matched.flatMap((r) => r.kbKeys || []))],\n    flags,\n  };\n}\n\n/**\n * Merge rule result with an (optional) LLM result.\n * - The LLM can only raise the level.\n * - AUTO requires: LLM agrees on AUTO, confidence >= threshold, and every needed KB key is available.\n * @param {object} rule  classifyByRules() output\n * @param {{level?:string, confidence?:number}|null} ai\n * @param {{availableKbKeys?:string[], threshold?:number, propertyAutoEnabled?:boolean}} ctx\n */\nfunction combineClassification(rule, ai, ctx) {\n  const c = ctx || {};\n  const threshold = c.threshold ?? 0.85;\n  const reasons = [];\n  let level = rule.level;\n  if (ai && IC_LEVEL_ORDER.includes(ai.level)) level = icMaxLevel(level, ai.level);\n\n  if (level === 'AUTO') {\n    if (!ai) { level = 'REVIEW'; reasons.push('no AI confirmation'); }\n    else if ((ai.confidence ?? 0) < threshold) { level = 'REVIEW'; reasons.push(`AI confidence ${ai.confidence} < ${threshold}`); }\n    const avail = new Set(c.availableKbKeys || []);\n    const missing = rule.kbKeys.filter((k) => !avail.has(k));\n    if (rule.kbKeys.length === 0 || missing.length === rule.kbKeys.length) {\n      level = 'REVIEW'; reasons.push('no verified KB fact for intent');\n    }\n    if (!c.propertyAutoEnabled) { level = 'REVIEW'; reasons.push('auto-reply disabled for property'); }\n  }\n  if (level !== rule.level && reasons.length === 0) reasons.push('raised by AI');\n  return { level, autoSendAllowed: level === 'AUTO', reasons };\n}\n\n\nconst specs = $('Spec messages').all();\nconst out = [];\n$input.all().forEach((item, idx) => {\n  const r = item.json, spec = specs[idx].json;\n  if (r.statusCode !== 200) throw new Error('Messages HTTP ' + r.statusCode + ' for reservation ' + spec.reservationId);\n  for (const m of (r.body.messages || [])) {\n    const text = String(m.message || m.htmlMessage || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n    if (!text) continue;\n    // Smoobu message type: 1 = guest → host, 2 = host → guest (verified on 2,252 historic messages)\n    const isGuest = m.type === 1;\n    const rule = isGuest ? classifyByRules(text) : null;\n    out.push({ json: { p: [ Number(m.id), spec.reservationId, spec.propertyId, isGuest ? 'INBOUND' : 'OUTBOUND',\n      isGuest ? 'GUEST' : 'HOST', m.subject || null, text, m.createdAt || null,\n      rule ? rule.level : null, rule ? rule.intent : null, rule ? '{' + rule.matchedRules.join(',') + '}' : null,\n      rule ? rule.flags.join(',') : null ] } });\n  }\n});\nreturn out;"
-      }
-    },
-    {
-      "id": "2dfe0bed-e25b-06d5-745a-60616b70d1fa",
-      "name": "Store message + classification",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2340,
-        300
-      ],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH m AS (\n  INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, subject, body, sent_at)\n  VALUES ($1::bigint, $2::bigint, $3, $4::ic.msg_direction, $5, $6, $7, ($8::timestamp AT TIME ZONE 'Europe/Berlin'))\n  ON CONFLICT (smoobu_message_id) DO NOTHING\n  RETURNING message_pk\n)\nINSERT INTO ic.message_classifications (message_pk, level, intent, rule_level, matched_rules, reason)\nSELECT message_pk,\n       -- Unmapped property ⇒ never auto: force REVIEW at minimum\n       CASE WHEN $3 IS NULL AND $9 = 'AUTO' THEN 'REVIEW' ELSE $9 END::ic.msg_level,\n       $10, $9::ic.msg_level, $11::text[], coalesce($12, '') || CASE WHEN $3 IS NULL THEN ',UNMAPPED_PROPERTY' ELSE '' END\nFROM m WHERE $9 IS NOT NULL\nRETURNING message_pk, level, intent;",
-        "options": {
-          "queryReplacement": "={{ $json.p }}"
-        }
-      },
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "ImmoCare4U Postgres"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000,
-      "alwaysOutputData": true
-    },
-    {
-      "id": "324e7702-3d9d-d3d1-683b-f4661dc11f2e",
-      "name": "Log run",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2600,
-        300
-      ],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO ic.automation_runs (workflow, n8n_execution_id, finished_at, status, summary)\nVALUES ('WF-01', $1, now(), 'SUCCESS', $2::jsonb) RETURNING run_id, summary;",
-        "options": {
-          "queryReplacement": "={{ [ $execution.id, JSON.stringify({ reservations: $('Normalize reservations').all().length, messagesSeen: $('Messages to rows').all().length, newClassified: $('Store message + classification').all().filter(i => i.json.message_pk).length }) ] }}"
-        }
-      },
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "ImmoCare4U Postgres"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000,
-      "executeOnce": true
-    },
-    {
-      "id": "63ed8a34-a4e2-9112-b470-3931be192c3e",
-      "name": "Expire approvals",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2860,
-        300
-      ],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE ic.approvals SET status = 'EXPIRED' WHERE status = 'PENDING' AND expires_at < now() RETURNING approval_code;",
-        "options": {}
-      },
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "ImmoCare4U Postgres"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000,
-      "executeOnce": true,
-      "alwaysOutputData": true
-    },
-    {
       "id": "98c0dcfe-d802-4577-d60b-cc13adc6e18c",
       "name": "Pending drafts",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3120,
+        520,
         300
       ],
       "parameters": {
@@ -296,7 +56,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3380,
+        780,
         300
       ],
       "parameters": {
@@ -309,7 +69,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3640,
+        1040,
         300
       ],
       "parameters": {
@@ -354,7 +114,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3900,
+        1300,
         300
       ],
       "parameters": {
@@ -367,7 +127,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4160,
+        1560,
         300
       ],
       "parameters": {
@@ -393,11 +153,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4420,
+        1820,
         300
       ],
       "parameters": {
-        "jsCode": "const BASE = \"https://mobinakbara.app.n8n.cloud/webhook/ic/approval\";\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c])).replace(/\\n/g, '<br>');\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst LV = {\n  1: ['#b42318', 'اضطراری', 'فقط خودتان فوراً پاسخ دهید'],\n  2: ['#c4320a', 'حساس', 'فقط خودتان پاسخ دهید'],\n  3: ['#b54708', 'نیاز به تصمیم', 'پیش‌نویس با تأیید شما'],\n  4: ['#1849a9', 'نیاز به بررسی', 'پیش‌نویس با تأیید شما'],\n  5: ['#067647', 'زمان‌بندی‌شده', 'خودکار'],\n  6: ['#067647', 'جواب خودکار', 'تا ۳۰ دقیقه‌ی دیگر خودکار برای مهمان ارسال می‌شود'],\n};\nconst FLAG_FA = { LEARNED_RULE: 'با قانونی جواب داده شد که قبلاً از تأیید شما یاد گرفته شده', MISSING_KB_FACT: 'اطلاعات لازم در اکسل نیست', USES_UNVERIFIED_KB: 'از ردیف تأییدنشده‌ی اکسل استفاده شده',\n  CODE_REMOVED: 'کد از متن حذف شد', MONEY_WORDS: 'موضوع مالی', PROMPT_INJECTION: 'تلاش برای فریب سیستم',\n  AI_INVALID_OUTPUT: 'خطای AI', AI_REFUSAL: 'AI پاسخ نداد', LOW_CONFIDENCE: 'اطمینان پایین' };\nconst btn = (href, bg, label) => '<a href=\"' + href + '\" style=\"display:block;background:' + bg + ';color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 10px;border-radius:10px;text-align:center;margin:8px 0\">' + label + '</a>';\nconst box = (title, inner, dir) => '<div style=\"margin:14px 0\"><div dir=\"rtl\" style=\"font-size:13px;color:#667085;font-weight:bold;margin-bottom:6px;text-align:right\">' + title + '</div>' + inner + '</div>';\nconst text = (s, dir, bg) => '<div dir=\"' + dir + '\" style=\"text-align:' + (dir === 'rtl' ? 'right' : 'left') + ';background:' + bg + ';color:#101828;padding:12px 14px;border-radius:10px;font-size:15px;line-height:1.6\">' + esc(s) + '</div>';\nreturn $input.all().map((it) => {\n  const p = it.json.payload, c = it.json.approval_code, t = it.json.link_token;\n  const [color, title, who] = LV[p.level] || LV[4];\n  const link = (a) => BASE + '?c=' + encodeURIComponent(c) + '&t=' + encodeURIComponent(t) + '&a=' + a;\n  const staffOnly = p.level <= 2;\n  const auto = p.level >= 5 && !(p.revision > 1);   // a version the manager corrected is always approvable\n  const flags = (p.flags || []).map((f) => FLAG_FA[f]).filter(Boolean);\n  const html = '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n    + '<div dir=\"rtl\" style=\"background:' + color + ';color:#ffffff;padding:16px 18px;text-align:right\">'\n    + '<div style=\"font-size:20px;font-weight:bold\">سطح ' + p.level + ' · ' + title + '</div>'\n    + '<div style=\"font-size:14px;opacity:.95;margin-top:4px\">' + who + (p.revision > 1 ? ' · نسخه‌ی اصلاح‌شده ' + p.revision : '') + '</div></div>'\n    + '<div style=\"padding:4px 18px 18px\">'\n    + (auto ? '<div dir=\"rtl\" style=\"background:#ecfdf3;color:#05603a;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right\">🟢 این جواب در اجرای بعدی سیستم (حداکثر ۳۰ دقیقه) <b>خودکار</b> برای مهمان ارسال می‌شود. اگر نمی‌خواهید، «✏️ اصلاح» یا «✋ خودم جواب می‌دهم» را بزنید. «ارسال فوری» همین الان می‌فرستد.</div>'\n       : staffOnly ? '' : '<div dir=\"rtl\" style=\"background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right\">این جواب فقط وقتی برای مهمان فرستاده می‌شود که «✅ تأیید و ارسال» را بزنید.</div>')\n    + '<table dir=\"rtl\" style=\"width:100%;margin-top:12px;font-size:14px;color:#344054;border-collapse:collapse\">'\n    + '<tr><td style=\"padding:4px 0;color:#667085;width:90px\">آپارتمان</td><td style=\"padding:4px 0;font-weight:bold\">' + esc(p.apartment) + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">ورود</td><td style=\"padding:4px 0\">' + fmt(p.arrival) + ' از ساعت ' + esc(p.check_in_time || '15:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">خروج</td><td style=\"padding:4px 0\">' + fmt(p.departure) + ' تا ساعت ' + esc(p.check_out_time || '11:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">کانال</td><td style=\"padding:4px 0\">' + esc(p.channel) + ' · رزرو ' + esc(p.reservation) + '</td></tr></table>'\n    + box('💬 پیام مهمان', text(p.guest, 'ltr', '#f2f4f7') + '<div style=\"height:6px\"></div>' + text(p.guest_fa || '—', 'rtl', '#f9fafb'))\n    + (p.analysis_fa ? box('🧠 تحلیل AI قبل از جواب', text(p.analysis_fa, 'rtl', '#f4f3ff')) : '')\n    + (p.instruction ? box('📝 دستور شما', text(p.instruction, 'rtl', '#fdf2fa')) : '')\n    + (staffOnly\n        ? box('⚠️ این پیام را خودتان جواب دهید', text(p.reason_fa || 'موضوع حساس است.', 'rtl', '#fef3f2'))\n        : box(auto ? '🤖 جواب خودکار' : '✍️ پیشنهاد جواب', text(p.reply || '(بدون پیشنهاد)', 'ltr', '#eff8ff') + '<div style=\"height:6px\"></div>' + text('ترجمه: ' + (p.reply_fa || '—'), 'rtl', '#f5faff')))\n    + '<div style=\"margin-top:16px\">'\n    + (auto ? '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;color:#067647;margin-bottom:6px\">فقط اگر مشکلی می‌بینید دکمه بزنید؛ در غیر این صورت کاری لازم نیست.</div>' : '')\n    + (staffOnly ? '' : btn(link('approve'), auto ? '#32d583' : '#079455', auto ? '⚡ ارسال فوری' : '✅ تأیید و ارسال'))\n    + btn(link('edit'), auto ? '#53b1fd' : '#1570ef', '✏️ اصلاح متن با AI')\n    + btn(link('reject'), '#667085', '✋ خودم جواب می‌دهم')\n    + '</div>'\n    + '<div dir=\"rtl\" style=\"margin-top:14px;font-size:12px;color:#667085;text-align:right;line-height:1.7\">'\n    + 'چرا این سطح: ' + esc(p.reason_fa || '—')\n    + (flags.length ? '<br>توجه: ' + esc(flags.join(' · ')) : '')\n    + (p.used_unverified && p.used_unverified.length ? '<br>⚠️ ردیف‌های تأییدنشده‌ی اکسل: ' + esc(p.used_unverified.join(', ')) : '')\n    + '<br>کد: ' + esc(c) + ' · اعتبار لینک‌ها: ۲۴ ساعت</div>'\n    + '</div></div></div>';\n  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.revision > 1 ? '✏️ اصلاح‌شده، آماده‌ی تأیید · ' : p.level >= 5 ? 'ارسال خودکار تا ۳۰ دقیقه · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');\n  return { json: { subject, html, approval_code: c } };\n});"
+        "jsCode": "const BASE = \"https://mobinakbara.app.n8n.cloud/webhook/ic/approval\";\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c])).replace(/\\n/g, '<br>');\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst LV = {\n  1: ['#b42318', 'اضطراری', 'فقط خودتان فوراً پاسخ دهید'],\n  2: ['#c4320a', 'حساس', 'فقط خودتان پاسخ دهید'],\n  3: ['#b54708', 'نیاز به تصمیم', 'پیش‌نویس با تأیید شما'],\n  4: ['#1849a9', 'نیاز به بررسی', 'پیش‌نویس با تأیید شما'],\n  5: ['#067647', 'زمان‌بندی‌شده', 'خودکار'],\n  6: ['#067647', 'جواب خودکار', 'حدود ۲۰ دقیقه‌ی دیگر خودکار برای مهمان ارسال می‌شود'],\n};\nconst FLAG_FA = { LEARNED_RULE: 'با قانونی جواب داده شد که قبلاً از تأیید شما یاد گرفته شده', MISSING_KB_FACT: 'اطلاعات لازم در اکسل نیست', USES_UNVERIFIED_KB: 'از ردیف تأییدنشده‌ی اکسل استفاده شده',\n  CODE_REMOVED: 'کد از متن حذف شد', MONEY_WORDS: 'موضوع مالی', PROMPT_INJECTION: 'تلاش برای فریب سیستم',\n  AI_INVALID_OUTPUT: 'خطای AI', AI_REFUSAL: 'AI پاسخ نداد', LOW_CONFIDENCE: 'اطمینان پایین' };\nconst btn = (href, bg, label) => '<a href=\"' + href + '\" style=\"display:block;background:' + bg + ';color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 10px;border-radius:10px;text-align:center;margin:8px 0\">' + label + '</a>';\nconst box = (title, inner, dir) => '<div style=\"margin:14px 0\"><div dir=\"rtl\" style=\"font-size:13px;color:#667085;font-weight:bold;margin-bottom:6px;text-align:right\">' + title + '</div>' + inner + '</div>';\nconst text = (s, dir, bg) => '<div dir=\"' + dir + '\" style=\"text-align:' + (dir === 'rtl' ? 'right' : 'left') + ';background:' + bg + ';color:#101828;padding:12px 14px;border-radius:10px;font-size:15px;line-height:1.6\">' + esc(s) + '</div>';\nreturn $input.all().map((it) => {\n  const p = it.json.payload, c = it.json.approval_code, t = it.json.link_token;\n  const [color, title, who] = LV[p.level] || LV[4];\n  const link = (a) => BASE + '?c=' + encodeURIComponent(c) + '&t=' + encodeURIComponent(t) + '&a=' + a;\n  const staffOnly = p.level <= 2;\n  const auto = p.level >= 5 && !(p.revision > 1);   // a version the manager corrected is always approvable\n  const flags = (p.flags || []).map((f) => FLAG_FA[f]).filter(Boolean);\n  const html = '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n    + '<div dir=\"rtl\" style=\"background:' + color + ';color:#ffffff;padding:16px 18px;text-align:right\">'\n    + '<div style=\"font-size:20px;font-weight:bold\">سطح ' + p.level + ' · ' + title + '</div>'\n    + '<div style=\"font-size:14px;opacity:.95;margin-top:4px\">' + (!auto && p.level >= 5 ? 'فقط با تأیید شما ارسال می‌شود' : who) + (p.revision > 1 ? ' · نسخه‌ی اصلاح‌شده ' + p.revision : '') + '</div></div>'\n    + '<div style=\"padding:4px 18px 18px\">'\n    + (auto ? '<div dir=\"rtl\" style=\"background:#ecfdf3;color:#05603a;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right\">🟢 این جواب حدود ۲۰ دقیقه‌ی دیگر <b>خودکار</b> برای مهمان ارسال می‌شود. اگر نمی‌خواهید، «✏️ اصلاح» یا «✋ خودم جواب می‌دهم» را بزنید. «ارسال فوری» همین الان می‌فرستد.</div>'\n       : staffOnly ? '' : '<div dir=\"rtl\" style=\"background:#fffaeb;color:#7a2e0e;border-radius:10px;padding:10px 12px;margin-top:14px;font-size:13px;text-align:right\">این جواب فقط وقتی برای مهمان فرستاده می‌شود که «✅ تأیید و ارسال» را بزنید.</div>')\n    + '<table dir=\"rtl\" style=\"width:100%;margin-top:12px;font-size:14px;color:#344054;border-collapse:collapse\">'\n    + '<tr><td style=\"padding:4px 0;color:#667085;width:90px\">آپارتمان</td><td style=\"padding:4px 0;font-weight:bold\">' + esc(p.apartment) + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">ورود</td><td style=\"padding:4px 0\">' + fmt(p.arrival) + ' از ساعت ' + esc(p.check_in_time || '15:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">خروج</td><td style=\"padding:4px 0\">' + fmt(p.departure) + ' تا ساعت ' + esc(p.check_out_time || '11:00') + '</td></tr>'\n    + '<tr><td style=\"padding:4px 0;color:#667085\">کانال</td><td style=\"padding:4px 0\">' + esc(p.channel) + ' · رزرو ' + esc(p.reservation) + '</td></tr></table>'\n    + box('💬 پیام مهمان', text(p.guest, 'ltr', '#f2f4f7') + '<div style=\"height:6px\"></div>' + text(p.guest_fa || '—', 'rtl', '#f9fafb'))\n    + (p.analysis_fa ? box('🧠 تحلیل AI قبل از جواب', text(p.analysis_fa, 'rtl', '#f4f3ff')) : '')\n    + (p.instruction ? box('📝 دستور شما', text(p.instruction, 'rtl', '#fdf2fa')) : '')\n    + (staffOnly\n        ? box('⚠️ این پیام را خودتان جواب دهید', text(p.reason_fa || 'موضوع حساس است.', 'rtl', '#fef3f2'))\n        : box(auto ? '🤖 جواب خودکار' : '✍️ پیشنهاد جواب', text(p.reply || '(بدون پیشنهاد)', 'ltr', '#eff8ff') + '<div style=\"height:6px\"></div>' + text('ترجمه: ' + (p.reply_fa || '—'), 'rtl', '#f5faff')))\n    + '<div style=\"margin-top:16px\">'\n    + (auto ? '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;color:#067647;margin-bottom:6px\">فقط اگر مشکلی می‌بینید دکمه بزنید؛ در غیر این صورت کاری لازم نیست.</div>' : '')\n    + (staffOnly ? '' : btn(link('approve'), auto ? '#32d583' : '#079455', auto ? '⚡ ارسال فوری' : '✅ تأیید و ارسال'))\n    + btn(link('edit'), auto ? '#53b1fd' : '#1570ef', '✏️ اصلاح متن با AI')\n    + btn(link('reject'), '#667085', '✋ خودم جواب می‌دهم')\n    + '</div>'\n    + '<div dir=\"rtl\" style=\"margin-top:14px;font-size:12px;color:#667085;text-align:right;line-height:1.7\">'\n    + 'چرا این سطح: ' + esc(p.reason_fa || '—')\n    + (flags.length ? '<br>توجه: ' + esc(flags.join(' · ')) : '')\n    + (p.used_unverified && p.used_unverified.length ? '<br>⚠️ ردیف‌های تأییدنشده‌ی اکسل: ' + esc(p.used_unverified.join(', ')) : '')\n    + '<br>کد: ' + esc(c) + ' · اعتبار لینک‌ها: ۲۴ ساعت</div>'\n    + '</div></div></div>';\n  const subject = (p.level <= 2 ? '🔴 ' : p.level <= 4 ? '🟡 ' : '🟢 ') + (p.revision > 1 ? '✏️ اصلاح‌شده، آماده‌ی تأیید · ' : p.level >= 5 ? 'ارسال خودکار تا ۲۰ دقیقه · ' : '') + 'سطح ' + p.level + ' · ' + p.apartment + ' · ' + String(p.guest || '').slice(0, 40) + (p.revision > 1 ? ' (اصلاح ' + p.revision + ')' : '');\n  return { json: { subject, html, approval_code: c } };\n});"
       }
     },
     {
@@ -406,7 +166,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        4680,
+        2080,
         300
       ],
       "parameters": {
@@ -426,104 +186,76 @@
       }
     },
     {
-      "id": "758679c6-c6a7-f86b-06b6-5786207cd9b3",
-      "name": "Due scheduled",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
+      "id": "ea183a57-6c4c-768f-086c-72cda06716c0",
+      "name": "Tick report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        4940,
+        2340,
         520
       ],
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT d.*, x.due_at FROM (\n  SELECT s.template_code, r.reservation_id, r.property_id, p.internal_name, p.street_address, p.postal_code,\n         CASE WHEN lower(coalesce(r.raw->>'language','')) LIKE 'de%' THEN 'de' ELSE 'en' END AS lang,\n         r.arrival::text AS arrival, r.departure::text AS departure, r.channel_name, r.check_in_at, r.check_out_at,\n         c.booked_at,\n         CASE s.anchor\n           WHEN 'CHECK_IN'  THEN r.check_in_at\n           WHEN 'CHECK_OUT' THEN r.check_out_at\n           ELSE c.booked_at\n         END + make_interval(mins => s.offset_minutes) AS planned_at\n  FROM ic.property_message_schedules s\n  JOIN ic.reservations r ON r.property_id = s.property_id\n  JOIN ic.properties p ON p.property_id = r.property_id\n  CROSS JOIN LATERAL (SELECT CASE WHEN (r.raw->>'created-at') ~ '^\\d{4}-\\d\\d-\\d\\d'\n                                  THEN ((r.raw->>'created-at')::timestamp AT TIME ZONE p.timezone) END AS booked_at) c\n  WHERE s.enabled AND r.status IN ('CONFIRMED','MODIFIED')\n) d\n-- last-minute bookings: arrival info and PIN are sent 10 min after booking if their normal time already passed\nCROSS JOIN LATERAL (SELECT CASE WHEN d.template_code IN ('ARRIVAL_2D','ACCESS_PIN') AND d.booked_at IS NOT NULL\n                                THEN GREATEST(d.planned_at, d.booked_at + interval '10 minutes') ELSE d.planned_at END AS due_at) x\nWHERE x.due_at <= now()\n  AND x.due_at >= now() - CASE WHEN d.template_code = 'ACCESS_PIN' THEN interval '12 hours' ELSE interval '2 hours' END\n  AND (d.template_code = 'REVIEW_REQUEST' OR d.check_out_at IS NULL OR x.due_at < d.check_out_at)\n  AND (d.template_code <> 'ARRIVAL_2D' OR d.check_in_at IS NULL OR x.due_at < d.check_in_at)\n  AND NOT EXISTS (SELECT 1 FROM ic.outbound_messages o WHERE o.idempotency_key = 'sched:' || d.reservation_id || ':' || d.template_code)\nORDER BY x.due_at\nLIMIT 50;",
-        "options": {}
-      },
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "ImmoCare4U Postgres"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000,
-      "executeOnce": true
+        "jsCode": "const b = $('Work webhook').first().json.body || {};\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst wrap = (color, title, sub, inner) => '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n  + '<div dir=\"rtl\" style=\"background:' + color + ';color:#fff;padding:16px 18px;text-align:right\"><div style=\"font-size:20px;font-weight:bold\">' + title + '</div><div style=\"font-size:14px;margin-top:4px\">' + sub + '</div></div>'\n  + '<div style=\"padding:4px 18px 18px\">' + inner + '</div></div></div>';\nconst out = [];\nconst items = (b.scheduled || []).filter((j) => j && j.template_code);\nif (items.length) {\n  const NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 قبل از ورود: ویدیو، مسیر و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CAFE_TIP: '☕ صبح اول: تخفیف کافه Einstein', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };\n  const ok = items.filter((j) => j.sent).length;\n  const cards = items.map((j) => '<div style=\"border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0\">'\n    + '<div dir=\"rtl\" style=\"text-align:right;font-weight:bold;font-size:15px\">' + (j.sent ? '✅ ' : '⛔ ') + (NAME[j.template_code] || esc(j.template_code)) + '</div>'\n    + '<div dir=\"rtl\" style=\"text-align:right;color:#667085;font-size:13px;margin:4px 0 8px\">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'\n    + '<div dir=\"ltr\" style=\"background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828;white-space:pre-wrap;word-break:break-all\">' + esc(j.body).split('{{PIN}}').join('<b>••••</b>') + '</div>'\n    + '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;margin-top:6px;color:' + (j.sent ? '#067647' : '#b42318') + '\">'\n    + (j.sent ? 'از طریق Smoobu برای مهمان ارسال شد' + (j.is_pin ? ' (کد فقط در Supabase درج شد و در هیچ ایمیلی نیست)' : '') : 'ارسال نشد: ' + esc(j.reason || 'نامشخص') + ' — لطفاً خودتان بفرستید')\n    + '</div></div>').join('');\n  out.push({ subject: (ok === items.length ? '📅 ' : '⛔ ') + 'پیام‌های زمان‌بندی‌شده: ' + ok + ' از ' + items.length + ' ارسال شد',\n    html: wrap(ok === items.length ? '#067647' : '#b42318', '📅 پیام‌های زمان‌بندی‌شده', ok + ' از ' + items.length + ' پیام ارسال شد', cards) });\n}\nconst bad = (b.auto_failures || []).filter((x) => x && x.approval_code);\nif (bad.length) out.push({ subject: '⛔ جواب خودکار ارسال نشد (' + bad.length + ')',\n  html: wrap('#b42318', '⛔ جواب خودکار ارسال نشد', bad.length + ' مورد', bad.map((x) => '<p dir=\"rtl\" style=\"text-align:right\">' + esc(x.approval_code) + ': ' + esc(x.reason || 'نامشخص') + '</p>').join('') + '<p dir=\"rtl\" style=\"text-align:right\">لطفاً خودتان به مهمان جواب دهید.</p>') });\nconst errs = (b.errors || []).filter(Boolean);\nif (errs.length) out.push({ subject: '⚠️ خطا در زمان‌بند (Supabase ic-tick)',\n  html: wrap('#b42318', '⚠️ خطا در زمان‌بند', 'Supabase ic-tick', errs.map((e) => '<p dir=\"ltr\" style=\"text-align:left;font-size:13px\">' + esc(e) + '</p>').join('') + '<p dir=\"rtl\" style=\"text-align:right\">زمان‌بند ۵ دقیقه‌ی دیگر دوباره تلاش می‌کند.</p>') });\nreturn out.map((json) => ({ json }));"
+      }
     },
     {
-      "id": "95b32a3d-859d-f674-cdc9-ee000de3bcdb",
-      "name": "PIN check",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "421457d4-72c9-a5fe-2021-64ade0799158",
+      "name": "Email report",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
-        5200,
-        420
+        2600,
+        300
       ],
       "parameters": {
-        "method": "POST",
-        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-access-pin",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ reservation_id: $json.reservation_id, template: $json.template_code, preview: true }) }}",
+        "sendTo": "immocare4u.kontakt@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
         "options": {
-          "timeout": 20000,
-          "response": {
-            "response": {
-              "neverError": true
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Gmail"
+        }
+      }
+    },
+    {
+      "id": "396b4e42-728e-3a52-5224-cc6474c46036",
+      "name": "Daily health check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2860,
+        760
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "50 7 * * *"
             }
-          }
-        }
-      },
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "IC Smoobu Proxy"
+          ]
         }
       }
     },
     {
-      "id": "fe4c30ae-bc44-a7fa-915e-4f50ea165838",
-      "name": "Tag PIN result",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        5460,
-        420
-      ],
-      "parameters": {
-        "jsCode": "const src = $('Due scheduled').all();\nreturn $input.all().map((it, i) => ({ json: { ...src[i].json, pin_check: it.json } }));"
-      }
-    },
-    {
-      "id": "27cb38d9-ae11-565e-cdae-e7c8f56bd5e2",
-      "name": "Render scheduled",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        5720,
-        520
-      ],
-      "parameters": {
-        "jsCode": "const T = {\n  WELCOME: { de: 'Hallo und vielen Dank für Ihre Buchung! Wir freuen uns auf Sie. Der Check-in ist ab 15:00 Uhr per Self-Check-in möglich. Alle Details zur Anreise erhalten Sie automatisch rechtzeitig vor Ihrer Ankunft. Herzliche Grüße, Ihr ImmoCare4U Team',\n             en: 'Hello and thank you for your booking! We look forward to welcoming you. Check-in is from 3:00 PM via self check-in. You will automatically receive all arrival details in good time before you arrive. Kind regards, your ImmoCare4U team' },\n  ARRIVAL_2D: { de: 'Hallo, bald ist es so weit! 😊\\n\\nAdresse: {{ADDRESS}}\\n\\n🎬 So finden Sie die Wohnung (Video, 7 Tage gültig):\\n{{VIDEO}}\\n\\n🔑 Die Schlüsselbox hängt am Geländer an der Spree, direkt neben der Ebertbrücke – {{BOX_DE}}:\\n{{MAP}}\\n\\nDen Code für die Schlüsselbox erhalten Sie am Anreisetag um 12:00 Uhr.\\n\\nHausregeln: Nachtruhe ab 22 Uhr, keine Partys, Check-out bis 11 Uhr.\\n\\nHerzliche Grüße\\nIhr ImmoCare4U Team',\n                en: 'Hello, your stay is coming up soon! 😊\\n\\nAddress: {{ADDRESS}}\\n\\n🎬 How to find the apartment (video, valid for 7 days):\\n{{VIDEO}}\\n\\n🔑 The key box hangs on the railing by the river Spree, right next to the Ebertbrücke bridge – {{BOX_EN}}:\\n{{MAP}}\\n\\nYou will receive the key box code on your arrival day at 12:00 noon.\\n\\nHouse rules: quiet hours from 10 PM, no parties, check-out by 11 AM.\\n\\nKind regards\\nYour ImmoCare4U team' },\n  ACCESS_PIN: { de: 'Willkommen in Berlin! 😊\\n\\n🔑 Der Code für Ihre Schlüsselbox lautet: {{PIN}}\\n\\nDie Box hängt am Geländer an der Spree, direkt neben der Ebertbrücke (Ecke Am Kupfergraben / Geschwister-Scholl-Straße) – {{BOX_DE}}:\\n{{MAP}}\\n\\nBitte verdrehen Sie nach der Entnahme die Zahlen wieder. Check-in ab 15:00 Uhr. Das WLAN-Passwort liegt auf einem Zettel vor dem Fernseher.\\n\\nEinen schönen Aufenthalt!\\nIhr ImmoCare4U Team',\n                en: 'Welcome to Berlin! 😊\\n\\n🔑 The code for your key box is: {{PIN}}\\n\\nThe box hangs on the railing by the river Spree, right next to the Ebertbrücke bridge (corner Am Kupfergraben / Geschwister-Scholl-Straße) – {{BOX_EN}}:\\n{{MAP}}\\n\\nPlease scramble the numbers again after taking the key. Check-in from 3:00 PM. The Wi-Fi password is on a note in front of the TV.\\n\\nEnjoy your stay!\\nYour ImmoCare4U team' },\n  CAFE_TIP: { de: 'Guten Morgen! ☕\\n\\nEin kleiner Frühstückstipp: Im Einstein Kaffee am Aaron-Bernstein-Platz 2 (10117 Berlin, Tacheles-Quartier, Nähe Oranienburger Straße) erhalten Sie als Gast von ImmoCare4U 20 % Rabatt. Sagen Sie einfach an der Kasse, dass Sie bei ImmoCare4U wohnen, und zeigen Sie diese Nachricht.\\n\\n📍 So kommen Sie hin:\\n{{CAFE_MAP}}\\n\\nEinen schönen Tag in Berlin!\\nIhr ImmoCare4U Team',\n              en: 'Good morning! ☕\\n\\nA little breakfast tip: at Einstein Kaffee, Aaron-Bernstein-Platz 2 (10117 Berlin, Tacheles quarter, near Oranienburger Straße) you get a 20% discount as an ImmoCare4U guest. Just tell the staff at the counter that you are staying with ImmoCare4U and show this message.\\n\\n📍 How to get there:\\n{{CAFE_MAP}}\\n\\nHave a lovely day in Berlin!\\nYour ImmoCare4U team' },\n  CHECKOUT_REMINDER: { de: 'Hallo, wir hoffen, Sie hatten einen schönen Aufenthalt! Kurze Erinnerung: Check-out ist morgen bis 11:00 Uhr. Bitte legen Sie den Schlüssel wieder in die Schlüsselbox und verdrehen Sie die Zahlen. Gute Heimreise!',\n                       en: 'Hello, we hope you enjoyed your stay! A short reminder: check-out is tomorrow by 11:00 AM. Please put the key back into the key box and scramble the numbers. Safe travels home!' },\n  REVIEW_REQUEST: { de: 'Vielen Dank, dass Sie bei uns waren! Wenn alles zu Ihrer Zufriedenheit war, freuen wir uns sehr über eine positive Bewertung – das hilft uns und zukünftigen Gästen sehr. Alles Gute, Ihr ImmoCare4U Team',\n                    en: 'Thank you for staying with us! If you were happy with everything, we would really appreciate a positive review – it helps us and future guests a lot. All the best, your ImmoCare4U team' },\n};\nreturn $input.all().map((it) => {\n  const j = it.json;\n  const t = (T[j.template_code] || {})[j.lang] || '';\n  const MAP = 'https://www.google.com/maps/search/?api=1&query=Ebertbr%C3%BCcke%2C%20Am%20Kupfergraben%2C%2010117%20Berlin';\n  const BOX = { 'P-BER-001': ['die obere, größere schwarze Box', 'the upper, larger black box'],\n                'P-BER-002': ['die untere, kleinere schwarze Box', 'the lower, smaller black box'] }[j.property_id] || ['', ''];\n  const video = (j.pin_check && j.pin_check.video_url) || '[Video-Link fehlt]';\n  const body = t.replace('{{ADDRESS}}', (j.street_address || '') + ', ' + (j.postal_code || '') + ' Berlin')\n                .replace('{{VIDEO}}', video).replace(/{{MAP}}/g, MAP)\n                .replace('{{BOX_DE}}', BOX[0]).replace('{{BOX_EN}}', BOX[1])\n                .replace('{{CAFE_MAP}}', 'https://www.google.com/maps/search/?api=1&query=Einstein%20Kaffee%2C%20Aaron-Bernstein-Platz%202%2C%2010117%20Berlin');\n  const missing = [];\n  if (body.includes('[Video-Link fehlt]')) missing.push('لینک ویدیو ساخته نشد: ' + ((j.pin_check && j.pin_check.reason) || '؟'));\n  if (/zu bestätigen/.test(j.street_address || '')) missing.push('آدرس هنوز تأیید نشده (Q1)');\n  const isPin = j.template_code === 'ACCESS_PIN';\n  const pin = j.pin_check || null;\n  if (isPin && !(pin && pin.ok)) missing.push('کد آزاد نمی‌شود: ' + (pin ? pin.reason : 'بررسی انجام نشد'));\n  return { json: { ...j, body, is_pin: isPin, pin_ok: isPin ? !!(pin && pin.ok) : null, missing,\n    p: [ 'sched:' + j.reservation_id + ':' + j.template_code, j.reservation_id, j.property_id, body, isPin ] } };\n});"
-      }
-    },
-    {
-      "id": "5fa02819-88dc-927f-313d-737fbc5f600e",
-      "name": "Record scheduled",
+      "id": "1e25a615-b2b8-658d-f401-1d56f958d145",
+      "name": "Tick health",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        5980,
-        520
+        0,
+        760
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO ic.outbound_messages (idempotency_key, reservation_id, property_id, origin, body, contains_restricted, status, test_mode)\nVALUES ($1, $2::bigint, $3, 'SCHEDULED', $4, $5::boolean, 'DRAFT', true)\nON CONFLICT (idempotency_key) DO NOTHING\nRETURNING idempotency_key;",
-        "options": {
-          "queryReplacement": "={{ $json.p }}"
-        }
+        "query": "SELECT max(finished_at) AS last_tick FROM ic.automation_runs WHERE workflow = 'ic-tick'\nHAVING coalesce(max(finished_at), 'epoch') < now() - interval '30 minutes';",
+        "options": {}
       },
       "credentials": {
         "postgres": {
@@ -536,154 +268,25 @@
       "waitBetweenTries": 5000
     },
     {
-      "id": "5c0f6f45-b74b-2360-0d1e-3fb4145fac56",
-      "name": "Send scheduled",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        6240,
-        520
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-send-scheduled",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ idempotency_key: $json.idempotency_key }) }}",
-        "options": {
-          "timeout": 30000,
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
-      },
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "IC Smoobu Proxy"
-        }
-      }
-    },
-    {
-      "id": "955ebd44-1b83-ce31-34b9-8c0eadbb8a41",
-      "name": "Scheduled digest",
+      "id": "3cc059ca-cd32-a2d9-1806-782060008b87",
+      "name": "Health alert",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6500,
-        520
+        3120,
+        760
       ],
       "parameters": {
-        "jsCode": "const src = $('Render scheduled').all();\nconst rec = $('Record scheduled').all().map((i) => i.json.idempotency_key);\nconst sent = Object.fromEntries($input.all().map((i, k) => [rec[k], i.json || {}]).filter(([k]) => k));\nconst items = src.map((i) => i.json).filter((j) => j.p[0] in sent);\nif (!items.length) return [];\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 قبل از ورود: ویدیو، مسیر و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CAFE_TIP: '☕ صبح اول: تخفیف کافه Einstein', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };\nconst ok = items.filter((j) => sent[j.p[0]].sent).length;\nconst cards = items.map((j) => { const r = sent[j.p[0]];\n  return '<div style=\"border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0\">'\n  + '<div dir=\"rtl\" style=\"text-align:right;font-weight:bold;font-size:15px\">' + (r.sent ? '✅ ' : '⛔ ') + (NAME[j.template_code] || j.template_code) + '</div>'\n  + '<div dir=\"rtl\" style=\"text-align:right;color:#667085;font-size:13px;margin:4px 0 8px\">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'\n  + '<div dir=\"ltr\" style=\"background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828;white-space:pre-wrap;word-break:break-all\">' + esc(j.body).replace('{{PIN}}', '<b>••••</b>') + '</div>'\n  + '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;margin-top:6px;color:' + (r.sent ? '#067647' : '#b42318') + '\">'\n  + (r.sent ? 'از طریق Smoobu برای مهمان ارسال شد' + (j.is_pin ? ' (کد فقط در Supabase درج شد و در هیچ ایمیلی نیست)' : '') : 'ارسال نشد: ' + esc(r.reason || r.error || 'نامشخص') + ' — لطفاً خودتان بفرستید')\n  + '</div></div>'; }).join('');\nconst html = '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n  + '<div dir=\"rtl\" style=\"background:' + (ok === items.length ? '#067647' : '#b42318') + ';color:#fff;padding:16px 18px;text-align:right\"><div style=\"font-size:20px;font-weight:bold\">📅 پیام‌های زمان‌بندی‌شده</div><div style=\"font-size:14px;margin-top:4px\">' + ok + ' از ' + items.length + ' پیام ارسال شد</div></div>'\n  + '<div style=\"padding:4px 18px 18px\">' + cards + '</div></div></div>';\nreturn [{ json: { subject: (ok === items.length ? '📅 ' : '⛔ ') + 'پیام‌های زمان‌بندی‌شده: ' + ok + ' از ' + items.length + ' ارسال شد', html } }];"
+        "jsCode": "const t = $input.first().json.last_tick;\nreturn [{ json: { subject: '⚠️ زمان‌بند پیام‌ها کار نمی‌کند',\n  html: '<div dir=\"rtl\" style=\"font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8\"><div style=\"background:#b42318;color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold\">⚠️ زمان‌بند پیام‌ها کار نمی‌کند</div><p>آخرین اجرای موفق Supabase ic-tick: ' + String(t || 'هرگز') + '</p><p>تا رفع مشکل، پیام‌های زمان‌بندی‌شده (کد، مسیر، …) ارسال نمی‌شوند. لطفاً به Claude خبر دهید.</p></div>' } }];"
       }
     },
     {
-      "id": "a3009d32-5804-eff1-6653-9bcff92b7024",
-      "name": "Email scheduled preview",
+      "id": "f52f307d-617d-946c-e7db-b78ce1f35fda",
+      "name": "Email health alert",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        6760,
-        300
-      ],
-      "parameters": {
-        "sendTo": "immocare4u.kontakt@gmail.com",
-        "subject": "={{ $json.subject }}",
-        "emailType": "html",
-        "message": "={{ $json.html }}",
-        "options": {
-          "appendAttribution": false
-        }
-      },
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "IC Gmail"
-        }
-      }
-    },
-    {
-      "id": "ed1393b3-703c-6213-14ec-92b6df12dccd",
-      "name": "Due auto replies",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        7020,
-        760
-      ],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH cand AS (\n  SELECT a.approval_id FROM ic.approvals a\n  JOIN ic.outbound_messages o ON o.outbound_id = a.outbound_id\n  JOIN ic.messages m ON m.message_pk = o.in_reply_to\n  WHERE EXISTS (SELECT 1 FROM ic.settings s WHERE s.key = 'LIVE_SENDING' AND s.value = 'on')\n    AND a.status = 'PENDING' AND a.level = 'AUTO' AND a.subject_type = 'GUEST_REPLY' AND a.revision = 1\n    AND a.requested_at BETWEEN now() - interval '100 minutes' AND now() - interval '10 minutes'\n    AND a.expires_at > now() AND o.status = 'DRAFT'\n    AND length(trim(coalesce(a.proposed_text, ''))) > 0 AND a.proposed_text <> '(no draft)'\n    AND NOT EXISTS (SELECT 1 FROM ic.messages n WHERE n.reservation_id = m.reservation_id\n                    AND n.message_pk <> m.message_pk AND n.sent_at >= m.sent_at)\n  FOR UPDATE OF a SKIP LOCKED\n), upd AS (\n  UPDATE ic.approvals a SET status = 'APPROVED', final_text = a.proposed_text, decided_at = now()\n  FROM cand WHERE a.approval_id = cand.approval_id\n  RETURNING a.approval_code, a.link_token\n), l AS (\n  INSERT INTO ic.audit_log (actor, action, entity, entity_id, details)\n  SELECT 'wf01-auto', 'APPROVAL_AUTO', 'approval', approval_code, '{}'::jsonb FROM upd\n)\nSELECT * FROM upd;",
-        "options": {}
-      },
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "ImmoCare4U Postgres"
-        }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000,
-      "executeOnce": true
-    },
-    {
-      "id": "8c994a96-4409-f1bb-ee7d-15ebc8f2d9e4",
-      "name": "Send auto reply",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        7280,
-        760
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-send-approved",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ approval_code: $json.approval_code, link_token: $json.link_token }) }}",
-        "options": {
-          "timeout": 30000,
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
-      },
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "IC Smoobu Proxy"
-        }
-      }
-    },
-    {
-      "id": "642d1f2a-d0c4-4c63-e35c-6aa6823eee96",
-      "name": "Auto reply failures",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        7540,
-        760
-      ],
-      "parameters": {
-        "jsCode": "const src = $('Due auto replies').all();\nconst bad = $input.all().map((i, k) => ({ r: i.json || {}, c: src[k] && src[k].json.approval_code })).filter((x) => x.c && !x.r.sent);\nif (!bad.length) return [];\nconst html = '<div dir=\"rtl\" style=\"font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8\">'\n  + '<div style=\"background:#b42318;color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold\">⛔ جواب خودکار ارسال نشد</div>'\n  + bad.map((x) => '<p>' + x.c + ': ' + String(x.r.reason || x.r.error || 'نامشخص').replace(/[<>&]/g, '') + '</p>').join('')\n  + '<p>لطفاً خودتان به مهمان جواب دهید.</p></div>';\nreturn [{ json: { subject: '⛔ جواب خودکار ارسال نشد (' + bad.length + ')', html } }];"
-      }
-    },
-    {
-      "id": "eddd9f7c-5125-2491-efc3-ec17950a60e7",
-      "name": "Email auto failure",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        7800,
+        3380,
         300
       ],
       "parameters": {
@@ -704,128 +307,7 @@
     }
   ],
   "connections": {
-    "Every 30 min": {
-      "main": [
-        [
-          {
-            "node": "Spec reservations",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Test Webhook": {
-      "main": [
-        [
-          {
-            "node": "Spec reservations",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Spec reservations": {
-      "main": [
-        [
-          {
-            "node": "Smoobu GET reservations",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Smoobu GET reservations": {
-      "main": [
-        [
-          {
-            "node": "Normalize reservations",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normalize reservations": {
-      "main": [
-        [
-          {
-            "node": "Upsert reservation",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Upsert reservation": {
-      "main": [
-        [
-          {
-            "node": "Spec messages",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Spec messages": {
-      "main": [
-        [
-          {
-            "node": "Smoobu GET messages",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Smoobu GET messages": {
-      "main": [
-        [
-          {
-            "node": "Messages to rows",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Messages to rows": {
-      "main": [
-        [
-          {
-            "node": "Store message + classification",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Store message + classification": {
-      "main": [
-        [
-          {
-            "node": "Log run",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log run": {
-      "main": [
-        [
-          {
-            "node": "Expire approvals",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Expire approvals": {
+    "Work webhook": {
       "main": [
         [
           {
@@ -834,12 +316,7 @@
             "index": 0
           },
           {
-            "node": "Due scheduled",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Due auto replies",
+            "node": "Tick report",
             "type": "main",
             "index": 0
           }
@@ -912,110 +389,44 @@
         ]
       ]
     },
-    "Due scheduled": {
+    "Tick report": {
       "main": [
         [
           {
-            "node": "PIN check",
+            "node": "Email report",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "PIN check": {
+    "Daily health check": {
       "main": [
         [
           {
-            "node": "Tag PIN result",
+            "node": "Tick health",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Tag PIN result": {
+    "Tick health": {
       "main": [
         [
           {
-            "node": "Render scheduled",
+            "node": "Health alert",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Render scheduled": {
+    "Health alert": {
       "main": [
         [
           {
-            "node": "Record scheduled",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Record scheduled": {
-      "main": [
-        [
-          {
-            "node": "Send scheduled",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send scheduled": {
-      "main": [
-        [
-          {
-            "node": "Scheduled digest",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Scheduled digest": {
-      "main": [
-        [
-          {
-            "node": "Email scheduled preview",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Due auto replies": {
-      "main": [
-        [
-          {
-            "node": "Send auto reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send auto reply": {
-      "main": [
-        [
-          {
-            "node": "Auto reply failures",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Auto reply failures": {
-      "main": [
-        [
-          {
-            "node": "Email auto failure",
+            "node": "Email health alert",
             "type": "main",
             "index": 0
           }
@@ -1024,10 +435,11 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
   },
   "meta": {
-    "status": "PLANNED",
+    "status": "EXISTING",
     "generatedBy": "n8n/build-workflows.js"
   }
 }
