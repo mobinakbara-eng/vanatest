@@ -134,9 +134,11 @@ It wakes **n8n WF-01** only when there is work: a guest message that needs an AI
 
 All SQL and transformation code for `ic-tick` is generated from the same tested sources (`_shared/ic-generated.mjs`, written by `n8n/build-workflows.js`).
 
-Timer:
-- Target: pg_cron (`db/ops/ic_tick_cron.sql`, token in Supabase Vault `ic_proxy_token`).
-- Until that is set up: **WF-05** calls `ic-tick` every 30 min. Deactivate WF-05 once pg_cron runs.
+Timer: **pg_cron job `ic-tick`, every 5 min** (`db/ops/ic_tick_cron.sql`; token in Supabase Vault `ic_proxy_token`).
+- Active since 11.11.2026 20:50 UTC; first run HTTP 200.
+- WF-05 (n8n 30-min fallback) is **deactivated**, not deleted. Re-activate it only if pg_cron fails.
+
+WF-20 / WF-21 (acquisition, built separately): on 11.11.2026 17:53 the frequent triggers of WF-20 were disabled by its owner. Each now runs once a day (≈ 30 executions/month each). Left unchanged.
 
 Estimated n8n executions per month:
 
