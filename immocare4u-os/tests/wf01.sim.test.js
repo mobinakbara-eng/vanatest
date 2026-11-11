@@ -554,6 +554,9 @@ test('auto replies: kill switch, stop window, edit/take-over respected, newer me
   sqlT("UPDATE ic.settings SET value='off' WHERE key='LIVE_SENDING'");
   assert.equal(sqlT(by01('Due auto replies')), '');                         // kill switch
   sqlT("UPDATE ic.settings SET value='on' WHERE key='LIVE_SENDING'");
+  sqlT("UPDATE ic.properties SET ai_auto_reply_enabled = false WHERE property_id = 'P-BER-001'");
+  assert.equal(sqlT(by01('Due auto replies')), '');                         // per-apartment switch off
+  sqlT("UPDATE ic.properties SET ai_auto_reply_enabled = true WHERE property_id = 'P-BER-001'");
   const out = sqlT(by01('Due auto replies'));
   assert.match(out, /^AP-AUTO1\|[0-9a-f]{64}$/);                             // AP-AUTO2: team already answered
   assert.equal(sqlT("SELECT status||'|'||final_text FROM ic.approvals WHERE approval_code='AP-AUTO1'"), 'APPROVED|Reply');
@@ -615,4 +618,11 @@ test('ic-tick keeps the refusal reason and runs the daily health check once a da
   const t = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-tick/index.ts'), 'utf8');
   assert.match(t, /status = 'BLOCKED'/); assert.match(t, /refused:/);
   assert.match(t, /hm >= '07:00' && hm < '07:05'/); assert.match(t, /ic\.health_check\(24\)/);
+});
+
+
+test('prompt: greeting and signature in the guest language; complaints get an apology, no welcome, no doubt', () => {
+  const sys = run('Build AI request', [src()])[0].json.ai.system;
+  assert.match(sys, /INCLUDING greeting and signature/); assert.match(sys, /Zespół ImmoCare4U/);
+  assert.match(sys, /11\. COMPLAINTS/); assert.match(sys, /never write that you are unsure/);
 });
