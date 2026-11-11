@@ -11,7 +11,7 @@ Purpose: once a week, check the system like a support engineer would, then write
 - send messages to guests
 - call `ic-send-*` functions
 
-The only write allowed is the knowledge snapshot commit in step 7.
+This check writes nothing anywhere (not even to the repository).
 If something needs fixing, describe it and propose the fix. The owner decides.
 
 Access (injected by the environment's network proxy; never print or ask for keys):
@@ -82,16 +82,12 @@ Give each problem: booking number, short quote (no personal data), what was wron
 - `SELECT name FROM vault.secrets;` should be `ic_proxy_token` only. Report new names; never read values.
 - Database size (`database_size` check) against the Free plan (500 MB). Supabase Free has **no backups**, hence step 7.
 
-## 7. Knowledge snapshot (off-site backup)
-Write `immocare4u-os/db/snapshots/kb_<YYYY-MM-DD>.sql`. It contains INSERT … ON CONFLICT DO UPDATE statements for:
-- `ic.property_kb_entries`: all rows except `visibility='RESTRICTED'` or `secret_ref IS NOT NULL`
-- `ic.properties`
-- `ic.property_message_schedules`
-- `ic.settings`
-
-These tables hold no guest data. Reservations and messages are re-synced from Smoobu and are NOT exported.
-
-Commit it on branch `claude/weekly-check` (create from the default branch if missing) and push. Keep the last 8 snapshots; delete older snapshot files in the same commit.
+## 7. Backup check
+The knowledge backup is uploaded every Sunday 03:17 Berlin time by n8n **WF-06** to the owner's Google Drive folder "ImmoCare4U Backup".
+- Check that WF-06 is active.
+- Check that its last execution succeeded within the last 8 days: `GET /api/v1/executions?workflowId=<WF-06 id>&limit=3`.
+- `SELECT length(ic.kb_snapshot())` must be > 10,000 characters.
+- Report it if any of these is not true.
 
 ## 8. Report (Persian, short)
 1. 🟢/🟡/🔴 overall status in one sentence.
@@ -110,4 +106,4 @@ Commit it on branch `claude/weekly-check` (create from the default branch if mis
    - scheduled messages sent
    - facts learned
 
-Also save the report as `immocare4u-os/docs/health-reports/<YYYY-MM-DD>.md` in the same commit as the snapshot.
+Deliver the report only as your final message (it reaches the owner as a notification). Do not write to the repository.
