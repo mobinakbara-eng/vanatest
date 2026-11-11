@@ -25,6 +25,7 @@ psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/004_approval_links.sql
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/005_live_sending.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/006_draft_triggers.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/007_health_checks.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/008_kb_snapshot.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/seeds/001_test_property.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/seeds/002_einstein_cafe_offer.sql"
 

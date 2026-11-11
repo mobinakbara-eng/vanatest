@@ -1,0 +1,140 @@
+{
+  "name": "WF-06 — Weekly knowledge backup → Google Drive",
+  "nodes": [
+    {
+      "id": "c997192e-02da-b71c-b08e-af265fe8d275",
+      "name": "Sunday night",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "17 3 * * 0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d4e2713d-1b17-25a1-592f-9268589f990d",
+      "name": "Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ic.kb_snapshot() AS sql;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "7ced04b2-7b32-a296-37b6-42ad2325d775",
+      "name": "To file",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const sql = String($input.first().json.sql || '');\nif (sql.length < 1000 || !sql.includes('COMMIT;')) throw new Error('Backup looks incomplete (' + sql.length + ' chars) – not uploaded');\nconst day = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });\nconst fileName = 'ImmoCare4U_KB-Backup_' + day + '.sql';\nreturn [{ json: { fileName, chars: sql.length }, binary: { data: { data: Buffer.from(sql, 'utf8').toString('base64'), mimeType: 'text/plain', fileName } } }];"
+      }
+    },
+    {
+      "id": "c99dea97-d63a-4e90-fa84-d31cb082d318",
+      "name": "Upload to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        780,
+        300
+      ],
+      "parameters": {
+        "operation": "upload",
+        "name": "={{ $json.fileName }}",
+        "inputDataFieldName": "data",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1FMtNk-mP4Wpu2EzjK-IHq5s_2rdKjICN"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Google Drive"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000
+    }
+  ],
+  "connections": {
+    "Sunday night": {
+      "main": [
+        [
+          {
+            "node": "Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Snapshot": {
+      "main": [
+        [
+          {
+            "node": "To file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "To file": {
+      "main": [
+        [
+          {
+            "node": "Upload to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "meta": {
+    "status": "EXISTING",
+    "generatedBy": "n8n/build-workflows.js"
+  }
+}

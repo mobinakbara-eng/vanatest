@@ -626,3 +626,17 @@ test('prompt: greeting and signature in the guest language; complaints get an ap
   assert.match(sys, /INCLUDING greeting and signature/); assert.match(sys, /Zespół ImmoCare4U/);
   assert.match(sys, /11\. COMPLAINTS/); assert.match(sys, /never write that you are unsure/);
 });
+
+test('knowledge backup: no secrets, restorable into an empty copy, idempotent', { skip: !PGT && 'PG_TEST_URL not set' }, () => {
+  sqlT("INSERT INTO ic.property_kb_entries (property_id, category, key, language, secret_ref, visibility, source, validity) VALUES ('P-BER-001','ENTRANCE','keybox_code_test','de','vault://x','RESTRICTED','t','VERIFIED') ON CONFLICT DO NOTHING");
+  const snap = execFileSync('psql', [PGT, '-qtA', '-c', 'SELECT ic.kb_snapshot()']).toString();
+  assert.match(snap, /^-- ImmoCare4U knowledge backup/); assert.match(snap, /BEGIN;/); assert.match(snap, /COMMIT;\s*$/);
+  assert.doesNotMatch(snap, /keybox_code_test|vault:\/\//);              // no secret rows
+  assert.doesNotMatch(snap, /ic\.(reservations|messages)/);             // no guest data
+  const before = sqlT("SELECT count(*) FROM ic.property_kb_entries WHERE visibility <> 'RESTRICTED'");
+  sqlT("DELETE FROM ic.property_kb_entries WHERE key LIKE 'offer_%'");      // simulate loss
+  execFileSync('psql', [PGT, '-v', 'ON_ERROR_STOP=1', '-q'], { input: snap });
+  execFileSync('psql', [PGT, '-v', 'ON_ERROR_STOP=1', '-q'], { input: snap });   // twice = idempotent
+  assert.equal(sqlT("SELECT count(*) FROM ic.property_kb_entries WHERE visibility <> 'RESTRICTED'"), before);
+  assert.notEqual(sqlT("SELECT count(*) FROM ic.property_kb_entries WHERE key = 'offer_einstein_cafe'"), '0');
+});

@@ -1191,6 +1191,36 @@ function wf05() {
   };
 }
 
+// WF-06 — weekly knowledge backup to the owner's Google Drive (Supabase Free has no backups).
+// ic.kb_snapshot() = restorable SQL of knowledge base, apartments, schedules, settings (no guest data, no secrets).
+const BACKUP_FOLDER_ID = '1FMtNk-mP4Wpu2EzjK-IHq5s_2rdKjICN';   // Drive folder "ImmoCare4U Backup" (mobinakbara@gmail.com)
+function wf06() {
+  pos = 0;
+  const snap = pg('Snapshot', 'SELECT ic.kb_snapshot() AS sql;', '');
+  delete snap.parameters.options.queryReplacement;
+  return {
+    name: 'WF-06 — Weekly knowledge backup → Google Drive',
+    nodes: [
+      node('Sunday night', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'cronExpression', expression: '17 3 * * 0' }] } }),
+      snap,
+      code('To file', `const sql = String($input.first().json.sql || '');
+if (sql.length < 1000 || !sql.includes('COMMIT;')) throw new Error('Backup looks incomplete (' + sql.length + ' chars) – not uploaded');
+const day = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+const fileName = 'ImmoCare4U_KB-Backup_' + day + '.sql';
+return [{ json: { fileName, chars: sql.length }, binary: { data: { data: Buffer.from(sql, 'utf8').toString('base64'), mimeType: 'text/plain', fileName } } }];`),
+      node('Upload to Drive', 'n8n-nodes-base.googleDrive', 3, {
+        operation: 'upload', name: '={{ $json.fileName }}', inputDataFieldName: 'data',
+        driveId: { __rl: true, mode: 'list', value: 'My Drive' },
+        folderId: { __rl: true, mode: 'id', value: BACKUP_FOLDER_ID },
+        options: {},
+      }, { credentials: cred('googleDriveOAuth2Api', 'IC Google Drive'), retryOnFail: true, maxTries: 3, waitBetweenTries: 10000 }),
+    ],
+    connections: connect([['Sunday night', 'Snapshot'], ['Snapshot', 'To file'], ['To file', 'Upload to Drive']]),
+    settings: { executionOrder: 'v1', timezone: 'Europe/Berlin' },
+    meta: { status: 'EXISTING', generatedBy: 'n8n/build-workflows.js' },
+  };
+}
+
 // ---------------------------------------------------------------------
 // Shared module for Supabase ic-tick: the SAME tested SQL and code as above,
 // wrapped as plain functions (n8n's $input/$ are shimmed).
@@ -1239,7 +1269,8 @@ for (const [file, wf] of [['WF-00-smoobu-connectivity-test.json', wf00()],
                           ['WF-14-error-monitor-minimal.json', wf14()],
                           ['WF-01-smoobu-readonly-sync.json', wf01()],
                           ['WF-04-email-approval.json', wf04()],
-                          ['WF-05-tick-fallback.json', wf05()]]) {
+                          ['WF-05-tick-fallback.json', wf05()],
+                          ['WF-06-kb-backup-drive.json', wf06()]]) {
   fs.writeFileSync(path.join(outDir, file), JSON.stringify(wf, null, 2) + '\n');
   console.log('wrote', file, `(${wf.nodes.length} nodes)`);
 }
