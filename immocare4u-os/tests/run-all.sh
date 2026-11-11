@@ -22,7 +22,9 @@ psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/001_foundation.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/002_approval_channels.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/003_function_search_path.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/004_approval_links.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/migrations/005_live_sending.sql"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/seeds/001_test_property.sql"
+psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/db/seeds/002_einstein_cafe_offer.sql"
 
 echo "== DB guard rails"
 psql "$URL" -v ON_ERROR_STOP=1 -qt -f "$ROOT/tests/db_guardrails_test.sql" 2>&1 | grep -E 'PASS|FAIL|passed'

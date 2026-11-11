@@ -2,8 +2,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const fs = require('fs');
+const path = require('path');
 const wf = require('../n8n/workflows/WF-01-smoobu-readonly-sync.json');
 const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
+const by01 = (n) => byName[n].parameters.query;
 
 function run(name, items, outputs = {}) {
   const sb = {
@@ -65,9 +68,13 @@ test('messages to rows: type 1 = guest (classified), type 2 = host (not classifi
   assert.equal(out[2].json.p[6], 'I want a full refund');
 });
 
-test('WF-01 uses only the read-only proxy', () => {
+test('WF-01 reads Smoobu only through the read-only proxy; writes only through the two send functions', () => {
   const others = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest' && !x.name.startsWith('Smoobu')).map((x) => x.parameters.url);
-  assert.deepEqual(others.sort(), ['https://api.anthropic.com/v1/messages', 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-access-pin']);
+  const F = 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/';
+  assert.deepEqual(others.sort(), ['https://api.anthropic.com/v1/messages', F + 'ic-access-pin', F + 'ic-send-approved', F + 'ic-send-scheduled']);
+  // send nodes pass only identifiers, never message text or PINs
+  assert.match(byName['Send scheduled'].parameters.jsonBody, /^=\{\{ JSON\.stringify\(\{ idempotency_key: \$json\.idempotency_key \}\) \}\}$/);
+  assert.doesNotMatch(byName['Send auto reply'].parameters.jsonBody, /text|body|pin/i);
   for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest' && x.name.startsWith('Smoobu'))) {
     assert.match(n.parameters.url, /smoobu-proxy$/);
   }
@@ -191,12 +198,13 @@ test('scheduled: PIN text keeps {{PIN}} placeholder, never digits; missing video
 
 test('scheduled: digest masks PIN and only lists newly recorded items', () => {
   const rendered = run('Render scheduled', [{ json: { ...due().json, pin_check: { ok: true } } }, { json: { ...due({ reservation_id: 12, template_code: 'WELCOME' }).json, pin_check: {} } }]);
-  const out = run('Scheduled digest', [{ json: { idempotency_key: 'sched:11:ACCESS_PIN' } }, { json: {} }], { 'Render scheduled': rendered });
+  const rec = [{ json: { idempotency_key: 'sched:11:ACCESS_PIN' } }, { json: { idempotency_key: 'sched:12:WELCOME' } }];
+  const out = run('Scheduled digest', [{ json: { sent: true } }, { json: { sent: false, reason: 'booking cancelled/blocked in Smoobu' } }], { 'Render scheduled': rendered, 'Record scheduled': rec });
   assert.equal(out.length, 1);
-  assert.match(out[0].json.subject, /\(1\)/);
-  assert.match(out[0].json.html, /••••/);
+  assert.match(out[0].json.subject, /1 از 2/);
+  assert.match(out[0].json.html, /••••/); assert.match(out[0].json.html, /booking cancelled/);
   assert.ok(!out[0].json.html.includes('{{PIN}}'));
-  assert.deepEqual(run('Scheduled digest', [{ json: {} }], { 'Render scheduled': rendered }), []);
+  assert.deepEqual(run('Scheduled digest', [], { 'Render scheduled': rendered, 'Record scheduled': [] }), []);
 });
 
 test('scheduled SQL: due window, cancelled excluded, idempotent', { skip: !process.env.PG_TEST_URL && 'PG_TEST_URL not set' }, () => {
@@ -245,13 +253,14 @@ test('AI request has exact stay times, hours to check-out and requires analysis'
 });
 
 // ---------------- approval policy & privacy guard ----------------
-test('policy: acknowledgement answerable from our data → level 6, no approval button', () => {
+test('policy: acknowledgement answerable from our data → level 6, sent automatically (send-now button only)', () => {
   const ack = { ...base, intent: 'KEY_RETURNED_CHECKOUT', reply: 'Vielen Dank und gute Heimreise!', used_kb_keys: [] };
   const { payload } = decide(aiResp(ack), src({ rule_level: 'REVIEW', rule_intent: 'UNKNOWN', rule_flags: 'NO_RULE_MATCH' }));
   assert.equal(payload.level, 6);
   const e = render(payload);
-  assert.ok(!/a=approve/.test(e.html));
-  assert.match(e.html, /a=edit/);
+  assert.match(e.html, /ارسال فوری/); assert.doesNotMatch(e.html, /تأیید و ارسال/);
+  assert.match(e.html, /a=edit/); assert.match(e.html, /a=reject/);
+  assert.match(e.html, /حداکثر ۳۰ دقیقه/);
   assert.match(e.subject, /خودکار/);
 });
 
@@ -301,10 +310,11 @@ test('only the first submission triggers the AI revision', () => {
   assert.match(cond, /already === false/);
 });
 
-test('a manager-corrected version (revision 2) always has an approve button, even at level 6', () => {
+test('a manager-corrected version (revision 2) is never auto-sent: it needs "approve & send"', () => {
   const { payload } = decide(aiResp(base));
-  assert.ok(!/a=approve/.test(render(payload).html));
-  assert.match(render({ ...payload, revision: 2 }).html, /a=approve/);
+  const r2 = render({ ...payload, revision: 2 }).html;
+  assert.match(r2, /تأیید و ارسال/); assert.doesNotMatch(r2, /حداکثر ۳۰ دقیقه/);
+  assert.match(by01('Due auto replies'), /a\.revision = 1/);
 });
 
 test('every Postgres node retries transient connection errors', () => {
@@ -343,9 +353,9 @@ test('send step: only through ic-send-approved, text never taken from the reques
   assert.deepEqual(wf04.connections['Decide approval'].main[0].map((c) => c.node), ['Send if approved']);
 });
 
-test('level 6 automatic replies are still never sent (no approve link)', () => {
-  const { payload } = decide(aiResp(base));
-  assert.ok(!/a=approve/.test(render(payload).html));
+test('level 1–4 are never auto-sent: only level AUTO approvals are picked up', () => {
+  const q = by01('Due auto replies');
+  assert.match(q, /a\.level = 'AUTO'/); assert.match(q, /LIVE_SENDING/); assert.match(q, /a\.status = 'PENDING'/);
 });
 
 // ---------------- learning loop 08.11.2026: approved answers become KB facts ----------------
@@ -429,4 +439,104 @@ test('learning SQL on the real schema: chain of instructions, VERIFIED row, neve
   const n = Number(sql('SELECT count(*) FROM ic.properties'));
   assert.equal(sql(save, ['P-BER-001', 'HOUSE_RULES', 'learned_quiet_hours', 'Quiet hours are from 22:00.', 'Freigabe AP-LRN3', 'ALL_UNITS']).split('\n').length, n);
   assert.equal(sql("SELECT count(DISTINCT property_id) FROM ic.property_kb_entries WHERE key='learned_quiet_hours'"), String(n));
+});
+
+
+// ---------------- go-live 11.11.2026 ----------------
+const PGT = process.env.PG_TEST_URL;
+const litT = (v) => (v === null ? 'NULL' : typeof v === 'number' || typeof v === 'boolean' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
+const sqlT = (q, p = []) => execFileSync('psql', [PGT, '-v', 'ON_ERROR_STOP=1', '-qtA', '-F', '|', '-c', q.replace(/\$(\d+)/g, (_, i) => litT(p[i - 1]))]).toString().trim();
+
+test('café tip: partner offer text, map link, no placeholders left', () => {
+  const [o] = run('Render scheduled', [due({ template_code: 'CAFE_TIP', lang: 'de', pin_check: { not_pin: true } })]);
+  assert.match(o.json.body, /Einstein Kaffee am Aaron-Bernstein-Platz 2/); assert.match(o.json.body, /20 % Rabatt/);
+  assert.match(o.json.body, /\nhttps:\/\/www\.google\.com\/maps\/search\/\?api=1&query=Einstein/);
+  assert.doesNotMatch(o.json.body, /\{\{/);
+  const [e] = run('Render scheduled', [due({ template_code: 'CAFE_TIP', lang: 'en', pin_check: { not_pin: true } })]);
+  assert.match(e.json.body, /20% discount/);
+});
+
+test('money guard: a verified partner offer may be mentioned, other discounts still blocked', () => {
+  const kb = [{ key: 'offer_einstein_cafe', lang: 'en', value: '20% at Einstein Kaffee', verified: true }];
+  const ok = decide(aiResp({ ...base, intent: 'LOCAL_TIPS', reply: 'For breakfast try Einstein Kaffee at Aaron-Bernstein-Platz 2 – you get a 20% discount as our guest.', used_kb_keys: ['offer_einstein_cafe'] }), src({ kb }));
+  assert.equal(ok.payload.level, 6); assert.ok(!ok.payload.flags.includes('MONEY_WORDS'));
+  const bad = decide(aiResp({ ...base, reply: 'Einstein Kaffee is nice. We give you a discount on your stay.', used_kb_keys: ['offer_einstein_cafe'] }), src({ kb }));
+  assert.equal(bad.payload.level, 2);
+  const noKb = decide(aiResp({ ...base, reply: 'Einstein Kaffee gives you a discount.', used_kb_keys: [] }), src());
+  assert.equal(noKb.payload.level, 2);
+});
+
+test('scheduled SQL: last-minute booking still gets arrival info + PIN; café tip next morning; nothing old', { skip: !PGT && 'PG_TEST_URL not set' }, () => {
+  sqlT(`INSERT INTO ic.property_message_schedules (property_id, template_code, anchor, offset_minutes, enabled) VALUES
+          ('P-BER-001','ARRIVAL_2D','CHECK_IN',-2880,true), ('P-BER-001','CAFE_TIP','CHECK_IN',1080,true), ('P-BER-001','WELCOME','BOOKING',5,true)
+        ON CONFLICT (property_id, template_code) DO UPDATE SET enabled = true;
+        INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, check_in_at, check_out_at, status, raw) VALUES
+          -- booked 20 min ago for check-in in 4 h: the 2-day message is late → due 10 min after booking
+          (8101,'P-BER-001',1,current_date,current_date+2, now() + interval '4 hours', now() + interval '2 days','CONFIRMED',
+             json_build_object('created-at', to_char((now() - interval '20 minutes') AT TIME ZONE 'Europe/Berlin','YYYY-MM-DD HH24:MI:SS'))::jsonb),
+          -- old booking: 2-day message was due 2 days ago → never sent retroactively
+          (8102,'P-BER-001',1,current_date,current_date+2, now() - interval '1 minute', now() + interval '2 days','CONFIRMED','{"created-at":"2026-01-01 10:00:00"}'),
+          -- checked in 18 h ago → café tip due now
+          (8103,'P-BER-001',1,current_date-1,current_date+2, now() - interval '18 hours 5 minutes', now() + interval '2 days','CONFIRMED','{"created-at":"2026-01-01 10:00:00"}'),
+          -- check-out already passed → no café tip although 18 h after check-in
+          (8104,'P-BER-001',1,current_date-1,current_date, now() - interval '18 hours 5 minutes', now() - interval '1 hour','CONFIRMED','{"created-at":"2026-01-01 10:00:00"}')
+        ON CONFLICT DO NOTHING;`);
+  const rows = sqlT(by01('Due scheduled'));
+  assert.match(rows, /ARRIVAL_2D\|8101\|/);
+  assert.match(rows, /WELCOME\|8101\|/);
+  assert.doesNotMatch(rows, /ARRIVAL_2D\|8102\|/);
+  assert.match(rows, /CAFE_TIP\|8103\|/);
+  assert.doesNotMatch(rows, /CAFE_TIP\|8104\|/);
+});
+
+test('drafts: only the latest guest message of a conversation gets a draft', { skip: !PGT && 'PG_TEST_URL not set' }, () => {
+  sqlT(`INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, raw) VALUES (8201,'P-BER-001',1,current_date,current_date+2,'{}') ON CONFLICT DO NOTHING;
+        INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, body, sent_at) VALUES
+          (8201001,8201,'P-BER-001','INBOUND','GUEST','No towels here', now() - interval '3 minutes'),
+          (8201002,8201,'P-BER-001','INBOUND','GUEST','Also dirty dishes', now() - interval '1 minute') ON CONFLICT DO NOTHING;
+        INSERT INTO ic.message_classifications (message_pk, level, intent, rule_level) SELECT message_pk,'REVIEW','CLEANING_ISSUE','REVIEW' FROM ic.messages WHERE smoobu_message_id IN (8201001,8201002);`);
+  const rows = sqlT(by01('Pending drafts'));
+  assert.match(rows, /Also dirty dishes/);
+  assert.doesNotMatch(rows.split('\n').filter((l) => /^\d+\|8201\|/.test(l)).map((l) => l.split('|')[3]).join(' '), /No towels here$/);
+  assert.equal(rows.split('\n').filter((l) => /^\d+\|8201\|/.test(l)).length, 1);
+});
+
+test('auto replies: kill switch, stop window, edit/take-over respected, newer messages win', { skip: !PGT && 'PG_TEST_URL not set' }, () => {
+  sqlT(`INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, raw) VALUES (8301,'P-BER-001',1,current_date,current_date+2,'{}'),(8302,'P-BER-001',1,current_date,current_date+2,'{}') ON CONFLICT DO NOTHING;
+        INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, body, sent_at) VALUES
+          (8301001,8301,'P-BER-001','INBOUND','GUEST','Wifi?', now() - interval '40 minutes'),
+          (8302001,8302,'P-BER-001','INBOUND','GUEST','Parking?', now() - interval '40 minutes'),
+          (8302002,8302,'P-BER-001','OUTBOUND','HOST','Answered by the team', now() - interval '20 minutes') ON CONFLICT DO NOTHING;`);
+  const rec = (pk, res, code, lvl, ago) => {
+    sqlT(byName['Record draft'].parameters.query, [pk, res, 'P-BER-001', 'Reply', code, lvl, 'r', '{}', 1, null, null]);
+    sqlT(`UPDATE ic.approvals SET requested_at = now() - interval '${ago} minutes' WHERE approval_code = '${code}'`);
+  };
+  const pk = (id) => Number(sqlT(`SELECT message_pk FROM ic.messages WHERE smoobu_message_id=${id}`));
+  rec(pk(8301001), 8301, 'AP-AUTO1', 'AUTO', 35);
+  rec(pk(8302001), 8302, 'AP-AUTO2', 'AUTO', 35);
+  sqlT("UPDATE ic.settings SET value='off' WHERE key='LIVE_SENDING'");
+  assert.equal(sqlT(by01('Due auto replies')), '');                         // kill switch
+  sqlT("UPDATE ic.settings SET value='on' WHERE key='LIVE_SENDING'");
+  const out = sqlT(by01('Due auto replies'));
+  assert.match(out, /^AP-AUTO1\|[0-9a-f]{64}$/);                             // AP-AUTO2: team already answered
+  assert.equal(sqlT("SELECT status||'|'||final_text FROM ic.approvals WHERE approval_code='AP-AUTO1'"), 'APPROVED|Reply');
+  assert.equal(sqlT(by01('Due auto replies')), '');                          // once only
+  // a fresh draft (< 10 min) waits for the stop window; a REVIEW draft is never auto-sent
+  sqlT(`INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, body, sent_at) VALUES (8301002,8301,'P-BER-001','INBOUND','GUEST','Thanks!', now()) ON CONFLICT DO NOTHING`);
+  rec(pk(8301002), 8301, 'AP-AUTO3', 'AUTO', 2);
+  assert.equal(sqlT(by01('Due auto replies')), '');
+  sqlT("UPDATE ic.approvals SET requested_at = now() - interval '30 minutes', level = 'REVIEW' WHERE approval_code = 'AP-AUTO3'");
+  assert.equal(sqlT(by01('Due auto replies')), '');
+  sqlT("UPDATE ic.approvals SET level = 'AUTO', status = 'TAKEN_OVER' WHERE approval_code = 'AP-AUTO3'");
+  assert.equal(sqlT(by01('Due auto replies')), '');
+  sqlT("UPDATE ic.settings SET value='off' WHERE key='LIVE_SENDING'");
+});
+
+test('send functions: PIN only inside Supabase, kill switch, freshness and live Smoobu re-check', () => {
+  const f = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-send-scheduled/index.ts'), 'utf8');
+  for (const re of [/LIVE_SENDING/, /interval '3 hours'/, /\/api\/reservations\/' \+ r\.reservation_id/, /cancel/, /RELEASE_TIME/, /replaceAll\(pin, '\*\*\*\*'\)/, /\[Video-Link fehlt\]/, /\\{\\{\[A-Z_\]\+\\}\\}/])
+    assert.match(f, re);
+  assert.doesNotMatch(f, /json\(200, \{[^}]*pin[,:]/);       // the PIN is never returned
+  const a = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-send-approved/index.ts'), 'utf8');
+  assert.match(a, /catch \(e\)/);                             // network errors do not leave QUEUED rows
 });

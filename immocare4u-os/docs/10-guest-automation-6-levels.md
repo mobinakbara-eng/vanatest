@@ -93,3 +93,31 @@ First learned fact (from AP-3RP2V; added to P-BER-001 and, by owner decision, al
 Live test with a new synthetic question ("check out at 1 pm?"): level 6, flag LEARNED_RULE, polite refusal with the reason.
 
 To remove or correct a learned fact, delete or update the row in `ic.property_kb_entries`. Claude can do this on request.
+
+## Go-live (11.11.2026, owner: "the trial is over")
+
+Kill switch: `ic.settings.LIVE_SENDING` (`on` / `off`). With `off`, nothing is sent automatically. Replies the manager approves by e-mail are always sent.
+
+| What | When | How |
+|---|---|---|
+| Scheduled messages (welcome, arrival info + video, key-box PIN 12:00, café tip 09:00 first morning, check-out reminder, review request) | WF-01, every 30 min | Edge function `ic-send-scheduled` |
+| Level-6 replies | Next WF-01 run after the e-mail (10–100 min after the draft) | WF-01 "Due auto replies" → `ic-send-approved` |
+| Levels 3–4 | Only after «✅ تأیید و ارسال» | `ic-send-approved` |
+| Levels 1–2 | Never automatic | Manager replies personally |
+
+Safety in `ic-send-scheduled`:
+- The text is taken from the database, never from the request.
+- Rows older than 3 h are never sent, so there is no backlog after an outage.
+- The booking is checked live in Smoobu before sending: it must exist, not be cancelled or blocked, and have the same apartment and dates.
+- The PIN is inserted only inside Supabase, from 12:00 on arrival day until departure, and is redacted from stored responses.
+- Missing video or an unfilled placeholder means the message is not sent.
+- `dry_run: true` runs every check without sending.
+
+Safety for level 6 (auto replies):
+- Only the first version is sent automatically; corrected versions always need approval.
+- Only if nothing new happened in the conversation since the draft (no newer guest or host message).
+- Only one draft per conversation: for the latest guest message.
+
+Last-minute bookings: arrival info and PIN are sent 10 min after the booking if their normal time has already passed.
+
+Partner offer: KB `offer_einstein_cafe` (both apartments). The money guard allows exactly this offer sentence.

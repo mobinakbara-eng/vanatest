@@ -1,6 +1,7 @@
 // ic-send-approved — the ONLY path that writes guest messages to Smoobu.
-// Owner decision 08.11.2026: during the trial, a reply may be sent to the guest only after
-// the manager explicitly pressed "Approve & send". Automatic (level 6) replies are NOT sent.
+// Sends a reply that is APPROVED: by the manager ("Approve & send" in the e-mail), or – since the
+// go-live on 11.11.2026 – a level-6 reply that WF-01 auto-approved after the 30-min stop window
+// (only while ic.settings LIVE_SENDING = 'on', see WF-01 "Due auto replies").
 //
 // POST {"approval_code": "AP-XXXXX", "link_token": "<64 hex>"}   header x-ic-proxy-token
 // The text is read from the database (approvals.final_text), never from the request,
@@ -44,11 +45,16 @@ Deno.serve(async (req) => {
     WHERE outbound_id = ${r.outbound_id} AND status = 'DRAFT' RETURNING outbound_id`;
   if (!claimed.length) return json(200, { sent: false, reason: 'already being processed' });
 
-  const body = JSON.stringify({ subject: 'ImmoCare4U', messageBody: text });
-  const s = await sign({ method: 'POST', path: '/api/reservations/' + r.reservation_id + '/messages/send-message-to-guest', body,
-                         apiKey: Deno.env.get('SMOOBU_API_KEY'), apiSecret: Deno.env.get('SMOOBU_API_SECRET') });
-  const res = await fetch(s.url, { method: 'POST', headers: s.headers, body: s.body });
-  const resText = await res.text();
+  // a network error must not leave the row stuck in QUEUED
+  const res = { status: 0 };
+  let resText = '';
+  try {
+    const body = JSON.stringify({ subject: 'ImmoCare4U', messageBody: text });
+    const s = await sign({ method: 'POST', path: '/api/reservations/' + r.reservation_id + '/messages/send-message-to-guest', body,
+                           apiKey: Deno.env.get('SMOOBU_API_KEY'), apiSecret: Deno.env.get('SMOOBU_API_SECRET') });
+    const f = await fetch(s.url, { method: 'POST', headers: s.headers, body: s.body });
+    res.status = f.status; resText = await f.text();
+  } catch (e) { resText = 'fetch error: ' + String(e); }
   const ok = res.status >= 200 && res.status < 300;
   await sql`UPDATE ic.outbound_messages SET status = ${ok ? 'SENT' : 'FAILED'}::ic.outbound_status,
               sent_at = ${ok ? sql`now()` : null}, test_mode = false,
