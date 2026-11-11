@@ -80,12 +80,15 @@ test('messages to rows: type 1 = guest (classified), type 2 = host (not classifi
 });
 
 test('WF-01 (n8n) only drafts and e-mails: no timer, no Smoobu access, no sending', () => {
-  const urls = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest').map((x) => x.parameters.url);
-  assert.deepEqual(urls, ['https://api.anthropic.com/v1/messages']);
+  const urls = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest').map((x) => x.parameters.url).sort();
+  assert.deepEqual(urls, ['https://api.anthropic.com/v1/messages', 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-tick']);
   const triggers = wf.nodes.filter((x) => /Trigger|webhook/i.test(x.type));
-  assert.deepEqual(triggers.map((x) => x.name).sort(), ['Daily health check', 'Work webhook']);
+  assert.deepEqual(triggers.map((x) => x.name).sort(), ['Hourly watchdog', 'Work webhook']);
   assert.equal(byName['Work webhook'].parameters.authentication, 'headerAuth');
-  assert.equal(byName['Daily health check'].parameters.rule.interval[0].expression, '50 7 * * *');
+  assert.equal(byName['Hourly watchdog'].parameters.rule.interval[0].expression, '7 8-22 * * *');
+  // watchdog only acts when ic-tick is stale (query returns no row otherwise) and then heals by running ic-tick
+  assert.match(byName['Tick health'].parameters.query, /HAVING coalesce\(max\(finished_at\), 'epoch'\) < now\(\) - interval '15 minutes'/);
+  assert.deepEqual(wf.connections['Tick health'].main[0].map((c) => c.node), ['Run ic-tick now']);
 });
 
 test('no WF-01 code node writes to Smoobu', () => {
@@ -573,4 +576,43 @@ test('send functions: PIN only inside Supabase, kill switch, freshness and live 
   assert.doesNotMatch(f, /json\(200, \{[^}]*pin[,:]/);       // the PIN is never returned
   const a = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-send-approved/index.ts'), 'utf8');
   assert.match(a, /catch \(e\)/);                             // network errors do not leave QUEUED rows
+});
+
+
+// ---------------- monitoring 11.11.2026 ----------------
+test('health check: finds missed scheduled messages, codes in the KB, and is clean again after fixing', { skip: !PGT && 'PG_TEST_URL not set' }, () => {
+  sqlT(`INSERT INTO ic.property_message_schedules (property_id, template_code, anchor, offset_minutes, enabled) VALUES ('P-BER-001','CAFE_TIP','CHECK_IN',1080,true)
+          ON CONFLICT (property_id, template_code) DO UPDATE SET enabled = true;
+        UPDATE ic.settings SET value = to_char(now() - interval '1 day', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') WHERE key = 'LIVE_SINCE';
+        INSERT INTO ic.reservations (reservation_id, property_id, smoobu_apartment_id, arrival, departure, check_in_at, check_out_at, status, raw, last_synced_at) VALUES
+          (8501,'P-BER-001',1,current_date-1,current_date+2, now() - interval '19 hours', now() + interval '2 days','CONFIRMED','{"created-at":"2026-01-01 10:00:00"}', now())
+        ON CONFLICT DO NOTHING;`);
+  const hc = () => Object.fromEntries(sqlT('SELECT check_name, status, detail FROM ic.health_check(24)').split('\n').map((l) => { const [c, st, d] = l.split('|'); return [c, { st, d }]; }));
+  let h = hc();
+  for (const k of ['scheduler_running', 'scheduler_errors', 'smoobu_sync', 'scheduled_missed', 'scheduled_sent', 'replies_sent', 'drafts_created', 'waiting_for_manager', 'n8n_errors', 'kb_no_secrets', 'learning', 'live_sending', 'data_consistency', 'database_size'])
+    assert.ok(h[k], k);
+  assert.equal(h.scheduler_running.st, 'FAIL');                       // no ic-tick has run in the test DB
+  assert.equal(h.scheduled_missed.st, 'FAIL'); assert.match(h.scheduled_missed.d, /CAFE_TIP 8501/);
+  sqlT(G.SQL.RECORD_SCHEDULED, ['sched:8501:CAFE_TIP', 8501, 'P-BER-001', 'Tipp', false]);
+  const after = hc().scheduled_missed.d;
+  assert.doesNotMatch(after, /CAFE_TIP 8501/); assert.match(after, /ACCESS_PIN 8501/);   // the PIN message is still reported as missed
+  sqlT("INSERT INTO ic.property_kb_entries (property_id, category, key, language, value_text, source, validity) VALUES ('P-BER-001','ENTRANCE','bad_row','de','Der Code für die Box ist 1809','test','VERIFIED')");
+  h = hc(); assert.equal(h.kb_no_secrets.st, 'FAIL'); assert.match(h.kb_no_secrets.d, /bad_row/);
+  sqlT("DELETE FROM ic.property_kb_entries WHERE key = 'bad_row'");
+  assert.equal(hc().kb_no_secrets.st, 'OK');
+  sqlT(`INSERT INTO ic.automation_runs (workflow, finished_at, status, summary) VALUES ('ic-tick', now(), 'SUCCESS', '{"errors":[]}')`);
+  assert.equal(hc().scheduler_running.st, 'OK');
+});
+
+test('report e-mail lists only checks that are not OK', () => {
+  const out = tickReport({ health: [{ check_name: 'scheduler_running', status: 'OK', detail: 'x' }, { check_name: 'scheduled_missed', status: 'FAIL', detail: '1 due but not processed: CAFE_TIP 1' }] });
+  assert.equal(out.length, 1); assert.match(out[0].json.subject, /بررسی روزانه/); assert.match(out[0].json.html, /scheduled_missed/);
+  assert.doesNotMatch(out[0].json.html, /scheduler_running/);
+  assert.deepEqual(tickReport({ health: [{ check_name: 'a', status: 'OK', detail: '' }, { check_name: 'b', status: 'INFO', detail: '' }] }), []);
+});
+
+test('ic-tick keeps the refusal reason and runs the daily health check once a day', () => {
+  const t = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-tick/index.ts'), 'utf8');
+  assert.match(t, /status = 'BLOCKED'/); assert.match(t, /refused:/);
+  assert.match(t, /hm >= '07:00' && hm < '07:05'/); assert.match(t, /ic\.health_check\(24\)/);
 });

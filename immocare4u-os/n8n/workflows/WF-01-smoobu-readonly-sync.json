@@ -195,7 +195,7 @@
         520
       ],
       "parameters": {
-        "jsCode": "const b = $('Work webhook').first().json.body || {};\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst wrap = (color, title, sub, inner) => '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n  + '<div dir=\"rtl\" style=\"background:' + color + ';color:#fff;padding:16px 18px;text-align:right\"><div style=\"font-size:20px;font-weight:bold\">' + title + '</div><div style=\"font-size:14px;margin-top:4px\">' + sub + '</div></div>'\n  + '<div style=\"padding:4px 18px 18px\">' + inner + '</div></div></div>';\nconst out = [];\nconst items = (b.scheduled || []).filter((j) => j && j.template_code);\nif (items.length) {\n  const NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 قبل از ورود: ویدیو، مسیر و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CAFE_TIP: '☕ صبح اول: تخفیف کافه Einstein', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };\n  const ok = items.filter((j) => j.sent).length;\n  const cards = items.map((j) => '<div style=\"border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0\">'\n    + '<div dir=\"rtl\" style=\"text-align:right;font-weight:bold;font-size:15px\">' + (j.sent ? '✅ ' : '⛔ ') + (NAME[j.template_code] || esc(j.template_code)) + '</div>'\n    + '<div dir=\"rtl\" style=\"text-align:right;color:#667085;font-size:13px;margin:4px 0 8px\">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'\n    + '<div dir=\"ltr\" style=\"background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828;white-space:pre-wrap;word-break:break-all\">' + esc(j.body).split('{{PIN}}').join('<b>••••</b>') + '</div>'\n    + '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;margin-top:6px;color:' + (j.sent ? '#067647' : '#b42318') + '\">'\n    + (j.sent ? 'از طریق Smoobu برای مهمان ارسال شد' + (j.is_pin ? ' (کد فقط در Supabase درج شد و در هیچ ایمیلی نیست)' : '') : 'ارسال نشد: ' + esc(j.reason || 'نامشخص') + ' — لطفاً خودتان بفرستید')\n    + '</div></div>').join('');\n  out.push({ subject: (ok === items.length ? '📅 ' : '⛔ ') + 'پیام‌های زمان‌بندی‌شده: ' + ok + ' از ' + items.length + ' ارسال شد',\n    html: wrap(ok === items.length ? '#067647' : '#b42318', '📅 پیام‌های زمان‌بندی‌شده', ok + ' از ' + items.length + ' پیام ارسال شد', cards) });\n}\nconst bad = (b.auto_failures || []).filter((x) => x && x.approval_code);\nif (bad.length) out.push({ subject: '⛔ جواب خودکار ارسال نشد (' + bad.length + ')',\n  html: wrap('#b42318', '⛔ جواب خودکار ارسال نشد', bad.length + ' مورد', bad.map((x) => '<p dir=\"rtl\" style=\"text-align:right\">' + esc(x.approval_code) + ': ' + esc(x.reason || 'نامشخص') + '</p>').join('') + '<p dir=\"rtl\" style=\"text-align:right\">لطفاً خودتان به مهمان جواب دهید.</p>') });\nconst errs = (b.errors || []).filter(Boolean);\nif (errs.length) out.push({ subject: '⚠️ خطا در زمان‌بند (Supabase ic-tick)',\n  html: wrap('#b42318', '⚠️ خطا در زمان‌بند', 'Supabase ic-tick', errs.map((e) => '<p dir=\"ltr\" style=\"text-align:left;font-size:13px\">' + esc(e) + '</p>').join('') + '<p dir=\"rtl\" style=\"text-align:right\">زمان‌بند ۵ دقیقه‌ی دیگر دوباره تلاش می‌کند.</p>') });\nreturn out.map((json) => ({ json }));"
+        "jsCode": "const b = $('Work webhook').first().json.body || {};\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst fmt = (d) => { const m = String(d || '').match(/(\\d{4})-(\\d\\d)-(\\d\\d)/); return m ? m[3] + '.' + m[2] + '.' + m[1] : esc(d); };\nconst wrap = (color, title, sub, inner) => '<div style=\"background:#f2f4f7;padding:12px 0\"><div style=\"max-width:600px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;background:#ffffff;border-radius:14px;overflow:hidden\">'\n  + '<div dir=\"rtl\" style=\"background:' + color + ';color:#fff;padding:16px 18px;text-align:right\"><div style=\"font-size:20px;font-weight:bold\">' + title + '</div><div style=\"font-size:14px;margin-top:4px\">' + sub + '</div></div>'\n  + '<div style=\"padding:4px 18px 18px\">' + inner + '</div></div></div>';\nconst out = [];\nconst items = (b.scheduled || []).filter((j) => j && j.template_code);\nif (items.length) {\n  const NAME = { WELCOME: '👋 خوشامد بعد از رزرو', ARRIVAL_2D: '🎬 قبل از ورود: ویدیو، مسیر و قوانین', ACCESS_PIN: '🔑 روز ورود ساعت ۱۲: کد صندوق', CAFE_TIP: '☕ صبح اول: تخفیف کافه Einstein', CHECKOUT_REMINDER: '🧳 شب قبل از خروج', REVIEW_REQUEST: '⭐ درخواست نظر' };\n  const ok = items.filter((j) => j.sent).length;\n  const cards = items.map((j) => '<div style=\"border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;margin:12px 0\">'\n    + '<div dir=\"rtl\" style=\"text-align:right;font-weight:bold;font-size:15px\">' + (j.sent ? '✅ ' : '⛔ ') + (NAME[j.template_code] || esc(j.template_code)) + '</div>'\n    + '<div dir=\"rtl\" style=\"text-align:right;color:#667085;font-size:13px;margin:4px 0 8px\">' + esc(j.internal_name) + ' · رزرو ' + esc(j.reservation_id) + ' · ' + esc(j.channel_name) + ' · ' + fmt(j.arrival) + ' → ' + fmt(j.departure) + ' · زبان ' + esc(j.lang) + '</div>'\n    + '<div dir=\"ltr\" style=\"background:#f2f4f7;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;color:#101828;white-space:pre-wrap;word-break:break-all\">' + esc(j.body).split('{{PIN}}').join('<b>••••</b>') + '</div>'\n    + '<div dir=\"rtl\" style=\"text-align:right;font-size:13px;margin-top:6px;color:' + (j.sent ? '#067647' : '#b42318') + '\">'\n    + (j.sent ? 'از طریق Smoobu برای مهمان ارسال شد' + (j.is_pin ? ' (کد فقط در Supabase درج شد و در هیچ ایمیلی نیست)' : '') : 'ارسال نشد: ' + esc(j.reason || 'نامشخص') + ' — لطفاً خودتان بفرستید')\n    + '</div></div>').join('');\n  out.push({ subject: (ok === items.length ? '📅 ' : '⛔ ') + 'پیام‌های زمان‌بندی‌شده: ' + ok + ' از ' + items.length + ' ارسال شد',\n    html: wrap(ok === items.length ? '#067647' : '#b42318', '📅 پیام‌های زمان‌بندی‌شده', ok + ' از ' + items.length + ' پیام ارسال شد', cards) });\n}\nconst bad = (b.auto_failures || []).filter((x) => x && x.approval_code);\nif (bad.length) out.push({ subject: '⛔ جواب خودکار ارسال نشد (' + bad.length + ')',\n  html: wrap('#b42318', '⛔ جواب خودکار ارسال نشد', bad.length + ' مورد', bad.map((x) => '<p dir=\"rtl\" style=\"text-align:right\">' + esc(x.approval_code) + ': ' + esc(x.reason || 'نامشخص') + '</p>').join('') + '<p dir=\"rtl\" style=\"text-align:right\">لطفاً خودتان به مهمان جواب دهید.</p>') });\nconst health = (b.health || []).filter((h) => h && h.status && h.status !== 'OK' && h.status !== 'INFO');\nif (health.length) {\n  const C = { FAIL: '#b42318', WARN: '#b54708' };\n  out.push({ subject: (health.some((h) => h.status === 'FAIL') ? '🩺⛔ ' : '🩺 ') + 'بررسی روزانه‌ی سیستم: ' + health.length + ' مورد',\n    html: wrap(health.some((h) => h.status === 'FAIL') ? '#b42318' : '#b54708', '🩺 بررسی روزانه‌ی سیستم', health.length + ' مورد نیاز به توجه دارد',\n      health.map((h) => '<div style=\"border:1px solid #eaecf0;border-radius:12px;padding:10px 12px;margin:10px 0\"><b style=\"color:' + (C[h.status] || '#344054') + '\">' + esc(h.status) + '</b> · <span dir=\"ltr\">' + esc(h.check_name) + '</span><div dir=\"ltr\" style=\"text-align:left;font-size:13px;color:#344054;margin-top:4px\">' + esc(h.detail) + '</div></div>').join('')\n      + '<p dir=\"rtl\" style=\"text-align:right;font-size:13px;color:#667085\">موارد OK نشان داده نمی‌شوند. اگر چیزی را نمی‌فهمید، همین ایمیل را برای Claude بفرستید.</p>') });\n}\nconst errs = (b.errors || []).filter(Boolean);\nif (errs.length) out.push({ subject: '⚠️ خطا در زمان‌بند (Supabase ic-tick)',\n  html: wrap('#b42318', '⚠️ خطا در زمان‌بند', 'Supabase ic-tick', errs.map((e) => '<p dir=\"ltr\" style=\"text-align:left;font-size:13px\">' + esc(e) + '</p>').join('') + '<p dir=\"rtl\" style=\"text-align:right\">زمان‌بند ۵ دقیقه‌ی دیگر دوباره تلاش می‌کند.</p>') });\nreturn out.map((json) => ({ json }));"
       }
     },
     {
@@ -224,8 +224,8 @@
       }
     },
     {
-      "id": "396b4e42-728e-3a52-5224-cc6474c46036",
-      "name": "Daily health check",
+      "id": "82f87145-a063-2d38-52f2-d75b6dcaa326",
+      "name": "Hourly watchdog",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -237,7 +237,7 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "50 7 * * *"
+              "expression": "7 8-22 * * *"
             }
           ]
         }
@@ -254,7 +254,7 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT max(finished_at) AS last_tick FROM ic.automation_runs WHERE workflow = 'ic-tick'\nHAVING coalesce(max(finished_at), 'epoch') < now() - interval '30 minutes';",
+        "query": "SELECT to_char(max(finished_at) AT TIME ZONE 'Europe/Berlin', 'DD.MM. HH24:MI') AS last_tick\nFROM ic.automation_runs WHERE workflow = 'ic-tick'\nHAVING coalesce(max(finished_at), 'epoch') < now() - interval '15 minutes';",
         "options": {}
       },
       "credentials": {
@@ -268,16 +268,49 @@
       "waitBetweenTries": 5000
     },
     {
-      "id": "3cc059ca-cd32-a2d9-1806-782060008b87",
-      "name": "Health alert",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "62bd7782-d3ae-2831-1b85-2dfe728c915b",
+      "name": "Run ic-tick now",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         3120,
         760
       ],
       "parameters": {
-        "jsCode": "const t = $input.first().json.last_tick;\nreturn [{ json: { subject: '⚠️ زمان‌بند پیام‌ها کار نمی‌کند',\n  html: '<div dir=\"rtl\" style=\"font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8\"><div style=\"background:#b42318;color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold\">⚠️ زمان‌بند پیام‌ها کار نمی‌کند</div><p>آخرین اجرای موفق Supabase ic-tick: ' + String(t || 'هرگز') + '</p><p>تا رفع مشکل، پیام‌های زمان‌بندی‌شده (کد، مسیر، …) ارسال نمی‌شوند. لطفاً به Claude خبر دهید.</p></div>' } }];"
+        "method": "POST",
+        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/ic-tick",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "timeout": 140000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Smoobu Proxy"
+        }
+      }
+    },
+    {
+      "id": "3cc059ca-cd32-a2d9-1806-782060008b87",
+      "name": "Health alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        760
+      ],
+      "parameters": {
+        "jsCode": "const t = $('Tick health').first().json.last_tick;\nconst r = $input.first().json || {};\nconst healed = typeof r.reservations === 'number' && !(r.errors || []).length;\nreturn [{ json: { subject: healed ? '⚠️ زمان‌بند Supabase متوقف بود – دستی اجرا شد' : '⛔ زمان‌بند پیام‌ها کار نمی‌کند',\n  html: '<div dir=\"rtl\" style=\"font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8\"><div style=\"background:' + (healed ? '#b54708' : '#b42318') + ';color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold\">' + (healed ? '⚠️ زمان‌بند متوقف بود' : '⛔ زمان‌بند پیام‌ها کار نمی‌کند') + '</div>'\n    + '<p>آخرین اجرای زمان‌بند (pg_cron → ic-tick): ' + String(t || 'هرگز') + '</p>'\n    + (healed ? '<p>نگهبان n8n آن را همین الان دستی اجرا کرد و پیام‌های عقب‌افتاده فرستاده شدند. تا وقتی pg_cron درست نشود، هر ساعت همین کار تکرار می‌شود. لطفاً به Claude خبر دهید.</p>'\n              : '<p>اجرای دستی هم ناموفق بود: <span dir=\"ltr\">' + String(r.error || r.reason || (r.errors || []).join(' | ') || 'نامشخص').replace(/[<>&]/g, '') + '</span></p><p>تا رفع مشکل، پیام‌های زمان‌بندی‌شده (کد، مسیر، …) ارسال نمی‌شوند. لطفاً فوراً به Claude خبر دهید.</p>')\n    + '</div>' } }];"
       }
     },
     {
@@ -286,7 +319,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        3380,
+        3640,
         300
       ],
       "parameters": {
@@ -400,7 +433,7 @@
         ]
       ]
     },
-    "Daily health check": {
+    "Hourly watchdog": {
       "main": [
         [
           {
@@ -412,6 +445,17 @@
       ]
     },
     "Tick health": {
+      "main": [
+        [
+          {
+            "node": "Run ic-tick now",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run ic-tick now": {
       "main": [
         [
           {

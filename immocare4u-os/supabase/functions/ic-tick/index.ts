@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   if (!lock[0].ok) return json(200, { skipped: 'previous tick still running' });
 
   const started = Date.now();
-  const report = { scheduled: [] as unknown[], auto_failures: [] as unknown[], drafts: 0, errors: [] as string[] };
+  const report = { scheduled: [] as unknown[], auto_failures: [] as unknown[], drafts: 0, errors: [] as string[], health: [] as unknown[] };
   const stats = { reservations: 0, fetchedMessages: 0, newMessages: 0, autoSent: 0, scheduledSent: 0 };
   const step = async (name: string, f: () => Promise<void>) => {
     try { await f(); } catch (e) { report.errors.push(name + ': ' + String(e && (e as Error).message || e).slice(0, 300)); }
@@ -102,6 +102,9 @@ Deno.serve(async (req) => {
         if (!rec.length) continue;   // already recorded (idempotent)
         const s = await fn('ic-send-scheduled', { idempotency_key: rec[0].idempotency_key });
         if (s.sent) stats.scheduledSent++;
+        else await sql`UPDATE ic.outbound_messages SET status = 'BLOCKED',
+                         smoobu_response = ${sql.json({ refused: String(s.reason || s.error || 'unknown').slice(0, 300) })}
+                       WHERE idempotency_key = ${rec[0].idempotency_key} AND status = 'DRAFT'`;   // reason kept for the health check
         report.scheduled.push({ template_code: j.template_code, internal_name: j.internal_name, reservation_id: j.reservation_id,
           channel_name: j.channel_name, arrival: j.arrival, departure: j.departure, lang: j.lang, body: j.body, is_pin: j.is_pin,
           sent: !!s.sent, reason: s.reason || s.error || (s.sent ? '' : 'unknown') });
@@ -109,11 +112,19 @@ Deno.serve(async (req) => {
     });
     // 5) drafts needed?
     await step('drafts', async () => { report.drafts = (await q(SQL.TRIGGER_DRAFTS)).length; });
+    // 6) once a day (07:00–07:04 Berlin): automatic health check, e-mailed only if something is not OK
+    await step('health', async () => {
+      const hm = new Date().toLocaleTimeString('sv-SE', { timeZone: 'Europe/Berlin' }).slice(0, 5);
+      if (hm >= '07:00' && hm < '07:05') {
+        const rows = await sql`SELECT * FROM ic.health_check(24)`;
+        report.health = rows.filter((r) => r.status === 'WARN' || r.status === 'FAIL');
+      }
+    });
   } finally {
     await sql`SELECT pg_advisory_unlock(${LOCK})`;
   }
 
-  const work = report.drafts > 0 || report.scheduled.length > 0 || report.auto_failures.length > 0 || report.errors.length > 0;
+  const work = report.drafts > 0 || report.scheduled.length > 0 || report.auto_failures.length > 0 || report.errors.length > 0 || report.health.length > 0;
   let woke = false;
   if (work) {
     try {

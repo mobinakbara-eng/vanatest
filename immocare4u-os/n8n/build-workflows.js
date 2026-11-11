@@ -995,32 +995,13 @@ const SEND_URL = (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhg
 const SEND_SCHED_URL = (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1') + '/ic-send-scheduled';
 const PIN_URL = (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1') + '/ic-access-pin';
 
-const DUE_SQL = `SELECT d.*, x.due_at FROM (
-  SELECT s.template_code, r.reservation_id, r.property_id, p.internal_name, p.street_address, p.postal_code,
-         CASE WHEN lower(coalesce(r.raw->>'language','')) LIKE 'de%' THEN 'de' ELSE 'en' END AS lang,
-         r.arrival::text AS arrival, r.departure::text AS departure, r.channel_name, r.check_in_at, r.check_out_at,
-         c.booked_at,
-         CASE s.anchor
-           WHEN 'CHECK_IN'  THEN r.check_in_at
-           WHEN 'CHECK_OUT' THEN r.check_out_at
-           ELSE c.booked_at
-         END + make_interval(mins => s.offset_minutes) AS planned_at
-  FROM ic.property_message_schedules s
-  JOIN ic.reservations r ON r.property_id = s.property_id
-  JOIN ic.properties p ON p.property_id = r.property_id
-  CROSS JOIN LATERAL (SELECT CASE WHEN (r.raw->>'created-at') ~ '^\\d{4}-\\d\\d-\\d\\d'
-                                  THEN ((r.raw->>'created-at')::timestamp AT TIME ZONE p.timezone) END AS booked_at) c
-  WHERE s.enabled AND r.status IN ('CONFIRMED','MODIFIED')
-) d
--- last-minute bookings: arrival info and PIN are sent 10 min after booking if their normal time already passed
-CROSS JOIN LATERAL (SELECT CASE WHEN d.template_code IN ('ARRIVAL_2D','ACCESS_PIN') AND d.booked_at IS NOT NULL
-                                THEN GREATEST(d.planned_at, d.booked_at + interval '10 minutes') ELSE d.planned_at END AS due_at) x
-WHERE x.due_at <= now()
-  AND x.due_at >= now() - CASE WHEN d.template_code = 'ACCESS_PIN' THEN interval '12 hours' ELSE interval '2 hours' END
-  AND (d.template_code = 'REVIEW_REQUEST' OR d.check_out_at IS NULL OR x.due_at < d.check_out_at)
-  AND (d.template_code <> 'ARRIVAL_2D' OR d.check_in_at IS NULL OR x.due_at < d.check_in_at)
+// The plan (due times, last-minute rule, validity) lives in the view ic.v_schedule_plan (migration 007),
+// so sending and the health check use exactly the same rules.
+const DUE_SQL = `SELECT d.* FROM ic.v_schedule_plan d
+WHERE d.due_at <= now()
+  AND d.due_at >= now() - CASE WHEN d.template_code = 'ACCESS_PIN' THEN interval '12 hours' ELSE interval '2 hours' END
   AND NOT EXISTS (SELECT 1 FROM ic.outbound_messages o WHERE o.idempotency_key = 'sched:' || d.reservation_id || ':' || d.template_code)
-ORDER BY x.due_at
+ORDER BY d.due_at
 LIMIT 50;`;
 
 
@@ -1088,6 +1069,14 @@ if (items.length) {
 const bad = (b.auto_failures || []).filter((x) => x && x.approval_code);
 if (bad.length) out.push({ subject: '⛔ جواب خودکار ارسال نشد (' + bad.length + ')',
   html: wrap('#b42318', '⛔ جواب خودکار ارسال نشد', bad.length + ' مورد', bad.map((x) => '<p dir="rtl" style="text-align:right">' + esc(x.approval_code) + ': ' + esc(x.reason || 'نامشخص') + '</p>').join('') + '<p dir="rtl" style="text-align:right">لطفاً خودتان به مهمان جواب دهید.</p>') });
+const health = (b.health || []).filter((h) => h && h.status && h.status !== 'OK' && h.status !== 'INFO');
+if (health.length) {
+  const C = { FAIL: '#b42318', WARN: '#b54708' };
+  out.push({ subject: (health.some((h) => h.status === 'FAIL') ? '🩺⛔ ' : '🩺 ') + 'بررسی روزانه‌ی سیستم: ' + health.length + ' مورد',
+    html: wrap(health.some((h) => h.status === 'FAIL') ? '#b42318' : '#b54708', '🩺 بررسی روزانه‌ی سیستم', health.length + ' مورد نیاز به توجه دارد',
+      health.map((h) => '<div style="border:1px solid #eaecf0;border-radius:12px;padding:10px 12px;margin:10px 0"><b style="color:' + (C[h.status] || '#344054') + '">' + esc(h.status) + '</b> · <span dir="ltr">' + esc(h.check_name) + '</span><div dir="ltr" style="text-align:left;font-size:13px;color:#344054;margin-top:4px">' + esc(h.detail) + '</div></div>').join('')
+      + '<p dir="rtl" style="text-align:right;font-size:13px;color:#667085">موارد OK نشان داده نمی‌شوند. اگر چیزی را نمی‌فهمید، همین ایمیل را برای Claude بفرستید.</p>') });
+}
 const errs = (b.errors || []).filter(Boolean);
 if (errs.length) out.push({ subject: '⚠️ خطا در زمان‌بند (Supabase ic-tick)',
   html: wrap('#b42318', '⚠️ خطا در زمان‌بند', 'Supabase ic-tick', errs.map((e) => '<p dir="ltr" style="text-align:left;font-size:13px">' + esc(e) + '</p>').join('') + '<p dir="rtl" style="text-align:right">زمان‌بند ۵ دقیقه‌ی دیگر دوباره تلاش می‌کند.</p>') });
@@ -1121,11 +1110,20 @@ SELECT * FROM upd;`;
 // Supabase pg_cron → Edge Function ic-tick (every 5 min, costs no n8n executions) does the Smoobu
 // sync, scheduled messages, auto replies and approval expiry. It wakes this workflow ONLY when
 // there is work: a guest message that needs an AI draft, or a report to e-mail.
-const TICK_HEALTH_SQL = `SELECT max(finished_at) AS last_tick FROM ic.automation_runs WHERE workflow = 'ic-tick'
-HAVING coalesce(max(finished_at), 'epoch') < now() - interval '30 minutes';`;
-const HEALTH_JS = `const t = $input.first().json.last_tick;
-return [{ json: { subject: '⚠️ زمان‌بند پیام‌ها کار نمی‌کند',
-  html: '<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8"><div style="background:#b42318;color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold">⚠️ زمان‌بند پیام‌ها کار نمی‌کند</div><p>آخرین اجرای موفق Supabase ic-tick: ' + String(t || 'هرگز') + '</p><p>تا رفع مشکل، پیام‌های زمان‌بندی‌شده (کد، مسیر، …) ارسال نمی‌شوند. لطفاً به Claude خبر دهید.</p></div>' } }];`;
+// Watchdog (hourly 08–22 Berlin, independent of pg_cron): if ic-tick has not run for 15 min,
+// it runs ic-tick itself (self-healing) and e-mails the manager. Returns no row when all is fine.
+const TICK_HEALTH_SQL = `SELECT to_char(max(finished_at) AT TIME ZONE 'Europe/Berlin', 'DD.MM. HH24:MI') AS last_tick
+FROM ic.automation_runs WHERE workflow = 'ic-tick'
+HAVING coalesce(max(finished_at), 'epoch') < now() - interval '15 minutes';`;
+const HEALTH_JS = `const t = $('Tick health').first().json.last_tick;
+const r = $input.first().json || {};
+const healed = typeof r.reservations === 'number' && !(r.errors || []).length;
+return [{ json: { subject: healed ? '⚠️ زمان‌بند Supabase متوقف بود – دستی اجرا شد' : '⛔ زمان‌بند پیام‌ها کار نمی‌کند',
+  html: '<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right;line-height:1.8"><div style="background:' + (healed ? '#b54708' : '#b42318') + ';color:#fff;padding:14px 16px;border-radius:12px;font-size:18px;font-weight:bold">' + (healed ? '⚠️ زمان‌بند متوقف بود' : '⛔ زمان‌بند پیام‌ها کار نمی‌کند') + '</div>'
+    + '<p>آخرین اجرای زمان‌بند (pg_cron → ic-tick): ' + String(t || 'هرگز') + '</p>'
+    + (healed ? '<p>نگهبان n8n آن را همین الان دستی اجرا کرد و پیام‌های عقب‌افتاده فرستاده شدند. تا وقتی pg_cron درست نشود، هر ساعت همین کار تکرار می‌شود. لطفاً به Claude خبر دهید.</p>'
+              : '<p>اجرای دستی هم ناموفق بود: <span dir="ltr">' + String(r.error || r.reason || (r.errors || []).join(' | ') || 'نامشخص').replace(/[<>&]/g, '') + '</span></p><p>تا رفع مشکل، پیام‌های زمان‌بندی‌شده (کد، مسیر، …) ارسال نمی‌شوند. لطفاً فوراً به Claude خبر دهید.</p>')
+    + '</div>' } }];`;
 
 function wf01() {
   pos = 0;
@@ -1138,8 +1136,14 @@ function wf01() {
     ...draftNodes(),
     code('Tick report', TICK_REPORT_JS, { y: 520 }),
     gmailNode('Email report'),
-    node('Daily health check', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'cronExpression', expression: '50 7 * * *' }] } }, { y: 760 }),
+    node('Hourly watchdog', 'n8n-nodes-base.scheduleTrigger', 1.2, { rule: { interval: [{ field: 'cronExpression', expression: '7 8-22 * * *' }] } }, { y: 760 }),
     health,
+    node('Run ic-tick now', 'n8n-nodes-base.httpRequest', 4.2, {
+      method: 'POST', url: (process.env.IC_SUPABASE_FUNCTIONS || 'https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1') + '/ic-tick',
+      authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+      sendBody: true, specifyBody: 'json', jsonBody: '{}',
+      options: { timeout: 140000, response: { response: { neverError: true } } },
+    }, { credentials: cred('httpHeaderAuth', 'IC Smoobu Proxy'), y: 760 }),
     code('Health alert', HEALTH_JS, { y: 760 }),
     gmailNode('Email health alert'),
   ];
@@ -1151,8 +1155,9 @@ function wf01() {
       ['Work webhook', 'Tick report'],
       ...DRAFT_CONNECTIONS,
       ['Tick report', 'Email report'],
-      ['Daily health check', 'Tick health'],
-      ['Tick health', 'Health alert'],
+      ['Hourly watchdog', 'Tick health'],
+      ['Tick health', 'Run ic-tick now'],
+      ['Run ic-tick now', 'Health alert'],
       ['Health alert', 'Email health alert'],
     ]),
     settings: { executionOrder: 'v1', timezone: 'Europe/Berlin' },
