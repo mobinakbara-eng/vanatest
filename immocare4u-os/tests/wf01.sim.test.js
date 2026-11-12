@@ -640,3 +640,19 @@ test('knowledge backup: no secrets, restorable into an empty copy, idempotent', 
   assert.equal(sqlT("SELECT count(*) FROM ic.property_kb_entries WHERE visibility <> 'RESTRICTED'"), before);
   assert.notEqual(sqlT("SELECT count(*) FROM ic.property_kb_entries WHERE key = 'offer_einstein_cafe'"), '0');
 });
+
+test('contact guard: the team phone number from the verified KB is allowed, any other number or e-mail is removed', () => {
+  const kb = [{ key: 'team_phone', lang: 'de', value: 'Team: +49 170 2327351', verified: true }];
+  const ok = decide(aiResp({ ...base, reply: 'Rufen Sie uns an: +49 170 2327351.', used_kb_keys: ['team_phone'] }), src({ kb }));
+  assert.match(ok.payload.reply, /\+49 170 2327351/); assert.ok(!ok.payload.flags.includes('CONTACT_REMOVED'));
+  const bad = decide(aiResp({ ...base, reply: 'Rufen Sie +49 160 1234567 an oder schreiben Sie an a@b.de.' }), src({ kb }));
+  assert.doesNotMatch(bad.payload.reply, /1234567|a@b\.de/); assert.equal(bad.payload.level, 4);
+  const unverified = decide(aiResp({ ...base, reply: 'Tel +49 170 2327351' }), src({ kb: [{ ...kb[0], verified: false }] }));
+  assert.doesNotMatch(unverified.payload.reply, /2327351/);
+});
+
+test('ic-tick reads the conversation list for Airbnb host messages, only for bookings read in the same tick', () => {
+  const t = fs.readFileSync(path.join(__dirname, '../supabase/functions/ic-tick/index.ts'), 'utf8');
+  assert.match(t, /smoobu\('\/api\/threads', \{ page_number: 1 \}\)/);
+  assert.match(t, /if \(!fetched\.has\(rid\)/); assert.match(t, /'OUTBOUND', 'HOST'/); assert.match(t, /ON CONFLICT \(smoobu_message_id\) DO NOTHING/);
+});

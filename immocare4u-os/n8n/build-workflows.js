@@ -561,7 +561,14 @@ return $input.all().map((item, idx) => {
   const others = (src.other_units || []).filter(Boolean).map((n) => String(n).toLowerCase());
   const low = reply.toLowerCase();
   if (others.some((n) => low.includes(n)) || /\\bP-[A-Z]{3}-\\d{3}\\b/.test(reply)) { reply = ''; flags.push('LEAK_BLOCKED'); level = Math.min(level, 2); }
-  if (/[\\w.+-]+@[\\w-]+\\.[\\w.]+|\\+?\\d[\\d \\-\\/]{8,}\\d/.test(reply)) { reply = reply.replace(/[\\w.+-]+@[\\w-]+\\.[\\w.]+/g, '[…]').replace(/\\+?\\d[\\d \\-\\/]{8,}\\d/g, '[…]'); flags.push('CONTACT_REMOVED'); level = Math.min(level, 4); }
+  // contact data: only the team phone number from the VERIFIED knowledge base may appear in a reply
+  const digits = (x) => String(x).replace(/\\D/g, '');
+  const kbPhones = (src.kb || []).filter((k) => k.verified).flatMap((k) => String(k.value || '').match(/\\+?\\d[\\d \\-\\/]{8,}\\d/g) || []).map(digits);
+  const contactRe = /[\\w.+-]+@[\\w-]+\\.[\\w.]+|\\+?\\d[\\d \\-\\/]{8,}\\d/g;
+  if ((reply.match(contactRe) || []).some((c) => !kbPhones.includes(digits(c)) || c.includes('@'))) {
+    reply = reply.replace(contactRe, (c) => (!c.includes('@') && kbPhones.includes(digits(c)) ? c : '[…]'));
+    flags.push('CONTACT_REMOVED'); level = Math.min(level, 4);
+  }
   if (ai && ai.confidence < 0.8 && level >= 5) { level = 4; flags.push('LOW_CONFIDENCE'); }
   const unverified = (src.kb || []).filter((k) => !k.verified).map((k) => k.key);
   const usedUnverified = (ai && ai.used_kb_keys || []).filter((k) => unverified.includes(k));

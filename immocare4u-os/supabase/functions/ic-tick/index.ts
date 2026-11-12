@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
 
   const started = Date.now();
   const report = { scheduled: [] as unknown[], auto_failures: [] as unknown[], drafts: 0, errors: [] as string[], health: [] as unknown[] };
-  const stats = { reservations: 0, fetchedMessages: 0, newMessages: 0, autoSent: 0, scheduledSent: 0 };
+  const stats = { reservations: 0, fetchedMessages: 0, newMessages: 0, hostFromThreads: 0, autoSent: 0, scheduledSent: 0 };
+  const fetched = new Set<number>();   // reservations whose messages were read in this tick
   const step = async (name: string, f: () => Promise<void>) => {
     try { await f(); } catch (e) { report.errors.push(name + ': ' + String(e && (e as Error).message || e).slice(0, 300)); }
   };
@@ -72,11 +73,32 @@ Deno.serve(async (req) => {
       }
       for (const spec of specs) {
         const m = await smoobu('/api/reservations/' + spec.reservationId + '/messages');
+        if (m.statusCode === 200) fetched.add(spec.reservationId);
         for (const p of messageRows([m], [spec])) {   // throws on HTTP error
           stats.fetchedMessages++;
           const ins = await q(SQL.STORE_MESSAGE, p);
           if (ins.length) stats.newMessages++;
         }
+      }
+    });
+    // 1b) Airbnb: messages the host (team or this system) sends do not appear in /reservations/{id}/messages,
+    //     only in the conversation list. The latest message of a conversation that is NOT among the messages
+    //     just read for that booking is therefore a host message → store it, so drafts/auto replies/health
+    //     checks know the guest was already answered. Only for bookings read in THIS tick (no guessing).
+    await step('threads', async () => {
+      const t = await smoobu('/api/threads', { page_number: 1 });
+      if (t.statusCode !== 200) throw new Error('threads HTTP ' + t.statusCode);
+      for (const th of (t.body && t.body.threads) || []) {
+        const rid = Number(th.booking && th.booking.id), lm = th.latest_message;
+        if (!fetched.has(rid) || !lm || !lm.id || !lm.created_at) continue;
+        const text = String(lm.text_content || String(lm.html_content || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+        if (!text) continue;
+        const ins = await sql`INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, subject, body, sent_at)
+          SELECT ${lm.id}, r.reservation_id, r.property_id, 'OUTBOUND', 'HOST', ${lm.subject || null}, ${text},
+                 (${String(lm.created_at)}::timestamp AT TIME ZONE 'Europe/Berlin')
+          FROM ic.reservations r WHERE r.reservation_id = ${rid} AND r.property_id IS NOT NULL
+          ON CONFLICT (smoobu_message_id) DO NOTHING RETURNING message_pk`;
+        if (ins.length) stats.hostFromThreads++;
       }
     });
     // 2) expire approvals

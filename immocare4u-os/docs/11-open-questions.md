@@ -18,3 +18,13 @@
 | — | n8n | Credential `IC Gmail` (immocare4u.kontakt@gmail.com) |
 | ✅ | n8n | Credential `IC Anthropic` ساخته شد (2026-11-04، Claude Haiku 5.5) — کلید اول (بدون Workspace) را در Console حذف کنید |
 | — | اکسل | بازبینی ردیف‌ها و OK کردن |
+
+## Update 12.11.2026 (from the Airbnb listings / owner)
+- Answered: City max guests = 4 (double bed + sofa bed); team phone +49 170 2327351 (in KB, may be given to guests);
+  house rules identical for both apartments (no parties/events, quiet hours 22:00, noise sensor dB only, check-in 15–22).
+- Still open:
+  - Loft max guests: the Airbnb listing says 6, older chats say 8 (incl. folding beds). Which is correct?
+  - The City Airbnb listing says check-in "any time"; the owner rule is 15:00–22:00 → listing text should be aligned.
+  - Smoobu automatic messages (welcome with Loft "lower box"/"code 2 days before", farewell 14:00) → owner turns them off
+    in Smoobu; then re-enable our WELCOME and REVIEW_REQUEST (`UPDATE ic.property_message_schedules SET enabled = true
+    WHERE template_code IN ('WELCOME','REVIEW_REQUEST')`).
