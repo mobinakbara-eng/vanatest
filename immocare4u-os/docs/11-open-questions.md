@@ -23,8 +23,9 @@
 - Answered: City max guests = 4 (double bed + sofa bed); team phone +49 170 2327351 (in KB, may be given to guests);
   house rules identical for both apartments (no parties/events, quiet hours 22:00, noise sensor dB only, check-in 15–22).
 - Still open:
-  - Loft max guests: the Airbnb listing says 6, older chats say 8 (incl. folding beds). Which is correct?
-  - The City Airbnb listing says check-in "any time"; the owner rule is 15:00–22:00 → listing text should be aligned.
+  - ~~Loft max guests~~ → answered 12.11.2026: **6** (rows saying 8 / folding beds marked OUTDATED).
+  - ~~Check-in window~~ → answered 12.11.2026: **15:00–22:00 for both** (City Airbnb listing text "any time" should be aligned).
+  - Team phone = the number on immocare4u.com (+49 170 2327351, phone + WhatsApp) – confirmed 12.11.2026.
   - Smoobu automatic messages (welcome with Loft "lower box"/"code 2 days before", farewell 14:00) → owner turns them off
     in Smoobu; then re-enable our WELCOME and REVIEW_REQUEST (`UPDATE ic.property_message_schedules SET enabled = true
     WHERE template_code IN ('WELCOME','REVIEW_REQUEST')`).
