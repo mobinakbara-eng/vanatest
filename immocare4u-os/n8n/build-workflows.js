@@ -202,7 +202,7 @@ return [{ json: {
 SELECT $1::bigint, p.property_id, $2::bigint, $3, $4, $5::date, $6::date,
   CASE WHEN p.check_in_time  IS NOT NULL THEN ($5::date + p.check_in_time)  AT TIME ZONE p.timezone END,
   CASE WHEN p.check_out_time IS NOT NULL THEN ($6::date + p.check_out_time) AT TIME ZONE p.timezone END,
-  $7::int, $8::int, $9, $10::boolean, $11::numeric, $12::jsonb, now()
+  $7::int, $8::int, $9, $10::boolean, $11::numeric, $12::text::jsonb, now()
 FROM (SELECT 1) one LEFT JOIN ic.properties p ON p.smoobu_apartment_id = $2::bigint
 ON CONFLICT (reservation_id) DO UPDATE SET
   property_id = EXCLUDED.property_id, channel_name = EXCLUDED.channel_name, reference_id = EXCLUDED.reference_id,
@@ -252,7 +252,7 @@ INSERT INTO ic.message_classifications (message_pk, level, intent, rule_level, m
 SELECT message_pk,
        -- Unmapped property ⇒ never auto: force REVIEW at minimum
        CASE WHEN $3 IS NULL AND $9 = 'AUTO' THEN 'REVIEW' ELSE $9 END::ic.msg_level,
-       $10, $9::ic.msg_level, $11::text[], coalesce($12, '') || CASE WHEN $3 IS NULL THEN ',UNMAPPED_PROPERTY' ELSE '' END
+       $10, $9::ic.msg_level, $11::text::text[], coalesce($12, '') || CASE WHEN $3 IS NULL THEN ',UNMAPPED_PROPERTY' ELSE '' END
 FROM m WHERE $9 IS NOT NULL
 RETURNING message_pk, level, intent;`, `={{ $json.p }}`, { alwaysOutputData: true }),
 
