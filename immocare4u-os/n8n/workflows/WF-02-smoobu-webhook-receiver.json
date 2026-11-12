@@ -1,0 +1,584 @@
+{
+  "name": "WF-02 — Smoobu Webhook Receiver (TEST MODE)",
+  "nodes": [
+    {
+      "id": "8562b42e-19d1-14fc-92e5-61a92cb92342",
+      "name": "Smoobu Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "smoobu/inbound",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "b844f56a-9438-d875-f4db-9af890d4982b",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Webhook Gate"
+        }
+      }
+    },
+    {
+      "id": "f44fa4bc-b5e6-77b1-fc9d-fac1e02bed67",
+      "name": "Authenticate & Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n// Caller authenticity is enforced by the Webhook node (Header Auth \"IC Webhook Gate\"),\n// which only the Supabase smoobu-webhook function knows. Here we validate the payload.\nconst item = $input.first().json;\nconst valid = true;\nconst body = item.body || {};\nconst action = String(body.action || '');\nconst data = body.data || {};\nconst known = ['newReservation','updateReservation','cancelReservation','deleteReservation','newMessage','onlineCheckInUpdate','updateRates'];\nconst raw = JSON.stringify(body);\nconst sha = crypto.createHash('sha256').update(raw).digest('hex');\n// newMessage: message id is unique. Reservation events repeat per reservation → include payload hash.\nconst key = action === 'newMessage' ? 'smoobu:newMessage:' + data.id : 'smoobu:' + action + ':' + data.id + ':' + sha.slice(0, 16);\nconst reservationId = action === 'newMessage' ? (data.booking && data.booking.id) : data.id;\nreturn [{ json: { valid: valid && known.includes(action) && !!data.id, action, data, raw, sha, key, reservationId,\n  sender: data.sender || null } }];"
+      }
+    },
+    {
+      "id": "9a499769-a8bf-4e34-65e8-6d413d1dd2cf",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "v",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a5206752-3b28-204f-d0ba-4a3671bfe571",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        780,
+        500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":false}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "2a307630-d476-d187-116f-a5ec85862899",
+      "name": "Inbox (idempotent)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ic.webhook_events (source, action, idempotency_key, payload, payload_sha256)\nVALUES ('smoobu', $1, $2, $3::jsonb, $4)\nON CONFLICT (idempotency_key) DO NOTHING\nRETURNING event_id;",
+        "options": {
+          "queryReplacement": "={{ [ $json.action, $json.key, $json.raw, $json.sha ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "41978a15-044b-46ef-f833-772896f016e0",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":true}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "452d391b-dc83-c193-5fb9-d678787bd129",
+      "name": "New event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "n",
+              "leftValue": "={{ $json.event_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e2515f7b-ed83-be2a-1a25-1b05ee4724fd",
+      "name": "Request GET reservation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        300
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map((item) => {\n  const spec = (() => ({ method: 'GET', path: '/api/reservations/' + encodeURIComponent($('Authenticate & Key').first().json.reservationId) }))(item.json);\n  return { json: { ...item.json, req: { method: spec.method || 'GET', path: spec.path, query: spec.query || null } } };\n});"
+      }
+    },
+    {
+      "id": "09242b30-cfd5-8f9e-d0f4-5e1ad5af901e",
+      "name": "Smoobu GET reservation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/smoobu-proxy",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.req) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Smoobu Proxy"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "7e06d0d9-8355-662b-6851-7969f55b66e0",
+      "name": "Normalize reservation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const ev = $('Authenticate & Key').first().json;\nconst eventId = $('Inbox (idempotent)').first().json.event_id;\nconst r = $input.first().json;\nlet res = r.statusCode === 200 ? r.body : null;\nif (!res && ev.action === 'newMessage') {\n  throw new Error('Reservation ' + ev.reservationId + ' not retrievable (HTTP ' + r.statusCode + ')');\n}\n// Deleted reservations may 404 → fall back to webhook data\nres = res || ev.data;\nconst statusMap = { cancelReservation: 'CANCELLED', deleteReservation: 'DELETED' };\nlet status = statusMap[ev.action] || (String(res.type || '').toLowerCase().includes('cancel') ? 'CANCELLED'\n  : String(res.type || '').toLowerCase().includes('modification') ? 'MODIFIED' : 'CONFIRMED');\nif (res['is-blocked-booking']) status = 'BLOCKED';\n// Data minimisation: keep PII out of the raw copy\nconst PII = ['email','phone','address','guest-name','firstname','lastname','notice','assistantNotice'];\nconst raw = Object.fromEntries(Object.entries(res).filter(([k]) => !PII.includes(k)));\nreturn [{ json: {\n  eventId, action: ev.action,\n  p: [ Number(res.id || ev.reservationId), Number((res.apartment && res.apartment.id) || 0),\n       (res.channel && res.channel.name) || null, res['reference-id'] || null,\n       res.arrival, res.departure, res.adults ?? null, res.children ?? null,\n       status, !!res['is-blocked-booking'], res.price ?? null, JSON.stringify(raw) ]\n}}];"
+      }
+    },
+    {
+      "id": "02a8ba71-aa85-6d6d-26f2-718e30c26391",
+      "name": "Upsert reservation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2600,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ic.reservations AS r (reservation_id, property_id, smoobu_apartment_id, channel_name, reference_id,\n  arrival, departure, check_in_at, check_out_at, adults, children, status, is_blocked_period, price_total, raw, last_synced_at)\nSELECT $1::bigint, p.property_id, $2::bigint, $3, $4, $5::date, $6::date,\n  CASE WHEN p.check_in_time  IS NOT NULL THEN ($5::date + p.check_in_time)  AT TIME ZONE p.timezone END,\n  CASE WHEN p.check_out_time IS NOT NULL THEN ($6::date + p.check_out_time) AT TIME ZONE p.timezone END,\n  $7::int, $8::int, $9, $10::boolean, $11::numeric, $12::text::jsonb, now()\nFROM (SELECT 1) one LEFT JOIN ic.properties p ON p.smoobu_apartment_id = $2::bigint\nON CONFLICT (reservation_id) DO UPDATE SET\n  property_id = EXCLUDED.property_id, channel_name = EXCLUDED.channel_name, reference_id = EXCLUDED.reference_id,\n  arrival = EXCLUDED.arrival, departure = EXCLUDED.departure, check_in_at = EXCLUDED.check_in_at,\n  check_out_at = EXCLUDED.check_out_at, adults = EXCLUDED.adults, children = EXCLUDED.children,\n  status = EXCLUDED.status, is_blocked_period = EXCLUDED.is_blocked_period, price_total = EXCLUDED.price_total,\n  raw = EXCLUDED.raw, last_synced_at = now()\nRETURNING reservation_id, property_id, status;",
+        "options": {
+          "queryReplacement": "={{ $json.p }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "7cdf5f44-1b82-5c56-5a95-9caa5d401f3c",
+      "name": "Is message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "m",
+              "leftValue": "={{ $('Authenticate & Key').first().json.action }}",
+              "rightValue": "newMessage",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c37118cc-417e-7641-102f-43b37feed5a6",
+      "name": "Request GET messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        300
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map((item) => {\n  const spec = (() => ({ method: 'GET', path: '/api/reservations/' + encodeURIComponent($('Authenticate & Key').first().json.reservationId) + '/messages' }))(item.json);\n  return { json: { ...item.json, req: { method: spec.method || 'GET', path: spec.path, query: spec.query || null } } };\n});"
+      }
+    },
+    {
+      "id": "bf7a6f3d-5263-15f2-cc69-f5aeddba574b",
+      "name": "Smoobu GET messages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3380,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://bkqtruzcrypiudhgzmhs.supabase.co/functions/v1/smoobu-proxy",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.req) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Smoobu Proxy"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "20cae73e-6d1a-9501-779a-e09fd2b2917f",
+      "name": "Pick & classify message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        300
+      ],
+      "parameters": {
+        "jsCode": "/**\n * Deterministic rule engine for guest-message classification (DE/EN).\n *\n * The rule engine is the FIRST and authoritative gate: the LLM may raise the\n * level, never lower it below what a rule matched (see combineClassification).\n * Levels: AUTO < REVIEW < CRITICAL < EMERGENCY.\n *\n * Status: PLANNED → unit-tested; patterns must be tuned on real (anonymised) guest messages.\n */\n\nconst IC_LEVEL_ORDER = ['AUTO', 'REVIEW', 'CRITICAL', 'EMERGENCY'];\n\n// Order matters only for intent naming; the highest level always wins.\nconst IC_RULES = [\n  // ---- EMERGENCY --------------------------------------------------------\n  { id: 'EMG_FIRE', level: 'EMERGENCY', intent: 'EMERGENCY_FIRE',\n    re: /\\b(fire|smoke|burning|feuer|brand|brennt|rauch)\\b/i },\n  { id: 'EMG_GAS', level: 'EMERGENCY', intent: 'EMERGENCY_GAS',\n    re: /\\b(gas\\s?(leak|smell)|smell(s)? (of )?gas|gasgeruch|riecht nach gas)\\b/i },\n  { id: 'EMG_WATER', level: 'EMERGENCY', intent: 'EMERGENCY_WATER',\n    re: /\\b(flood(ing|ed)?|burst pipe|water (everywhere|leak(ing)? (from|through) (the )?ceiling)|überschwemm\\w*|rohrbruch|wasserschaden|wasser (läuft|tropft) (aus|von) der decke)\\b/i },\n  { id: 'EMG_ELEC', level: 'EMERGENCY', intent: 'EMERGENCY_ELECTRIC',\n    re: /\\b(electric(al)? shock|sparks?|stromschlag|funken|kabel (brennt|qualmt))\\b/i },\n  { id: 'EMG_MEDICAL', level: 'EMERGENCY', intent: 'EMERGENCY_MEDICAL',\n    re: /\\b(ambulance|unconscious|heart attack|not breathing|bleeding (heavily|a lot)|krankenwagen|notarzt|bewusstlos|herzinfarkt|atmet nicht)\\b/i },\n  { id: 'EMG_SAFETY', level: 'EMERGENCY', intent: 'EMERGENCY_SAFETY',\n    re: /\\b(break-?in|burglar|intruder|someone (is )?(in|inside) the apartment|threat(en(ed|ing))?|attack(ed)?|einbruch|einbrecher|bedroht|angegriffen|eingesperrt|trapped|locked in)\\b/i },\n  { id: 'EMG_POLICE', level: 'EMERGENCY', intent: 'EMERGENCY_GENERIC',\n    re: /\\b(emergency|notfall|police|polizei|112|110)\\b/i },\n\n  // ---- CRITICAL ---------------------------------------------------------\n  { id: 'CRT_REFUND', level: 'CRITICAL', intent: 'REFUND',\n    re: /\\b(refund|money back|chargeback|erstattung|rückerstattung|geld zurück|erstatten)\\b/i },\n  { id: 'CRT_LEGAL', level: 'CRITICAL', intent: 'LEGAL_THREAT',\n    re: /\\b(lawyer|attorney|sue|lawsuit|legal action|court|anwalt|rechtsanwalt|verklagen|klage|gericht|verbraucherzentrale)\\b/i },\n  { id: 'CRT_MEDIA', level: 'CRITICAL', intent: 'MEDIA_OR_REVIEW_THREAT',\n    re: /\\b(press|journalist|newspaper|bad review|1[- ]star|presse|zeitung|schlechte bewertung)\\b/i },\n  { id: 'CRT_CANCEL_DISPUTE', level: 'CRITICAL', intent: 'CANCELLATION_DISPUTE',\n    re: /\\b(cancel\\w*|storn\\w*)\\b.*\\b(refund|money|compensation|geld|entschädigung|erstatt\\w*)\\b/i },\n  { id: 'CRT_DAMAGE', level: 'CRITICAL', intent: 'SERIOUS_DAMAGE',\n    re: /\\b(broken window|door (is )?broken|damaged|destroyed|kaputt(e|es)? (fenster|tür)|beschädigt|zerstört)\\b/i },\n  { id: 'CRT_SECURITY', level: 'CRITICAL', intent: 'SECURITY_ACCESS',\n    re: /\\b(lost (the |my )?key|key (is )?lost|stolen|change the code|code (doesn'?t|does not) work|can'?t (get|come) in|locked out|schlüssel verloren|gestohlen|code funktioniert nicht|komme nicht rein|ausgesperrt)\\b/i },\n  { id: 'CRT_NEIGHBOUR', level: 'CRITICAL', intent: 'NEIGHBOUR_CONFLICT',\n    re: /\\b(neighbou?r\\w* (complain|angry|shout)|nachbar\\w* (beschwer|streit|schrei))/i },\n  { id: 'CRT_COMPENSATION', level: 'CRITICAL', intent: 'COMPENSATION',\n    re: /\\b(compensation|discount|reimburse|entschädigung|rabatt|preisnachlass|minderung)\\b/i },\n\n  // ---- REVIEW -----------------------------------------------------------\n  { id: 'REV_EARLY_CHECKIN', level: 'REVIEW', intent: 'EARLY_CHECKIN',\n    re: /\\b(early check-?in|arrive (earlier|early)|früher (einchecken|anreisen|kommen)|früh(er|en)? check-?in)\\b/i },\n  { id: 'REV_LATE_CHECKOUT', level: 'REVIEW', intent: 'LATE_CHECKOUT',\n    re: /\\b(late check-?out|leave later|stay longer|später (auschecken|abreisen)|später(er|en)? check-?out)\\b/i },\n  { id: 'REV_EXTRA', level: 'REVIEW', intent: 'EXTRA_SERVICE',\n    re: /\\b(extra (bed|towels?|blanket)|baby ?cot|crib|zusätzlich\\w* (bett|handtücher|decke)|babybett|kinderbett)\\b/i },\n  { id: 'REV_CLEANING', level: 'REVIEW', intent: 'CLEANING_ISSUE',\n    re: /\\b(dirty|not clean|stain|hair|smell(s|y)?|schmutzig|dreckig|nicht sauber|flecken|haare|stinkt)\\b/i },\n  { id: 'REV_CHANGE', level: 'REVIEW', intent: 'BOOKING_CHANGE',\n    re: /\\b(change (my |the )?(booking|reservation|dates)|extend|additional (night|guest)|umbuchen|verlängern|buchung ändern|zusätzlich\\w* (nacht|gast))\\b/i },\n  { id: 'REV_PETS', level: 'REVIEW', intent: 'PETS',\n    re: /\\b(dog|cat|pet|hund|katze|haustier)\\b/i },\n\n  // ---- AUTO candidates (only AUTO if a verified KB fact exists) ----------\n  { id: 'AUTO_WIFI', level: 'AUTO', intent: 'WIFI', kbKeys: ['wifi_ssid', 'wifi_password'],\n    re: /\\b(wi-?fi|wlan|internet|password|passwort)\\b/i },\n  { id: 'AUTO_CHECKOUT', level: 'AUTO', intent: 'CHECKOUT_TIME', kbKeys: ['check_out_time'],\n    re: /\\b(check-?out|auschecken|abreise)\\b/i },\n  { id: 'AUTO_CHECKIN', level: 'AUTO', intent: 'CHECKIN_TIME', kbKeys: ['check_in_time'],\n    re: /\\b(check-?in|einchecken|anreise)\\b/i },\n  { id: 'AUTO_ENTRY', level: 'AUTO', intent: 'ENTRY_GUIDE', kbKeys: ['entry_instructions'],\n    re: /\\b(enter|entrance|get (in|into)|find the (apartment|building|flat)|eingang|reinkommen|wohnung finden|haustür)\\b/i },\n  { id: 'AUTO_PARKING', level: 'AUTO', intent: 'PARKING', kbKeys: ['parking_info'],\n    re: /\\b(park(ing)?|parkplatz|parken|garage)\\b/i },\n  { id: 'AUTO_TRANSPORT', level: 'AUTO', intent: 'TRANSPORT', kbKeys: ['public_transport'],\n    re: /\\b(u-?bahn|s-?bahn|bus|tram|train|airport|flughafen|bahnhof|public transport)\\b/i },\n  { id: 'AUTO_WASTE', level: 'AUTO', intent: 'WASTE', kbKeys: ['waste_disposal'],\n    re: /\\b(trash|garbage|rubbish|waste|bin|müll|abfall|mülltonne)\\b/i },\n  { id: 'AUTO_HEATING', level: 'AUTO', intent: 'HEATING', kbKeys: ['heating_instructions'],\n    re: /\\b(heating|heater|radiator|cold|air ?con\\w*|heizung|heizkörper|kalt|klimaanlage)\\b/i },\n  { id: 'AUTO_RULES', level: 'AUTO', intent: 'HOUSE_RULES', kbKeys: ['house_rules'],\n    re: /\\b(house rules|smok(e|ing)|party|quiet hours|hausordnung|rauchen|ruhezeit)\\b/i },\n  { id: 'AUTO_APPLIANCE', level: 'AUTO', intent: 'APPLIANCE', kbKeys: ['appliance_manual'],\n    re: /\\b(washing machine|dishwasher|oven|stove|coffee|tv|television|waschmaschine|spülmaschine|geschirrspüler|backofen|herd|kaffee|fernseher)\\b/i },\n];\n\n// Something is broken/not working → never purely AUTO; troubleshooting answer + follow-up = REVIEW floor\nconst IC_MALFUNCTION_RE = /\\b(not working|isn'?t working|is not working|won'?t (work|turn on)|doesn'?t work|does not work|broken|no (hot )?water|no power|funktioniert nicht|geht nicht|kaputt|kein (warm)?wasser|kein strom)\\b/i;\n\n// Attempts to steer the agent → never auto-answer.\nconst IC_INJECTION_RE = /(ignore (all |the )?(previous|above) (instructions|rules)|system prompt|you are now|act as|developer mode|reveal (the )?(code|password|prompt)|ignoriere (alle )?(vorherigen )?anweisungen|\\bjailbreak\\b|<\\/?(system|assistant)>)/i;\n\nfunction icMaxLevel(a, b) {\n  return IC_LEVEL_ORDER.indexOf(a) >= IC_LEVEL_ORDER.indexOf(b) ? a : b;\n}\n\n/**\n * @param {string} text guest message\n * @returns {{level:string, intent:string, intents:string[], matchedRules:string[], kbKeys:string[], flags:string[]}}\n */\nfunction classifyByRules(text) {\n  const t = String(text || '').normalize('NFC');\n  const matched = IC_RULES.filter((r) => r.re.test(t));\n  const flags = [];\n  let level = 'AUTO';\n  for (const r of matched) level = icMaxLevel(level, r.level);\n\n  if (IC_INJECTION_RE.test(t)) { flags.push('PROMPT_INJECTION_SUSPECTED'); level = icMaxLevel(level, 'REVIEW'); }\n  if (IC_MALFUNCTION_RE.test(t)) { flags.push('MALFUNCTION'); level = icMaxLevel(level, 'REVIEW'); }\n  if (matched.length === 0) { flags.push('NO_RULE_MATCH'); level = icMaxLevel(level, 'REVIEW'); }\n  if (t.length > 1200) { flags.push('LONG_MESSAGE'); level = icMaxLevel(level, 'REVIEW'); }\n\n  const top = matched.filter((r) => r.level === level);\n  const intent = (top[0] || matched[0] || { intent: 'UNKNOWN' }).intent;\n  return {\n    level,\n    intent,\n    intents: [...new Set(matched.map((r) => r.intent))],\n    matchedRules: matched.map((r) => r.id),\n    kbKeys: [...new Set(matched.flatMap((r) => r.kbKeys || []))],\n    flags,\n  };\n}\n\n/**\n * Merge rule result with an (optional) LLM result.\n * - The LLM can only raise the level.\n * - AUTO requires: LLM agrees on AUTO, confidence >= threshold, and every needed KB key is available.\n * @param {object} rule  classifyByRules() output\n * @param {{level?:string, confidence?:number}|null} ai\n * @param {{availableKbKeys?:string[], threshold?:number, propertyAutoEnabled?:boolean}} ctx\n */\nfunction combineClassification(rule, ai, ctx) {\n  const c = ctx || {};\n  const threshold = c.threshold ?? 0.85;\n  const reasons = [];\n  let level = rule.level;\n  if (ai && IC_LEVEL_ORDER.includes(ai.level)) level = icMaxLevel(level, ai.level);\n\n  if (level === 'AUTO') {\n    if (!ai) { level = 'REVIEW'; reasons.push('no AI confirmation'); }\n    else if ((ai.confidence ?? 0) < threshold) { level = 'REVIEW'; reasons.push(`AI confidence ${ai.confidence} < ${threshold}`); }\n    const avail = new Set(c.availableKbKeys || []);\n    const missing = rule.kbKeys.filter((k) => !avail.has(k));\n    if (rule.kbKeys.length === 0 || missing.length === rule.kbKeys.length) {\n      level = 'REVIEW'; reasons.push('no verified KB fact for intent');\n    }\n    if (!c.propertyAutoEnabled) { level = 'REVIEW'; reasons.push('auto-reply disabled for property'); }\n  }\n  if (level !== rule.level && reasons.length === 0) reasons.push('raised by AI');\n  return { level, autoSendAllowed: level === 'AUTO', reasons };\n}\n\n\nconst ev = $('Authenticate & Key').first().json;\nconst resv = $('Upsert reservation').first().json;\nconst r = $input.first().json;\nif (r.statusCode !== 200) throw new Error('Messages fetch failed HTTP ' + r.statusCode);\nconst list = (r.body && (r.body.messages || r.body.data)) || [];\nconst msg = list.find(m => String(m.id) === String(ev.data.id));\nif (!msg) throw new Error('Message ' + ev.data.id + ' not found in reservation ' + ev.reservationId);\nconst text = String(msg.message || msg.htmlMessage || '').replace(/<[^>]+>/g, ' ').trim();\n// REQUIRES_VERIFICATION: Smoobu sender field / type mapping (webhook example shows sender:\"guest\")\nconst isGuest = String(ev.sender || '').toLowerCase() === 'guest';\nconst rule = isGuest ? classifyByRules(text) : null;\nreturn [{ json: {\n  p: [ Number(msg.id), Number(ev.reservationId), resv.property_id, isGuest ? 'INBOUND' : 'OUTBOUND',\n       isGuest ? 'GUEST' : 'HOST', msg.subject || null, text, msg.createdAt || null,\n       rule ? rule.level : null, rule ? rule.intent : null, rule ? '{' + rule.matchedRules.join(',') + '}' : null,\n       rule ? rule.flags.join(',') : null ],\n  unmappedProperty: !resv.property_id,\n  level: rule && rule.level, intent: rule && rule.intent, flags: rule && rule.flags,\n}}];"
+      }
+    },
+    {
+      "id": "2dfe0bed-e25b-06d5-745a-60616b70d1fa",
+      "name": "Store message + classification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3900,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH m AS (\n  INSERT INTO ic.messages (smoobu_message_id, reservation_id, property_id, direction, sender, subject, body, sent_at)\n  VALUES ($1::bigint, $2::bigint, $3, $4::ic.msg_direction, $5, $6, $7, ($8::timestamp AT TIME ZONE 'Europe/Berlin'))\n  ON CONFLICT (smoobu_message_id) DO NOTHING\n  RETURNING message_pk\n)\nINSERT INTO ic.message_classifications (message_pk, level, intent, rule_level, matched_rules, reason)\nSELECT message_pk,\n       -- Unmapped property ⇒ never auto: force REVIEW at minimum\n       CASE WHEN $3 IS NULL AND $9 = 'AUTO' THEN 'REVIEW' ELSE $9 END::ic.msg_level,\n       $10, $9::ic.msg_level, $11::text::text[], coalesce($12, '') || CASE WHEN $3 IS NULL THEN ',UNMAPPED_PROPERTY' ELSE '' END\nFROM m WHERE $9 IS NOT NULL\nRETURNING message_pk, level, intent;",
+        "options": {
+          "queryReplacement": "={{ $json.p }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "d7df0234-a7de-c09b-d92f-457df9d42283",
+      "name": "Mark event DONE",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        4160,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ic.webhook_events SET process_status = 'DONE', processed_at = now(), attempts = attempts + 1\nWHERE event_id = $1::bigint RETURNING event_id, process_status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Inbox (idempotent)').first().json.event_id ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Smoobu Webhook": {
+      "main": [
+        [
+          {
+            "node": "Authenticate & Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticate & Key": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Inbox (idempotent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inbox (idempotent)": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 200": {
+      "main": [
+        [
+          {
+            "node": "New event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New event?": {
+      "main": [
+        [
+          {
+            "node": "Request GET reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request GET reservation": {
+      "main": [
+        [
+          {
+            "node": "Smoobu GET reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smoobu GET reservation": {
+      "main": [
+        [
+          {
+            "node": "Normalize reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize reservation": {
+      "main": [
+        [
+          {
+            "node": "Upsert reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert reservation": {
+      "main": [
+        [
+          {
+            "node": "Is message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is message?": {
+      "main": [
+        [
+          {
+            "node": "Request GET messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark event DONE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request GET messages": {
+      "main": [
+        [
+          {
+            "node": "Smoobu GET messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smoobu GET messages": {
+      "main": [
+        [
+          {
+            "node": "Pick & classify message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick & classify message": {
+      "main": [
+        [
+          {
+            "node": "Store message + classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store message + classification": {
+      "main": [
+        [
+          {
+            "node": "Mark event DONE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "REPLACE_WITH_WF14_ID",
+    "saveDataErrorExecution": "all"
+  },
+  "meta": {
+    "status": "PLANNED",
+    "generatedBy": "n8n/build-workflows.js"
+  }
+}

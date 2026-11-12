@@ -1,0 +1,124 @@
+{
+  "name": "WF-14 — Error Monitor (DLQ, minimal)",
+  "nodes": [
+    {
+      "id": "561cdd56-bc4c-50b6-9616-3e35353d6be0",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "58d1cb2a-8aa0-0335-5173-9d73c27213b0",
+      "name": "Write dead letter",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ic.dead_letter_events (workflow, ref_table, ref_id, payload, error)\nVALUES ($1, 'n8n_execution', $2, $3::jsonb, $4) RETURNING dlq_id, workflow, error;",
+        "options": {
+          "queryReplacement": "={{ [ $json.workflow.name, String($json.execution.id), JSON.stringify({ url: $json.execution.url, lastNode: $json.execution.lastNodeExecuted }), String($json.execution.error && $json.execution.error.message) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "ImmoCare4U Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "id": "34b0224a-96ff-6bff-0e1f-d799f7b5d51a",
+      "name": "Alert text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const t = $('Error Trigger').first().json, d = $input.first().json || {};\nconst esc = (s) => String(s ?? '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst wf = (t.workflow && t.workflow.name) || '?', ex = t.execution || {};\nconst html = '<div dir=\"rtl\" style=\"font-family:Tahoma,Arial,sans-serif;max-width:600px;margin:auto;text-align:right\">'\n  + '<div style=\"background:#b42318;color:#fff;padding:14px 16px;border-radius:12px 12px 0 0;font-size:18px;font-weight:bold\">⚠️ خطا در اتوماسیون</div>'\n  + '<div style=\"border:1px solid #eaecf0;border-top:0;padding:14px 16px;border-radius:0 0 12px 12px;line-height:1.8\">'\n  + 'Workflow: <b dir=\"ltr\">' + esc(wf) + '</b><br>نود: <span dir=\"ltr\">' + esc(ex.lastNodeExecuted) + '</span><br>'\n  + 'خطا: <span dir=\"ltr\">' + esc(ex.error && ex.error.message) + '</span><br>شماره‌ی ثبت: ' + esc(d.dlq_id || '—')\n  + (ex.url ? '<br><a href=\"' + esc(ex.url) + '\">باز کردن در n8n</a>' : '') + '</div></div>';\nreturn [{ json: { subject: '⚠️ خطا در ' + wf, html } }];"
+      }
+    },
+    {
+      "id": "25e7aa57-cabd-5d72-1f6c-582177978d8d",
+      "name": "Email alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        780,
+        300
+      ],
+      "parameters": {
+        "sendTo": "immocare4u.kontakt@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "IC Gmail"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Write dead letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write dead letter": {
+      "main": [
+        [
+          {
+            "node": "Alert text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert text": {
+      "main": [
+        [
+          {
+            "node": "Email alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "status": "PLANNED",
+    "generatedBy": "n8n/build-workflows.js"
+  }
+}

@@ -1,0 +1,85 @@
+# E. Property Knowledge Base Template — one file per unit, e.g. P-BER-001.yaml
+# Import into ic.properties / ic.property_kb_entries / ic.media_assets via WF-15.
+#
+# Rules
+#  - Every fact: source + verified_at + validity (VERIFIED | UNVERIFIED | OUTDATED).
+#  - Secrets (Wi-Fi password, key-box code, door codes) are NEVER written here:
+#    use `secret_ref` pointing to the secret store.
+#  - visibility: PUBLIC_GUEST (any time) | TIMED_GUEST (release_offset_minutes relative to check-in)
+#                INTERNAL (staff only) | RESTRICTED (secret, only WF-06 may release)
+#  - <<...>> = to be filled during onboarding. Do not invent values.
+
+identification:
+  property_id: P-BER-001
+  smoobu_apartment_id: <<from WF-00 output>>
+  internal_name: <<e.g. Steglitz 2-Zi>>
+  city_code: BER
+  address: { street: <<Straße Nr.>>, postal_code: <<PLZ>>, building: <<Vorderhaus/Seitenflügel>>, floor: <<3. OG>>, unit: <<WE 12>> }
+  timezone: Europe/Berlin
+  cooperation_model: <<A_MANAGEMENT | B_FIXED_RENT | C_REVENUE_SHARE | D_HYBRID | E_MODULAR>>
+  contract_partner_ref: <<partner_id>>
+  op_status: ONBOARDING
+
+compliance:            # all required items must be VERIFIED before ACTIVE (DB-enforced)
+  - { item_code: ZWECKENTFREMDUNG_PERMIT, evidence_ref: <<doc link>>, status: UNVERIFIED }
+  - { item_code: REGISTRATION_NUMBER,     evidence_ref: <<Registriernummer>>, status: UNVERIFIED }
+  - { item_code: SUBLET_PERMISSION,       evidence_ref: <<doc link>>, status: UNVERIFIED }
+  - { item_code: BRANDSCHUTZ,             evidence_ref: <<protocol>>, status: UNVERIFIED }
+  - { item_code: INSURANCE,               evidence_ref: <<policy no.>>, status: UNVERIFIED }
+
+guest_info:
+  check_in_time:  { value: "15:00", visibility: PUBLIC_GUEST, source: Hausordnung v1, validity: UNVERIFIED }
+  check_out_time: { value: "11:00", visibility: PUBLIC_GUEST, source: Hausordnung v1, validity: UNVERIFIED }
+  early_check_in_policy:  { value: "On request, subject to cleaning; confirmed by the team.", visibility: PUBLIC_GUEST, source: <<>>, validity: UNVERIFIED }
+  late_check_out_policy:  { value: "On request; confirmed by the team.", visibility: PUBLIC_GUEST, source: <<>>, validity: UNVERIFIED }
+  house_rules:    { value: { de: <<Text>>, en: <<Text>> }, visibility: PUBLIC_GUEST, source: Hausordnung v1, validity: UNVERIFIED }
+  wifi_ssid:      { value: <<SSID>>, visibility: TIMED_GUEST, release_offset_minutes: -1440, source: on-site check, validity: UNVERIFIED }
+  wifi_password:  { secret_ref: vault://properties/P-BER-001/wifi_password, visibility: RESTRICTED }
+  parking_info:   { value: { de: <<>>, en: <<>> }, visibility: PUBLIC_GUEST, source: <<>>, validity: UNVERIFIED }
+  public_transport: { value: { de: <<z. B. U9 Rathaus Steglitz, 5 Min.>>, en: <<>> }, visibility: PUBLIC_GUEST, source: BVG website <<date>>, validity: UNVERIFIED }
+  waste_disposal: { value: { de: <<Tonnen im Hof links>>, en: <<>> }, visibility: PUBLIC_GUEST, source: on-site, validity: UNVERIFIED }
+  kitchen_instructions: { value: <<>>, visibility: PUBLIC_GUEST, source: <<>>, validity: UNVERIFIED }
+  heating_instructions: # safe troubleshooting steps only
+    value: { en: "1) Turn the radiator valve to 4–5. 2) Wait 30 minutes. 3) Check that the window is closed.", de: <<>> }
+    visibility: PUBLIC_GUEST
+    source: <<technician / manual>>
+    validity: UNVERIFIED
+  appliance_manual: { value: <<links to manuals>>, visibility: PUBLIC_GUEST, source: <<>>, validity: UNVERIFIED }
+  emergency_numbers: { value: { de: "Notruf 112 (Feuerwehr/Rettung), 110 (Polizei)", en: "Emergency 112 (fire/ambulance), 110 (police)" }, visibility: PUBLIC_GUEST, source: public, validity: VERIFIED }
+  emergency_contact_team: { value: <<ImmoCare4U emergency line>>, visibility: PUBLIC_GUEST, source: internal, validity: UNVERIFIED }
+
+entrance:
+  lock_type: <<SMART_LOCK | KEY_BOX_FIXED | KEY_HANDOVER>>
+  lock_provider: <<adapter name or null>>
+  lock_device_ref: <<provider device id>>
+  entry_instructions: { value: { de: <<>>, en: <<>> }, visibility: TIMED_GUEST, release_offset_minutes: -1440, source: <<>>, validity: UNVERIFIED }
+  keybox_code: { secret_ref: vault://properties/P-BER-001/keybox_code, visibility: RESTRICTED }
+  access_release: { offset_minutes_before_check_in: 60, requires_confirmed_reservation: true, requires_payment_check: <<true/false — depends on channel data>> }
+  media:
+    - { asset_type: ENTRANCE_VIDEO,   url: <<signed URL / guest guide link>>, language: en, visibility: TIMED_GUEST, validity: UNVERIFIED }
+    - { asset_type: UNIT_ROUTE_VIDEO, url: <<>>, language: en, visibility: TIMED_GUEST, validity: UNVERIFIED }
+    - { asset_type: LOCK_VIDEO,       url: <<>>, language: en, visibility: TIMED_GUEST, validity: UNVERIFIED }
+
+message_schedule:      # offsets in minutes; disabled until tested
+  - { template: WELCOME,           anchor: BOOKING,   offset: 5,     enabled: false }
+  - { template: PRE_ARRIVAL_24H,   anchor: CHECK_IN,  offset: -1440, enabled: false }
+  - { template: ARRIVAL_DAY,       anchor: CHECK_IN,  offset: -360,  enabled: false }
+  - { template: ENTRY_GUIDE,       anchor: CHECK_IN,  offset: -120,  enabled: false }
+  - { template: ACCESS_INFO,       anchor: CHECK_IN,  offset: -60,   enabled: false, requires_access_authorization: true }
+  - { template: CHECKOUT_REMINDER, anchor: CHECK_OUT, offset: -900,  enabled: false }
+  - { template: FEEDBACK,          anchor: CHECK_OUT, offset: 240,   enabled: false }
+
+operations:
+  cleaning: { team: <<staff_id>>, duration_minutes: <<120>>, buffer_before_check_in_minutes: 60, checklist_ref: <<checklist id>> }
+  maintenance_contacts: [ { trade: PLUMBING, partner_ref: <<>> }, { trade: ELECTRICITY, partner_ref: <<>> } ]
+  inventory: [ { name: Toilet paper, min_quantity: 6 }, { name: Coffee capsules, min_quantity: 10 } ]
+  special_instructions: <<internal notes>>
+
+financial:             # restricted — not visible to AI
+  monthly_rent_eur: <<>>
+  operating_costs_eur: <<>>
+  cleaning_cost_per_stay_eur: <<>>
+  platform_fee_pct: { airbnb: <<>>, booking: <<>> }
+  management_fee_pct: <<>>
+  revenue_share: <<>>
+  expected_revenue_month_eur: { value: <<>>, kind: ESTIMATE, assumptions: <<ADR, occupancy, source, date>> }
