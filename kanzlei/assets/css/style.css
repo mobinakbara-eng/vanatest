@@ -138,12 +138,6 @@ p { margin: 0 0 1em; }
 .hero-copy h1 { max-width: 15em; margin: 0 auto; }
 .hero-copy .lead { margin: 18px auto 24px; max-width: 30em; font-size: 15px; }
 
-.frame {
-  position: absolute; left: 50%; transform: translateX(-50%); z-index: 1;
-  border: 1px solid var(--line); border-bottom: 0; border-radius: 4px 4px 0 0;
-  background: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0));
-  opacity: var(--deco-op, 1);
-}
 .side-note { position: absolute; left: var(--gutter); max-width: 230px; font-size: 13px; color: var(--ink-2); z-index: 3; opacity: var(--deco-op, 1); }
 .side-note strong { color: var(--ink); font-weight: 500; }
 .badges { position: absolute; right: var(--gutter); display: flex; gap: 14px; z-index: 3; opacity: var(--deco-op, 1); }

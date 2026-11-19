@@ -56,7 +56,7 @@ python3 -m http.server 8000
 
 Oben auf der Startseite ist eine „gepinnte“ Szene (`.scene`, 340 % Bildschirmhöhe). Beim Scrollen:
 
-1. Headline, Rahmen, Seitentext und Siegel blenden nach oben aus.
+1. Headline, Seitentext und Siegel blenden nach oben aus.
 2. Die Bronze-Justitia (echtes 3D-Modell, three.js) wächst, wandert nach oben und **dreht sich weich mit dem Scrollen** – mit Trägheit und einer langsamen Eigendrehung.
 3. Hinter ihr erscheint groß das Wort „ANWALT“, zwei feine Linien zeichnen sich.
 4. Der Absatz darunter färbt sich Wort für Wort ein.

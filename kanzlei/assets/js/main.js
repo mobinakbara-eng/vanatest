@@ -76,7 +76,6 @@
   if (sceneEl) {
     const sticky = sceneEl.querySelector('[data-scene-sticky]');
     const copy = sceneEl.querySelector('.hero-copy');
-    const frameEl = sceneEl.querySelector('[data-frame]');
     const side = sceneEl.querySelector('[data-side]');
     const badges = sceneEl.querySelector('[data-badges]');
     const posterEl = sceneEl.querySelector('[data-poster]');
@@ -146,7 +145,7 @@
       st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
       st.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5))).toFixed(3));
       st.setProperty('--bw-scale', mix(0.9, 1, ease(seg(p, 0.1, 0.6))).toFixed(3));
-      st.setProperty('--fade-a', mix(100, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
+      st.setProperty('--fade-a', mix(86, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
       st.setProperty('--fade-b', mix(100, vw < 760 ? 70 : 76, k).toFixed(1) + '%');
       const lp = ease(seg(p, 0.18, 0.62));
       lineData.forEach(({ l, a, b }) => {
@@ -155,16 +154,10 @@
       });
 
       const L = layout(p);
-      // Rahmen um die Statue im Ausgangszustand
-      if (frameEl) {
-        const L0 = layout(0);
-        const fw = Math.min(vw - 40, L0.h * vh * ASPECT * 1.2);
-        frameEl.style.width = fw + 'px';
-        frameEl.style.top = ((L0.t - 0.025) * vh) + 'px';
-        frameEl.style.bottom = '0px';
-        if (side) side.style.top = ((L0.t + 0.16) * vh) + 'px';
-        if (badges) badges.style.top = ((L0.t + 0.2) * vh) + 'px';
-      }
+      // Seitentext und Siegel neben der Statue
+      const L0 = layout(0);
+      if (side) side.style.top = ((L0.t + 0.16) * vh) + 'px';
+      if (badges) badges.style.top = ((L0.t + 0.2) * vh) + 'px';
       // Poster (Bild bis das 3D-Modell bereit ist / ohne WebGL)
       if (posterEl && !posterEl.classList.contains('is-hidden')) {
         posterEl.style.top = (L.t * vh) + 'px';
