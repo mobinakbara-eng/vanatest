@@ -4,19 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rechtsanwalt Max Mustermann · Kanzlei in Berlin</title>
-  <meta name="description" content="Rechtsanwalt in Berlin-Mitte: Beratung und Vertretung im Arbeitsrecht, Familienrecht, Mietrecht, Migrationsrecht und Vertragsrecht. Persönlich, klar und verlässlich.">
-  <meta name="theme-color" content="#f3efe7">
+  <meta name="description" content="Rechtsanwalt in Berlin-Mitte: Beratung und Vertretung im Arbeitsrecht, Familienrecht, Mietrecht, Migrationsrecht und Vertragsrecht.">
+  <meta name="theme-color" content="#ecebe8">
   <meta property="og:title" content="Rechtsanwalt Max Mustermann · Berlin">
-  <meta property="og:description" content="Persönliche Rechtsberatung in Berlin – klar, erreichbar, verlässlich.">
+  <meta property="og:description" content="Ihr starker Partner in jeder Rechtslage – persönliche Rechtsberatung in Berlin.">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="de_DE">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317181c'/%3E%3Cpath d='M17 54V29a15 15 0 0 1 30 0v25' fill='none' stroke='%23f3efe7' stroke-width='2.5'/%3E%3Ctext x='32' y='50' font-family='Georgia,serif' font-size='22' text-anchor='middle' fill='%23f3efe7'%3EM%3C/text%3E%3Ccircle cx='32' cy='22' r='2.6' fill='%23d0574c'/%3E%3C/svg%3E">
-  <link rel="preload" href="assets/fonts/fraunces-latin-full-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/poppins-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/css/style.css">
   <script>document.documentElement.classList.remove('no-js');</script>
+  <script type="importmap">
+  { "imports": {
+    "three": "./assets/vendor/three/build/three.module.min.js",
+    "three/addons/": "./assets/vendor/three/examples/jsm/"
+  } }
+  </script>
   <script src="assets/js/main.js" defer></script>
-
+  <script type="module" src="assets/js/statue.js"></script>
   <!-- Strukturierte Daten für Google (Daten bitte anpassen) -->
   <script type="application/ld+json">
   {
@@ -47,64 +52,50 @@
         <svg class="logo-mark" viewBox="0 0 40 52" aria-hidden="true" focusable="false"><path class="lm-arch" d="M2 51V20a18 18 0 0 1 36 0v31"/><path class="lm-base" d="M0 51h40"/><text class="lm-letter" x="20" y="44" text-anchor="middle">M</text><circle class="lm-dot" cx="20" cy="12" r="2.2"/></svg>
         <span class="brand-text"><span class="brand-name">Mustermann</span><span class="brand-sub">Rechtsanwalt · Berlin</span></span>
       </a>
-      <button class="nav-toggle" type="button" aria-controls="hauptnavigation" aria-expanded="false" aria-label="Menü öffnen" data-nav-toggle>
-        <span></span><span></span>
-      </button>
       <nav class="site-nav" id="hauptnavigation" aria-label="Hauptnavigation" data-nav>
         <a href="#rechtsgebiete">Rechtsgebiete</a>
         <a href="#ablauf">Ablauf</a>
         <a href="#ueber">Über mich</a>
         <a href="#kosten">Kosten</a>
         <a href="#faq">FAQ</a>
-        <a class="btn" href="#kontakt">Termin anfragen</a>
+        <a class="nav-mobile-cta" href="#kontakt">Termin anfragen</a>
       </nav>
+      <a class="btn header-cta" href="#kontakt">Termin anfragen <span class="arrow" aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-controls="hauptnavigation" aria-expanded="false" aria-label="Menü öffnen" data-nav-toggle>
+        <span></span><span></span>
+      </button>
     </div>
   </header>
 
-  <main id="inhalt" data-main>
+  <main id="inhalt">
+    <!-- ============ SCROLL-SZENE: Justitia dreht sich beim Scrollen ============ -->
+    <section class="scene" id="top" data-scene>
+      <div class="scene-sticky" data-scene-sticky>
+        <div class="bigword" aria-hidden="true">ANWALT</div>
+        <svg class="scene-lines" aria-hidden="true">
+          <line data-line data-from="8 8" data-to="46 74" x1="8%" y1="8%" x2="8%" y2="8%"/>
+          <line data-line data-from="94 30" data-to="58 82" x1="94%" y1="30%" x2="94%" y2="30%"/>
+        </svg>
 
-    <!-- ============ HERO ============ -->
-    <section class="hero" id="top">
-      <div class="container hero-grid">
-        <div>
-          <div class="eyebrow">Kanzlei in Berlin-Mitte</div>
-          <h1>
-            <span class="line"><span>Recht,</span></span>
-            <span class="line"><span><em>klar</em></span></span>
-            <span class="line"><span>gesprochen.</span></span>
-          </h1>
-          <p class="lead reveal">Ich berate und vertrete Privatpersonen und kleine Unternehmen in Berlin – persönlich, verständlich und mit einem klaren Plan vom ersten Gespräch bis zur Lösung.</p>
-          <div class="hero-actions reveal">
-            <a class="btn" href="#kontakt">Ersttermin anfragen <span class="arrow" aria-hidden="true">→</span></a>
-            <a class="btn btn--ghost" href="#rechtsgebiete">Rechtsgebiete</a>
-          </div>
-          <div class="hero-facts reveal">
-            <span><strong>Sprachen:</strong> Deutsch · Englisch · Persisch</span>
-            <span><strong>Termine:</strong> vor Ort, telefonisch oder per Video</span>
-          </div>
-          <a class="scroll-cue" href="#rechtsgebiete"><i aria-hidden="true"></i> Mehr erfahren</a>
+        <div class="hero-copy">
+          <h1>Ihr <em>starker</em> Partner in jeder Rechtslage</h1>
+          <p class="lead">Persönliche Beratung und konsequente Vertretung in Berlin – verständlich, erreichbar und mit einem klaren Plan.</p>
+          <a class="btn" href="#kontakt">Ersttermin vereinbaren <span class="arrow" aria-hidden="true">↗</span></a>
         </div>
 
-        <figure class="portrait reveal">
-          <div class="portrait-frame">
-            <div class="portrait-placeholder" aria-hidden="true">
-              <div>
-                <svg viewBox="0 0 100 100"><circle cx="50" cy="36" r="18" fill="currentColor"/><path d="M14 96c4-22 18-34 36-34s32 12 36 34z" fill="currentColor"/></svg>
-                Foto folgt
-              </div>
-            </div>
-            <!-- Foto hier ablegen: assets/img/portrait.jpg (Hochformat 4:5, ca. 1200×1500 px) -->
-            <img src="assets/img/portrait.jpg" alt="Porträt von Rechtsanwalt Max Mustermann" width="1200" height="1500" onerror="this.remove()">
-          </div>
-          <figcaption><span>Max Mustermann</span><span>Rechtsanwalt</span></figcaption>
-        </figure>
-      </div>
-    </section>
+        <div class="frame" data-frame aria-hidden="true"></div>
+        <p class="side-note" data-side>Ob Kündigung, Trennung oder Aufenthaltstitel: Ich stehe Ihnen <strong>zuverlässig zur Seite</strong>, wann immer Sie mich brauchen.</p>
+        <div class="badges" data-badges aria-hidden="true">
+          <div class="badge"><svg viewBox="0 0 84 70" aria-hidden="true"><g class="leaf"><path d="M30 60c-12-6-18-18-16-32"/><path d="M54 60c12-6 18-18 16-32"/><path d="M17 44c-5-1-8-4-9-8 5 0 8 3 9 8z"/><path d="M14 34c-5-2-7-6-7-10 4 1 7 5 7 10z"/><path d="M15 24c-4-3-5-7-4-11 4 2 5 6 4 11z"/><path d="M23 53c-5 1-9-1-11-4 4-1 8 0 11 4z"/><path d="M67 44c5-1 8-4 9-8-5 0-8 3-9 8z"/><path d="M70 34c5-2 7-6 7-10-4 1-7 5-7 10z"/><path d="M69 24c4-3 5-7 4-11-4 2-5 6-4 11z"/><path d="M61 53c5 1 9-1 11-4-4-1-8 0-11 4z"/></g><path class="star" d="M42 14l2.4 5 5.4.6-4 3.7 1.1 5.4L42 26l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg><span>Transparente<br>Kosten</span></div>
+          <div class="badge"><svg viewBox="0 0 84 70" aria-hidden="true"><g class="leaf"><path d="M30 60c-12-6-18-18-16-32"/><path d="M54 60c12-6 18-18 16-32"/><path d="M17 44c-5-1-8-4-9-8 5 0 8 3 9 8z"/><path d="M14 34c-5-2-7-6-7-10 4 1 7 5 7 10z"/><path d="M15 24c-4-3-5-7-4-11 4 2 5 6 4 11z"/><path d="M23 53c-5 1-9-1-11-4 4-1 8 0 11 4z"/><path d="M67 44c5-1 8-4 9-8-5 0-8 3-9 8z"/><path d="M70 34c5-2 7-6 7-10-4 1-7 5-7 10z"/><path d="M69 24c4-3 5-7 4-11-4 2-5 6-4 11z"/><path d="M61 53c5 1 9-1 11-4-4-1-8 0-11 4z"/></g><path class="star" d="M42 14l2.4 5 5.4.6-4 3.7 1.1 5.4L42 26l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg><span>Persönliche<br>Betreuung</span></div>
+        </div>
 
-    <!-- ============ LEITSATZ ============ -->
-    <section class="statement" aria-label="Leitsatz">
-      <div class="container">
-        <p data-words>Ein Rechtsproblem fühlt sich oft wie ein Knäuel an. Meine Aufgabe ist es, den <em>roten Faden</em> zu finden – und Sie sicher hindurchzuführen.</p>
+        <img class="statue-poster" data-poster src="assets/img/justitia-poster.webp" alt="Bronzestatue der Justitia mit Waage und Schwert" width="900" height="1260">
+        <canvas class="statue-canvas" data-canvas aria-hidden="true"></canvas>
+
+        <p class="scene-text" data-scene-text>In meiner Kanzlei verbinde ich <span class="accent">fundiertes Fachwissen</span>, Präzision und persönliche Betreuung. Mit Integrität und Erfahrung stehe ich Ihnen bei <span class="accent">jedem Schritt</span> zur Seite.</p>
+
+        <div class="scroll-hint" aria-hidden="true"><i></i>Scrollen</div>
       </div>
     </section>
 
@@ -248,7 +239,7 @@
           </div>
           <p class="lead reveal">Sie sollen jederzeit wissen, wo Ihr Anliegen steht, was als Nächstes passiert und welche Kosten entstehen.</p>
         </div>
-        <ol class="steps" style="list-style:none;margin:0;padding:0">
+        <ol class="steps">
           <li class="step reveal">
             <span class="s-num" aria-hidden="true">1</span>
             <h3>Anfrage</h3>
@@ -283,11 +274,11 @@
               <div class="portrait-placeholder" aria-hidden="true">
                 <div>
                   <svg viewBox="0 0 100 100"><circle cx="50" cy="36" r="18" fill="currentColor"/><path d="M14 96c4-22 18-34 36-34s32 12 36 34z" fill="currentColor"/></svg>
-                  Zweites Foto folgt
+                  Foto folgt
                 </div>
               </div>
-              <!-- Zweites Foto: assets/img/portrait-2.jpg (z. B. in der Kanzlei) -->
-              <img src="assets/img/portrait-2.jpg" alt="Max Mustermann in der Kanzlei" width="1200" height="1500" loading="lazy" onerror="this.remove()">
+              <!-- Foto: assets/img/portrait.jpg (Hochformat 4:5) -->
+              <img src="assets/img/portrait.jpg" alt="Max Mustermann in der Kanzlei" width="1200" height="1500" loading="lazy" onerror="this.remove()">
             </div>
             <figcaption><span>In der Kanzlei, Berlin-Mitte</span><span>seit 20XX</span></figcaption>
           </figure>
@@ -383,6 +374,7 @@
     <!-- ============ KONTAKT ============ -->
     <section class="section contact" id="kontakt">
       <div class="container">
+       <div class="contact-card">
         <div class="contact-grid">
           <div>
             <div class="eyebrow"><span class="num">06</span> Kontakt</div>
@@ -439,8 +431,8 @@
                 <span class="err" aria-live="polite"></span>
               </div>
               <div class="form-foot">
-                <button class="btn" type="submit">Anfrage senden <span class="arrow" aria-hidden="true">→</span></button>
-                <span style="font-size:13px;color:#a29d94">* Pflichtfeld</span>
+                <button class="btn" type="submit">Anfrage senden <span class="arrow" aria-hidden="true">↗</span></button>
+                <span style="font-size:12.5px;color:#9a948c">* Pflichtfeld</span>
               </div>
               <p class="form-status" role="status" aria-live="polite" data-form-status></p>
             </form>
@@ -482,6 +474,7 @@
             </dl>
           </aside>
         </div>
+       </div>
       </div>
     </section>
   </main>
@@ -494,6 +487,7 @@
         <a href="datenschutz.html">Datenschutz</a>
         <a href="#top">Nach oben ↑</a>
       </nav>
+      <p class="credit">3D-Modell: „<a href="https://sketchfab.com/3d-models/lady-justice-67b91f4d07ee423b9c5c53a08d8aa454" target="_blank" rel="noopener">Lady Justice</a>“ von Kenny Maguire Studio, Lizenz <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, Material und Darstellung angepasst.</p>
     </div>
   </footer>
 </body>

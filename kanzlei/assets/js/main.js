@@ -1,7 +1,7 @@
 /* ==========================================================================
    Kanzlei – Interaktion
    1. Header, Navigation
-   2. Einblenden beim Scrollen (gestaffelt, wie VANA), Leitsatz-Wörter
+   2. Einblenden beim Scrollen, Scroll-Szene mit der Justitia
    3. Kontaktformular
    Keine Cookies, kein Tracking, keine externen Bibliotheken.
    ========================================================================== */
@@ -67,33 +67,130 @@
     document.querySelectorAll('.reveal').forEach((el) => el.classList.add('in-view'));
   }
 
-  // Leitsatz: Wörter leuchten beim Lesen auf
-  const words = document.querySelector('[data-words]');
-  if (words && !reduceMotion) {
-    const wrap = (node) => {
-      [...node.childNodes].forEach((child) => {
-        if (child.nodeType === 3) {
-          const frag = document.createDocumentFragment();
-          child.textContent.split(/(\s+)/).forEach((part) => {
-            if (!part) return;
-            if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
-            const s = document.createElement('span'); s.className = 'w'; s.textContent = part; frag.appendChild(s);
-          });
-          child.replaceWith(frag);
-        } else if (child.nodeType === 1) wrap(child);
+  /* ------------------------------------------------------------------
+     Scroll-Szene (Justitia): Fortschritt p = 0…1 über die Höhe der Szene.
+     Steuert Text, Rahmen, großes Wort, Linien, Wort-Einfärbung und das
+     Layout der Statue (das 3D-Modul in statue.js liest window.sceneState).
+     ------------------------------------------------------------------ */
+  const sceneEl = document.querySelector('[data-scene]');
+  if (sceneEl) {
+    const sticky = sceneEl.querySelector('[data-scene-sticky]');
+    const copy = sceneEl.querySelector('.hero-copy');
+    const frameEl = sceneEl.querySelector('[data-frame]');
+    const side = sceneEl.querySelector('[data-side]');
+    const badges = sceneEl.querySelector('[data-badges]');
+    const posterEl = sceneEl.querySelector('[data-poster]');
+    const textEl = sceneEl.querySelector('[data-scene-text]');
+    const lines = [...sceneEl.querySelectorAll('[data-line]')];
+    const lineData = lines.map((l) => ({ l, a: l.dataset.from.split(' ').map(Number), b: l.dataset.to.split(' ').map(Number) }));
+
+    // Wörter einzeln einfärbbar machen
+    const words = [];
+    if (textEl) {
+      const wrap = (node, accent) => {
+        [...node.childNodes].forEach((c) => {
+          if (c.nodeType === 3) {
+            const frag = document.createDocumentFragment();
+            c.textContent.split(/(\s+)/).forEach((part) => {
+              if (!part) return;
+              if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+              const sp = document.createElement('span'); sp.className = 'w' + (accent ? ' accent' : ''); sp.textContent = part;
+              frag.appendChild(sp); words.push(sp);
+            });
+            c.replaceWith(frag);
+          } else if (c.nodeType === 1) wrap(c, accent || c.classList.contains('accent'));
+        });
+      };
+      wrap(textEl, false);
+    }
+
+    const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const seg = (p, a, b) => clamp((p - a) / (b - a));
+    const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+    const mix = (a, b, t) => a + (b - a) * t;
+    const ASPECT = 0.74; // Breite/Höhe der Statue (ungefähr, inkl. Waage)
+
+    let vw = innerWidth, vh = sticky.clientHeight, t0 = 0.5;
+    const measure = () => {
+      vw = innerWidth; vh = sticky.clientHeight;
+      const cb = copy.getBoundingClientRect();
+      const sb = sticky.getBoundingClientRect();
+      t0 = clamp((cb.bottom - sb.top) / vh + 0.04, 0.3, 0.75);
+    };
+
+    // Statue: Oberkante t und Höhe h als Anteil der Viewporthöhe
+    const layout = (p) => {
+      const k = ease(seg(p, 0, 0.5));
+      const maxH = (vw * 1.0) / (ASPECT * vh);           // auf schmalen Screens nicht breiter als der Screen
+      const h0 = Math.min(Math.max(0.62, 1.06 - t0), maxH * 1.1);
+      const h1 = Math.min(vw < 760 ? 0.72 : 0.86, maxH);
+      return { t: mix(t0, vw < 760 ? 0.1 : 0.05, k), h: mix(h0, h1, k) };
+    };
+
+    const state = { p: 0, layout };
+    window.sceneState = state;
+
+    let target = 0, cur = 0, raf = 0;
+    const readScroll = () => {
+      const r = sceneEl.getBoundingClientRect();
+      const total = sceneEl.offsetHeight - vh;
+      target = clamp(-r.top / Math.max(1, total));
+    };
+
+    const apply = () => {
+      const p = cur; state.p = p;
+      const st = sticky.style;
+      const k = ease(seg(p, 0, 0.5));
+      st.setProperty('--copy-op', String(1 - seg(p, 0.02, 0.24)));
+      st.setProperty('--copy-y', (-90 * ease(seg(p, 0, 0.3))).toFixed(1) + 'px');
+      st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
+      st.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5))).toFixed(3));
+      st.setProperty('--bw-scale', mix(0.9, 1, ease(seg(p, 0.1, 0.6))).toFixed(3));
+      st.setProperty('--fade-a', mix(100, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
+      st.setProperty('--fade-b', mix(100, vw < 760 ? 70 : 76, k).toFixed(1) + '%');
+      const lp = ease(seg(p, 0.18, 0.62));
+      lineData.forEach(({ l, a, b }) => {
+        l.setAttribute('x2', (a[0] + (b[0] - a[0]) * lp).toFixed(2) + '%');
+        l.setAttribute('y2', (a[1] + (b[1] - a[1]) * lp).toFixed(2) + '%');
       });
+
+      const L = layout(p);
+      // Rahmen um die Statue im Ausgangszustand
+      if (frameEl) {
+        const L0 = layout(0);
+        const fw = Math.min(vw - 40, L0.h * vh * ASPECT * 1.2);
+        frameEl.style.width = fw + 'px';
+        frameEl.style.top = ((L0.t - 0.025) * vh) + 'px';
+        frameEl.style.bottom = '0px';
+        if (side) side.style.top = ((L0.t + 0.16) * vh) + 'px';
+        if (badges) badges.style.top = ((L0.t + 0.2) * vh) + 'px';
+      }
+      // Poster (Bild bis das 3D-Modell bereit ist / ohne WebGL)
+      if (posterEl && !posterEl.classList.contains('is-hidden')) {
+        posterEl.style.top = (L.t * vh) + 'px';
+        posterEl.style.height = (L.h * vh) + 'px';
+      }
+      // Text unter der Statue + Wort für Wort einfärben
+      if (textEl) {
+        textEl.style.top = ((vw < 760 ? 0.6 : 0.62) * vh) + 'px';
+        textEl.style.opacity = String(seg(p, 0.38, 0.5));
+        const n = Math.round(seg(p, 0.48, 0.9) * words.length);
+        words.forEach((w, i) => w.classList.toggle('on', i < n));
+      }
     };
-    wrap(words);
-    const ws = [...words.querySelectorAll('.w')];
-    const light = () => {
-      const r = words.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const p = Math.min(1, Math.max(0, (vh * 0.85 - r.top) / (r.height + vh * 0.35)));
-      const n = Math.round(p * ws.length);
-      ws.forEach((w, i) => w.classList.toggle('on', i < n));
+
+    const tick = () => {
+      const d = target - cur;
+      cur = Math.abs(d) < 0.0005 ? target : cur + d * 0.14;   // weiches Nachziehen
+      apply();
+      raf = cur !== target ? requestAnimationFrame(tick) : 0;
     };
-    window.addEventListener('scroll', light, { passive: true });
-    light();
+    const onScroll = () => { readScroll(); if (!raf) raf = requestAnimationFrame(tick); };
+
+    measure(); readScroll(); cur = target; apply();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', () => { measure(); readScroll(); apply(); });
+    document.fonts && document.fonts.ready.then(() => { measure(); apply(); });
   }
 
   const year = document.querySelector('[data-year]');
