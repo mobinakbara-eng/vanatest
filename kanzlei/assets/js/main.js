@@ -1,7 +1,7 @@
 /* ==========================================================================
    Kanzlei – Interaktion
-   1. Der rote Faden (scrollgebundene SVG-Linie mit §-Marker)
-   2. Header, Navigation, Einblendungen, Leitsatz-Wörter
+   1. Header, Navigation
+   2. Einblenden beim Scrollen (gestaffelt, wie VANA), Leitsatz-Wörter
    3. Kontaktformular
    Keine Cookies, kein Tracking, keine externen Bibliotheken.
    ========================================================================== */
@@ -10,207 +10,6 @@
 
   const root = document.documentElement;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const MOBILE = 820;
-
-  /* ------------------------------------------------------------------
-     1. Der rote Faden
-     ------------------------------------------------------------------ */
-  const main = document.querySelector('[data-main]');
-  const svg = document.querySelector('[data-thread-svg]');
-
-  if (main && svg) {
-    const ghost = svg.querySelector('[data-thread-ghost]');
-    const path = svg.querySelector('[data-thread-path]');
-    const nodesG = svg.querySelector('[data-thread-nodes]');
-    const head = svg.querySelector('[data-thread-head]');
-    const NS = 'http://www.w3.org/2000/svg';
-
-    let total = 0;          // Gesamtlänge des Pfads
-    let samples = [];       // [{l, y}] – monoton steigend in y
-    let nodes = [];         // [{l, el}] – Knotenpunkte an den Abschnitten
-    let current = 0;        // aktuell gezeichnete Länge (geglättet)
-    let target = 0;         // Ziel-Länge laut Scrollposition
-    let running = false;
-
-    const rel = (el) => {
-      const r = el.getBoundingClientRect();
-      const m = main.getBoundingClientRect();
-      return { left: r.left - m.left, top: r.top - m.top, width: r.width, height: r.height, right: r.right - m.left, bottom: r.bottom - m.top };
-    };
-
-    /* Ankerpunkte aus dem DOM lesen */
-    function collectPoints() {
-      const mobile = window.innerWidth < MOBILE;
-      const W = main.clientWidth;
-      const els = [...main.querySelectorAll('[data-thread]')];
-      const endEl = main.querySelector('[data-thread="end"]');
-      const pts = [];
-
-      for (const el of els) {
-        const kind = el.dataset.thread;
-        const only = el.dataset.only;                 // "desktop" | "mobile"
-        const mobileRole = el.dataset.threadMobile;   // "skip" | "end"
-        if (mobile && mobileRole === 'skip') continue;
-        if (!mobile && mobileRole === 'end') continue;
-        if (only === 'desktop' && mobile) continue;
-        if (only === 'mobile' && !mobile) continue;
-
-        const r = rel(el);
-        let p;
-        if (kind === 'start') {
-          p = { x: r.left + Math.min(r.width / 2, 60), y: r.bottom + 18, type: 'start' };
-        } else if (kind === 'end') {
-          p = { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'end' };
-        } else if (kind === 'node') {
-          p = { x: Math.max(10, r.left - 26), y: r.top + r.height / 2, type: 'node', el, end: mobile && mobileRole === 'end' };
-        } else { // gap
-          let x;
-          if (el.dataset.align === 'end' && endEl) x = rel(endEl).left + rel(endEl).width / 2;
-          else x = W * parseFloat(el.dataset[mobile ? 'xm' : 'x'] || el.dataset.x || '.5');
-          p = { x, y: r.top + parseFloat(el.dataset.dy || 0), type: 'gap' };
-        }
-        pts.push(p);
-        if (p.end) break;
-      }
-      return pts;
-    }
-
-    /* Pfad bauen: senkrechte Läufe im Rand, Schwünge nur in den Leerräumen */
-    function buildPath(pts) {
-      if (pts.length < 2) return '';
-      const mobile = window.innerWidth < MOBILE;
-      const swing = mobile ? 70 : 120;   // Höhe, in der ein seitlicher Schwung stattfindet
-      const full = [pts[0]];
-      for (let i = 1; i < pts.length; i++) {
-        const a = full[full.length - 1], b = pts[i];
-        // langer Abstand → erst senkrecht laufen, dann schwingen
-        if (b.y - a.y > swing * 2.4 && Math.abs(b.x - a.x) > 4) {
-          full.push({ x: a.x, y: b.y - swing, type: 'aux' });
-        }
-        full.push(b);
-      }
-      let d = `M ${full[0].x.toFixed(1)} ${full[0].y.toFixed(1)}`;
-      for (let i = 1; i < full.length; i++) {
-        const a = full[i - 1], b = full[i];
-        const dy = Math.max(b.y - a.y, 1);
-        const k = 0.55;
-        d += ` C ${a.x.toFixed(1)} ${(a.y + dy * k).toFixed(1)}, ${b.x.toFixed(1)} ${(b.y - dy * k).toFixed(1)}, ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
-      }
-      return d;
-    }
-
-    function layout() {
-      svg.setAttribute('viewBox', `0 0 ${main.clientWidth} ${main.scrollHeight}`);
-      svg.style.height = main.scrollHeight + 'px';
-
-      const pts = collectPoints();
-      const d = buildPath(pts);
-      ghost.setAttribute('d', d);
-      path.setAttribute('d', d);
-      total = path.getTotalLength();
-      path.style.strokeDasharray = `${total} ${total}`;
-
-      // Stützstellen für die Zuordnung y → Länge
-      const N = Math.max(300, Math.round(total / 6));
-      samples = [];
-      let maxY = -Infinity;
-      for (let i = 0; i <= N; i++) {
-        const l = (i / N) * total;
-        const p = path.getPointAtLength(l);
-        maxY = Math.max(maxY, p.y);   // erzwingt Monotonie
-        samples.push({ l, y: maxY });
-      }
-
-      // Knoten zeichnen
-      nodesG.textContent = '';
-      nodes = [];
-      for (const p of pts) {
-        if (p.type === 'gap') continue;
-        const g = document.createElementNS(NS, 'g');
-        g.setAttribute('class', 'thread-node');
-        g.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
-        const ring = document.createElementNS(NS, 'circle');
-        ring.setAttribute('class', 'ring'); ring.setAttribute('r', p.type === 'node' ? 6.5 : 4.5);
-        const core = document.createElementNS(NS, 'circle');
-        core.setAttribute('class', 'core'); core.setAttribute('r', p.type === 'node' ? 3 : 2.5);
-        g.append(ring, core);
-        if (p.type === 'end') g.style.display = 'none'; // Pin der Karte übernimmt
-        nodesG.appendChild(g);
-        nodes.push({ l: lengthAtY(p.y), g, el: p.el });
-      }
-
-      target = computeTarget();
-      if (reduceMotion) current = total;
-      render(true);
-    }
-
-    function lengthAtY(y) {
-      if (!samples.length) return 0;
-      if (y <= samples[0].y) return 0;
-      let lo = 0, hi = samples.length - 1;
-      if (y >= samples[hi].y) return total;
-      while (hi - lo > 1) {
-        const mid = (lo + hi) >> 1;
-        if (samples[mid].y < y) lo = mid; else hi = mid;
-      }
-      const a = samples[lo], b = samples[hi];
-      const t = (y - a.y) / Math.max(b.y - a.y, 0.0001);
-      return a.l + (b.l - a.l) * t;
-    }
-
-    function computeTarget() {
-      const mTop = main.getBoundingClientRect().top + window.scrollY;
-      const vh = window.innerHeight;
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - vh);
-      const f = Math.min(1, window.scrollY / maxScroll);
-      // Lesepunkt bei ~60 % der Viewporthöhe; am Seitenende bis ganz unten
-      const anchor = 0.6 + 0.4 * Math.pow(f, 8);
-      return lengthAtY(window.scrollY + vh * anchor - mTop);
-    }
-
-    function render(force) {
-      if (!total) return;
-      path.style.strokeDashoffset = (total - current).toFixed(1);
-
-      const p = path.getPointAtLength(Math.max(0.01, current));
-      head.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
-      head.style.opacity = current < 2 || current > total - 2 ? 0 : 1;
-
-      for (const n of nodes) {
-        const reached = current >= n.l - 1;
-        if (reached !== n.g.classList.contains('is-reached') || force) {
-          n.g.classList.toggle('is-reached', reached);
-          if (n.el) n.el.classList.toggle('is-reached', reached);
-        }
-      }
-    }
-
-    function tick() {
-      const diff = target - current;
-      current += diff * 0.12;                // weiches Nachziehen
-      if (Math.abs(diff) < 0.4) current = target;
-      render(false);
-      if (current !== target) requestAnimationFrame(tick);
-      else running = false;
-    }
-
-    function onScroll() {
-      if (reduceMotion) return;
-      target = computeTarget();
-      if (!running) { running = true; requestAnimationFrame(tick); }
-    }
-
-    let resizeTimer;
-    const relayout = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(layout, 120); };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', relayout);
-    // Höhe ändert sich z. B. beim Aufklappen eines Rechtsgebiets oder wenn Fotos/Schriften laden
-    if ('ResizeObserver' in window) new ResizeObserver(relayout).observe(main);
-    document.fonts && document.fonts.ready.then(layout);
-    window.addEventListener('load', layout);
-    layout();
-  }
 
   /* ------------------------------------------------------------------
      2. Header, Navigation, Einblendungen
@@ -241,6 +40,13 @@
     nav.addEventListener('click', (e) => { if (e.target.closest('a')) setOpen(false); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
   }
+
+  // Staffelung: Geschwister-Elemente erscheinen nacheinander (120 ms Abstand, wie bei VANA)
+  document.querySelectorAll('.reveal').forEach((el) => {
+    const sibs = [...el.parentElement.children].filter((c) => c.classList.contains('reveal'));
+    const i = Math.min(sibs.indexOf(el), 5);
+    if (i > 0) el.style.setProperty('--reveal-delay', i * 120 + 'ms');
+  });
 
   // Einblenden + aktiver Menüpunkt
   if ('IntersectionObserver' in window) {

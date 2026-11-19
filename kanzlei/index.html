@@ -10,7 +10,7 @@
   <meta property="og:description" content="Persönliche Rechtsberatung in Berlin – klar, erreichbar, verlässlich.">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="de_DE">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317181c'/%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-style='italic' font-size='40' text-anchor='middle' fill='%23e05a4e'%3E%C2%A7%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317181c'/%3E%3Cpath d='M17 54V29a15 15 0 0 1 30 0v25' fill='none' stroke='%23f3efe7' stroke-width='2.5'/%3E%3Ctext x='32' y='50' font-family='Georgia,serif' font-size='22' text-anchor='middle' fill='%23f3efe7'%3EM%3C/text%3E%3Ccircle cx='32' cy='22' r='2.6' fill='%23d0574c'/%3E%3C/svg%3E">
   <link rel="preload" href="assets/fonts/fraunces-latin-full-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/css/style.css">
@@ -44,9 +44,8 @@
   <header class="site-header" data-header>
     <div class="container header-inner">
       <a class="brand" href="#top" aria-label="Kanzlei Mustermann – zur Startseite">
-        <span class="brand-mark" aria-hidden="true">§</span>
-        <span class="brand-name">Mustermann</span>
-        <span class="brand-sub">Rechtsanwalt · Berlin</span>
+        <svg class="logo-mark" viewBox="0 0 40 52" aria-hidden="true" focusable="false"><path class="lm-arch" d="M2 51V20a18 18 0 0 1 36 0v31"/><path class="lm-base" d="M0 51h40"/><text class="lm-letter" x="20" y="44" text-anchor="middle">M</text><circle class="lm-dot" cx="20" cy="12" r="2.2"/></svg>
+        <span class="brand-text"><span class="brand-name">Mustermann</span><span class="brand-sub">Rechtsanwalt · Berlin</span></span>
       </a>
       <button class="nav-toggle" type="button" aria-controls="hauptnavigation" aria-expanded="false" aria-label="Menü öffnen" data-nav-toggle>
         <span></span><span></span>
@@ -63,17 +62,6 @@
   </header>
 
   <main id="inhalt" data-main>
-    <!-- Der rote Faden: wird per JavaScript gezeichnet -->
-    <svg class="thread" data-thread-svg aria-hidden="true" focusable="false">
-      <path class="thread-ghost" data-thread-ghost d=""/>
-      <path class="thread-path" data-thread-path d=""/>
-      <g data-thread-nodes></g>
-      <g class="thread-head" data-thread-head>
-        <circle class="halo" r="15"/>
-        <circle class="dot" r="13"/>
-        <text text-anchor="middle" dy="5">§</text>
-      </g>
-    </svg>
 
     <!-- ============ HERO ============ -->
     <section class="hero" id="top">
@@ -85,16 +73,16 @@
             <span class="line"><span><em>klar</em></span></span>
             <span class="line"><span>gesprochen.</span></span>
           </h1>
-          <p class="lead">Ich berate und vertrete Privatpersonen und kleine Unternehmen in Berlin – persönlich, verständlich und mit einem klaren Plan vom ersten Gespräch bis zur Lösung.</p>
-          <div class="hero-actions">
+          <p class="lead reveal">Ich berate und vertrete Privatpersonen und kleine Unternehmen in Berlin – persönlich, verständlich und mit einem klaren Plan vom ersten Gespräch bis zur Lösung.</p>
+          <div class="hero-actions reveal">
             <a class="btn" href="#kontakt">Ersttermin anfragen <span class="arrow" aria-hidden="true">→</span></a>
             <a class="btn btn--ghost" href="#rechtsgebiete">Rechtsgebiete</a>
           </div>
-          <div class="hero-facts">
+          <div class="hero-facts reveal">
             <span><strong>Sprachen:</strong> Deutsch · Englisch · Persisch</span>
             <span><strong>Termine:</strong> vor Ort, telefonisch oder per Video</span>
           </div>
-          <a class="scroll-cue" href="#rechtsgebiete"><i aria-hidden="true"></i> Folgen Sie dem roten Faden</a>
+          <a class="scroll-cue" href="#rechtsgebiete"><i aria-hidden="true"></i> Mehr erfahren</a>
         </div>
 
         <figure class="portrait reveal">
@@ -108,12 +96,10 @@
             <!-- Foto hier ablegen: assets/img/portrait.jpg (Hochformat 4:5, ca. 1200×1500 px) -->
             <img src="assets/img/portrait.jpg" alt="Porträt von Rechtsanwalt Max Mustermann" width="1200" height="1500" onerror="this.remove()">
           </div>
-          <figcaption data-thread="start"><span>Max Mustermann</span><span>Rechtsanwalt</span></figcaption>
+          <figcaption><span>Max Mustermann</span><span>Rechtsanwalt</span></figcaption>
         </figure>
       </div>
     </section>
-
-    <div class="thread-gap" data-thread="gap" data-x=".9" data-xm=".5" aria-hidden="true"></div>
 
     <!-- ============ LEITSATZ ============ -->
     <section class="statement" aria-label="Leitsatz">
@@ -122,17 +108,15 @@
       </div>
     </section>
 
-    <div class="thread-gap" data-thread="gap" data-x=".5" aria-hidden="true"></div>
-
     <!-- ============ RECHTSGEBIETE ============ -->
     <section class="section" id="rechtsgebiete">
       <div class="container">
         <div class="section-head">
           <div>
-            <div class="eyebrow" data-thread="node"><span class="num">01</span> Rechtsgebiete</div>
+            <div class="eyebrow"><span class="num">01</span> Rechtsgebiete</div>
             <h2 class="reveal">Wobei ich Sie <em>unterstütze</em></h2>
           </div>
-          <p class="lead reveal" data-delay="1">Ein klar umrissener Schwerpunkt statt eines Bauchladens. Klicken Sie auf ein Rechtsgebiet, um mehr zu erfahren.</p>
+          <p class="lead reveal">Ein klar umrissener Schwerpunkt statt eines Bauchladens. Klicken Sie auf ein Rechtsgebiet, um mehr zu erfahren.</p>
         </div>
 
         <div class="areas">
@@ -254,17 +238,15 @@
       </div>
     </section>
 
-    <div class="thread-gap" data-thread="gap" data-x=".64" aria-hidden="true"></div>
-
     <!-- ============ ABLAUF ============ -->
     <section class="section" id="ablauf">
       <div class="container">
         <div class="section-head">
           <div>
-            <div class="eyebrow" data-thread="node"><span class="num">02</span> Ablauf</div>
+            <div class="eyebrow"><span class="num">02</span> Ablauf</div>
             <h2 class="reveal">Vier Schritte. <em>Kein</em> Labyrinth.</h2>
           </div>
-          <p class="lead reveal" data-delay="1">Sie sollen jederzeit wissen, wo Ihr Anliegen steht, was als Nächstes passiert und welche Kosten entstehen.</p>
+          <p class="lead reveal">Sie sollen jederzeit wissen, wo Ihr Anliegen steht, was als Nächstes passiert und welche Kosten entstehen.</p>
         </div>
         <ol class="steps" style="list-style:none;margin:0;padding:0">
           <li class="step reveal">
@@ -272,17 +254,17 @@
             <h3>Anfrage</h3>
             <p>Sie schildern Ihr Anliegen kurz über das Formular oder telefonisch. Ich melde mich in der Regel innerhalb von 24 Stunden.</p>
           </li>
-          <li class="step reveal" data-delay="1">
+          <li class="step reveal">
             <span class="s-num" aria-hidden="true">2</span>
             <h3>Erstberatung</h3>
             <p>Im ersten Gespräch klären wir den Sachverhalt, Ihre Ziele und die Erfolgsaussichten – mit transparenten Kosten.</p>
           </li>
-          <li class="step reveal" data-delay="2">
+          <li class="step reveal">
             <span class="s-num" aria-hidden="true">3</span>
             <h3>Strategie</h3>
             <p>Gemeinsam legen wir das Vorgehen fest: außergerichtliche Einigung, Verhandlung oder gerichtliches Verfahren.</p>
           </li>
-          <li class="step reveal" data-delay="3">
+          <li class="step reveal">
             <span class="s-num" aria-hidden="true">4</span>
             <h3>Vertretung</h3>
             <p>Ich setze Ihre Interessen durch und halte Sie auf dem Laufenden – bis zum Abschluss Ihres Falls.</p>
@@ -291,12 +273,10 @@
       </div>
     </section>
 
-    <div class="thread-gap" data-thread="gap" data-x=".42" aria-hidden="true"></div>
-
     <!-- ============ ÜBER MICH ============ -->
     <section class="section" id="ueber">
       <div class="container">
-        <div class="eyebrow" data-thread="node"><span class="num">03</span> Über mich</div>
+        <div class="eyebrow"><span class="num">03</span> Über mich</div>
         <div class="about-grid">
           <figure class="portrait reveal">
             <div class="portrait-frame">
@@ -336,17 +316,15 @@
       </div>
     </section>
 
-    <div class="thread-gap" data-thread="gap" data-x=".6" aria-hidden="true"></div>
-
     <!-- ============ KOSTEN ============ -->
     <section class="section" id="kosten">
       <div class="container">
         <div class="section-head">
           <div>
-            <div class="eyebrow" data-thread="node"><span class="num">04</span> Kosten</div>
+            <div class="eyebrow"><span class="num">04</span> Kosten</div>
             <h2 class="reveal">Transparent <em>von Anfang an</em></h2>
           </div>
-          <p class="lead reveal" data-delay="1">Bevor Kosten entstehen, sprechen wir darüber. Keine Überraschungen – versprochen.</p>
+          <p class="lead reveal">Bevor Kosten entstehen, sprechen wir darüber. Keine Überraschungen – versprochen.</p>
         </div>
         <div class="fees">
           <article class="fee reveal">
@@ -354,12 +332,12 @@
             <div class="f-big">max. 190 € <small>zzgl. USt.</small></div>
             <p>Für Verbraucher:innen ist die erste Beratung gesetzlich gedeckelt (§ 34 RVG). Den genauen Betrag nenne ich Ihnen vorab. [Platzhalter – bitte prüfen]</p>
           </article>
-          <article class="fee reveal" data-delay="1">
+          <article class="fee reveal">
             <span class="f-label">Rechtsschutz</span>
             <div class="f-big">Deckungsanfrage</div>
             <p>Sind Sie rechtsschutzversichert, übernehme ich die Korrespondenz mit Ihrer Versicherung und kläre die Kostenübernahme für Sie.</p>
           </article>
-          <article class="fee reveal" data-delay="2">
+          <article class="fee reveal">
             <span class="f-label">Vertretung</span>
             <div class="f-big">RVG oder Vereinbarung</div>
             <p>Abrechnung nach dem Rechtsanwaltsvergütungsgesetz oder nach individueller Vereinbarung. Beratungs- und Prozesskostenhilfe sind möglich.</p>
@@ -369,13 +347,11 @@
       </div>
     </section>
 
-    <div class="thread-gap" data-thread="gap" data-x=".4" aria-hidden="true"></div>
-
     <!-- ============ FAQ ============ -->
     <section class="section" id="faq">
       <div class="container faq-grid">
         <div>
-          <div class="eyebrow" data-thread="node"><span class="num">05</span> Häufige Fragen</div>
+          <div class="eyebrow"><span class="num">05</span> Häufige Fragen</div>
           <h2 class="reveal">Gut zu <em>wissen</em></h2>
           <p class="lead reveal" style="margin-top:22px">Ihre Frage ist nicht dabei? Schreiben Sie mir einfach.</p>
         </div>
@@ -404,14 +380,12 @@
       </div>
     </section>
 
-    <div class="thread-gap" data-thread="gap" data-align="end" data-thread-mobile="skip" aria-hidden="true"></div>
-
     <!-- ============ KONTAKT ============ -->
     <section class="section contact" id="kontakt">
       <div class="container">
         <div class="contact-grid">
           <div>
-            <div class="eyebrow" data-thread="node" data-thread-mobile="end"><span class="num">06</span> Kontakt</div>
+            <div class="eyebrow"><span class="num">06</span> Kontakt</div>
             <h2 class="reveal">Erzählen Sie mir, <em>worum es geht.</em></h2>
             <p class="lead reveal" style="margin:22px 0 48px">Eine kurze Nachricht genügt. Ich melde mich in der Regel innerhalb von 24 Stunden bei Ihnen.</p>
 
@@ -481,7 +455,7 @@
                 <text x="205" y="58" text-anchor="middle">S-Bahn-Ring</text>
                 <text x="358" y="88" text-anchor="end">Spree</text>
                 <circle class="pin-halo" cx="214" cy="160" r="12"/>
-                <circle class="pin" cx="214" cy="160" r="6" data-thread="end" data-thread-mobile="skip"/>
+                <circle class="pin" cx="214" cy="160" r="6"/>
                 <text x="228" y="182">Kanzlei</text>
               </svg>
               <div class="map-label"><a href="https://www.openstreetmap.org/search?query=Berlin%2010117" target="_blank" rel="noopener">Route planen ↗</a></div>
