@@ -4,10 +4,10 @@
    - Drehung folgt dem Scrollen, weich gedämpft, dazu eine langsame Eigendrehung
    - Rendert nur, solange die Szene sichtbar ist
    Modell: "Lady Justice" von Kenny Maguire Studio, CC BY 4.0
+   (vereinfacht und quantisiert, ohne Meshopt-Kompression → läuft auch bei strenger CSP)
    ========================================================================== */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const canvas = document.querySelector('[data-canvas]');
@@ -50,10 +50,10 @@ function init() {
   const bronze = new THREE.MeshStandardMaterial({ color: 0x6a4527, metalness: 0.85, roughness: 0.5, envMapIntensity: 1.0 });
 
   const loader = new GLTFLoader();
-  loader.setMeshoptDecoder(MeshoptDecoder);
   loader.load(MODEL_URL, (gltf) => {
     const model = gltf.scene;
-    model.traverse((o) => { if (o.isMesh) { o.material = bronze; o.castShadow = false; } });
+    // Normalen werden hier berechnet (spart Dateigröße, kein WebAssembly-Decoder nötig)
+    model.traverse((o) => { if (o.isMesh) { if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.material = bronze; } });
     // auf Höhe 1 normieren, Fuß auf y = 0, mittig um die Drehachse
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
