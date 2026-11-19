@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rechtsanwalt Max Mustermann · Kanzlei in Berlin</title>
-  <meta name="description" content="Rechtsanwalt in Berlin-Mitte: Beratung und Vertretung im Arbeitsrecht, Familienrecht, Mietrecht, Migrationsrecht und Vertragsrecht.">
+  <title>Rechtsanwalt Max Mustermann · Strafrecht & Verkehrsrecht Berlin</title>
+  <meta name="description" content="Rechtsanwalt in Berlin für Strafrecht und Verkehrsrecht: Strafverteidigung, Bußgeldverfahren, Fahrverbot, Führerschein und Verkehrsunfall.">
   <meta name="theme-color" content="#ecebe8">
   <meta property="og:title" content="Rechtsanwalt Max Mustermann · Berlin">
-  <meta property="og:description" content="Ihr starker Partner in jeder Rechtslage – persönliche Rechtsberatung in Berlin.">
+  <meta property="og:description" content="Strafverteidigung und Verkehrsrecht in Berlin – schnell erreichbar, diskret, mit klarem Plan.">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="de_DE">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317181c'/%3E%3Cpath d='M17 54V29a15 15 0 0 1 30 0v25' fill='none' stroke='%23f3efe7' stroke-width='2.5'/%3E%3Ctext x='32' y='50' font-family='Georgia,serif' font-size='22' text-anchor='middle' fill='%23f3efe7'%3EM%3C/text%3E%3Ccircle cx='32' cy='22' r='2.6' fill='%23d0574c'/%3E%3C/svg%3E">
@@ -20,6 +20,7 @@
     "three/addons/": "./assets/vendor/three/examples/jsm/"
   } }
   </script>
+  <script src="assets/vendor/lenis/lenis.min.js" defer></script>
   <script src="assets/js/main.js" defer></script>
   <script type="module" src="assets/js/statue.js"></script>
   <!-- Strukturierte Daten für Google (Daten bitte anpassen) -->
@@ -28,7 +29,7 @@
     "@context": "https://schema.org",
     "@type": "LegalService",
     "name": "Kanzlei Mustermann",
-    "description": "Rechtsanwalt in Berlin – Arbeitsrecht, Familienrecht, Mietrecht, Migrationsrecht, Vertragsrecht.",
+    "description": "Rechtsanwalt in Berlin – Strafrecht und Verkehrsrecht.",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "Musterstraße 1",
@@ -67,34 +68,35 @@
     </div>
   </header>
 
+  <!-- Feste Hintergrund-Ebene: Justitia (scharf in der Szene, danach unscharf) -->
+  <div class="statue-layer" data-statue-layer aria-hidden="true">
+    <div class="bigword">ANWALT</div>
+    <svg class="scene-lines">
+      <line data-line data-from="8 8" data-to="46 74" x1="8%" y1="8%" x2="8%" y2="8%"/>
+      <line data-line data-from="94 30" data-to="58 82" x1="94%" y1="30%" x2="94%" y2="30%"/>
+    </svg>
+    <img class="statue-poster" data-poster onerror="this.remove()" src="assets/img/justitia-poster.webp" alt="" width="900" height="1260">
+    <canvas class="statue-canvas" data-canvas></canvas>
+  </div>
+
   <main id="inhalt">
-    <!-- ============ SCROLL-SZENE: Justitia dreht sich beim Scrollen ============ -->
+    <!-- ============ SCROLL-SZENE: Justitia dreht sich beim Scrollen und bleibt danach unscharf im Hintergrund ============ -->
     <section class="scene" id="top" data-scene>
       <div class="scene-sticky" data-scene-sticky>
-        <div class="bigword" aria-hidden="true">ANWALT</div>
-        <svg class="scene-lines" aria-hidden="true">
-          <line data-line data-from="8 8" data-to="46 74" x1="8%" y1="8%" x2="8%" y2="8%"/>
-          <line data-line data-from="94 30" data-to="58 82" x1="94%" y1="30%" x2="94%" y2="30%"/>
-        </svg>
-
         <div class="hero-copy">
-          <h1>Ihr <em>starker</em> Partner in jeder Rechtslage</h1>
-          <p class="lead">Persönliche Beratung und konsequente Vertretung in Berlin – verständlich, erreichbar und mit einem klaren Plan.</p>
+          <h1>Ihre <em>starke</em> Verteidigung im Straf- und Verkehrsrecht</h1>
+          <p class="lead">Strafverteidigung und Verkehrsrecht in Berlin – schnell erreichbar, diskret und mit einem klaren Plan.</p>
           <a class="btn" href="#kontakt">Ersttermin vereinbaren <span class="arrow" aria-hidden="true">↗</span></a>
         </div>
 
-        <p class="side-note" data-side>Ob Kündigung, Trennung oder Aufenthaltstitel: Ich stehe Ihnen <strong>zuverlässig zur Seite</strong>, wann immer Sie mich brauchen.</p>
+        <p class="side-note" data-side>Vorladung, Bußgeldbescheid oder Strafbefehl? Die Fristen sind kurz – <strong>melden Sie sich früh</strong>, bevor Sie etwas unterschreiben oder aussagen.</p>
         <div class="badges" data-badges aria-hidden="true">
           <div class="badge"><svg viewBox="0 0 84 70" aria-hidden="true"><g class="leaf"><path d="M30 60c-12-6-18-18-16-32"/><path d="M54 60c12-6 18-18 16-32"/><path d="M17 44c-5-1-8-4-9-8 5 0 8 3 9 8z"/><path d="M14 34c-5-2-7-6-7-10 4 1 7 5 7 10z"/><path d="M15 24c-4-3-5-7-4-11 4 2 5 6 4 11z"/><path d="M23 53c-5 1-9-1-11-4 4-1 8 0 11 4z"/><path d="M67 44c5-1 8-4 9-8-5 0-8 3-9 8z"/><path d="M70 34c5-2 7-6 7-10-4 1-7 5-7 10z"/><path d="M69 24c4-3 5-7 4-11-4 2-5 6-4 11z"/><path d="M61 53c5 1 9-1 11-4-4-1-8 0-11 4z"/></g><path class="star" d="M42 14l2.4 5 5.4.6-4 3.7 1.1 5.4L42 26l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg><span>Transparente<br>Kosten</span></div>
-          <div class="badge"><svg viewBox="0 0 84 70" aria-hidden="true"><g class="leaf"><path d="M30 60c-12-6-18-18-16-32"/><path d="M54 60c12-6 18-18 16-32"/><path d="M17 44c-5-1-8-4-9-8 5 0 8 3 9 8z"/><path d="M14 34c-5-2-7-6-7-10 4 1 7 5 7 10z"/><path d="M15 24c-4-3-5-7-4-11 4 2 5 6 4 11z"/><path d="M23 53c-5 1-9-1-11-4 4-1 8 0 11 4z"/><path d="M67 44c5-1 8-4 9-8-5 0-8 3-9 8z"/><path d="M70 34c5-2 7-6 7-10-4 1-7 5-7 10z"/><path d="M69 24c4-3 5-7 4-11-4 2-5 6-4 11z"/><path d="M61 53c5 1 9-1 11-4-4-1-8 0-11 4z"/></g><path class="star" d="M42 14l2.4 5 5.4.6-4 3.7 1.1 5.4L42 26l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg><span>Persönliche<br>Betreuung</span></div>
+          <div class="badge"><svg viewBox="0 0 84 70" aria-hidden="true"><g class="leaf"><path d="M30 60c-12-6-18-18-16-32"/><path d="M54 60c12-6 18-18 16-32"/><path d="M17 44c-5-1-8-4-9-8 5 0 8 3 9 8z"/><path d="M14 34c-5-2-7-6-7-10 4 1 7 5 7 10z"/><path d="M15 24c-4-3-5-7-4-11 4 2 5 6 4 11z"/><path d="M23 53c-5 1-9-1-11-4 4-1 8 0 11 4z"/><path d="M67 44c5-1 8-4 9-8-5 0-8 3-9 8z"/><path d="M70 34c5-2 7-6 7-10-4 1-7 5-7 10z"/><path d="M69 24c4-3 5-7 4-11-4 2-5 6-4 11z"/><path d="M61 53c5 1 9-1 11-4-4-1-8 0-11 4z"/></g><path class="star" d="M42 14l2.4 5 5.4.6-4 3.7 1.1 5.4L42 26l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg><span>Diskrete<br>Beratung</span></div>
         </div>
 
-        <img class="statue-poster" data-poster onerror="this.remove()" src="assets/img/justitia-poster.webp" alt="Bronzestatue der Justitia mit Waage und Schwert" width="900" height="1260">
-        <canvas class="statue-canvas" data-canvas aria-hidden="true"></canvas>
+        <p class="scene-text" data-scene-text>Im Straf- und Verkehrsrecht entscheiden oft <span class="accent">die ersten Tage</span>. Ich verbinde genaue Aktenarbeit mit persönlicher Betreuung und stehe Ihnen bei <span class="accent">jedem Schritt</span> zur Seite.</p>
 
-        <p class="scene-text" data-scene-text>In meiner Kanzlei verbinde ich <span class="accent">fundiertes Fachwissen</span>, Präzision und persönliche Betreuung. Mit Integrität und Erfahrung stehe ich Ihnen bei <span class="accent">jedem Schritt</span> zur Seite.</p>
-
-        <div class="scroll-hint" aria-hidden="true"><i></i>Scrollen</div>
       </div>
     </section>
 
@@ -103,127 +105,46 @@
       <div class="container">
         <div class="section-head">
           <div>
-            <div class="eyebrow"><span class="num">01</span> Rechtsgebiete</div>
-            <h2 class="reveal">Wobei ich Sie <em>unterstütze</em></h2>
+            <div class="eyebrow reveal"><span class="num">01</span> Rechtsgebiete</div>
+            <h2 class="reveal">Zwei Gebiete. <em>Volle</em> Konzentration.</h2>
           </div>
-          <p class="lead reveal">Ein klar umrissener Schwerpunkt statt eines Bauchladens. Klicken Sie auf ein Rechtsgebiet, um mehr zu erfahren.</p>
+          <p class="lead reveal">Ich arbeite ausschließlich im Strafrecht und im Verkehrsrecht. Diese Spezialisierung bedeutet Routine bei Fristen, Verfahren und Gerichten in Berlin.</p>
         </div>
 
         <div class="areas">
-          <details class="area reveal">
-            <summary>
-              <span class="a-num">01</span>
-              <h3>Arbeitsrecht</h3>
-              <p class="a-teaser">Kündigung, Abfindung, Arbeitsvertrag und Zeugnis – für Arbeitnehmer:innen und kleine Arbeitgeber.</p>
-              <span class="a-plus" aria-hidden="true"></span>
-            </summary>
-            <div class="area-body">
-              <div>
-                <p>[Platzhalter] Nach einer Kündigung zählt jeder Tag: Die Frist für eine Kündigungsschutzklage beträgt nur drei Wochen. Ich prüfe Ihre Unterlagen zügig, schätze Ihre Chancen realistisch ein und verhandle – wo sinnvoll – eine faire Abfindung.</p>
-                <ul>
-                  <li>Kündigung &amp; Kündigungsschutzklage</li>
-                  <li>Abfindung &amp; Aufhebungsvertrag</li>
-                  <li>Prüfung von Arbeitsverträgen</li>
-                  <li>Arbeitszeugnis</li>
-                  <li>Abmahnung</li>
-                  <li>Lohn- &amp; Urlaubsansprüche</li>
-                </ul>
-                <p class="small">Text folgt – wird individuell ergänzt.</p>
-              </div>
+          <article class="area-card reveal">
+            <div class="area-top">
+              <span class="area-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+              <span class="area-num">01</span>
             </div>
-          </details>
+            <h3>Strafrecht</h3>
+            <p>[Platzhalter] Wer beschuldigt wird, braucht früh eine klare Strategie. Machen Sie keine Angaben zur Sache, bevor wir die Ermittlungsakte kennen. Ich beantrage Akteneinsicht und verteidige Sie engagiert und diskret – vom Ermittlungsverfahren bis zur Hauptverhandlung.</p>
+            <ul class="topics">
+              <li>Vorladung &amp; Ermittlungsverfahren</li>
+              <li>Durchsuchung &amp; Festnahme</li>
+              <li>Untersuchungshaft</li>
+              <li>Strafbefehl</li>
+              <li>Hauptverhandlung</li>
+              <li>Berufung &amp; Revision</li>
+            </ul>
+          </article>
 
-          <details class="area reveal">
-            <summary>
-              <span class="a-num">02</span>
-              <h3>Familienrecht</h3>
-              <p class="a-teaser">Trennung, Scheidung, Unterhalt und Umgang – sachlich begleitet in einer persönlich schweren Zeit.</p>
-              <span class="a-plus" aria-hidden="true"></span>
-            </summary>
-            <div class="area-body">
-              <div>
-                <p>[Platzhalter] Familienrechtliche Fragen sind selten nur juristisch. Ich nehme mir Zeit, höre zu und suche zuerst nach einvernehmlichen Lösungen – und vertrete Ihre Interessen konsequent, wenn eine Einigung nicht möglich ist.</p>
-                <ul>
-                  <li>Trennung &amp; Scheidung</li>
-                  <li>Kindes- &amp; Ehegattenunterhalt</li>
-                  <li>Sorge- &amp; Umgangsrecht</li>
-                  <li>Zugewinnausgleich</li>
-                  <li>Eheverträge</li>
-                  <li>Internationale Familiensachen</li>
-                </ul>
-                <p class="small">Text folgt – wird individuell ergänzt.</p>
-              </div>
+          <article class="area-card reveal">
+            <div class="area-top">
+              <span class="area-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 15l1.6-4.8A2 2 0 0 1 8.5 9h7a2 2 0 0 1 1.9 1.2L19 15"/><rect x="3" y="15" width="18" height="4" rx="1.5"/><circle cx="7.5" cy="19.5" r="1.5"/><circle cx="16.5" cy="19.5" r="1.5"/></svg></span>
+              <span class="area-num">02</span>
             </div>
-          </details>
-
-          <details class="area reveal">
-            <summary>
-              <span class="a-num">03</span>
-              <h3>Mietrecht</h3>
-              <p class="a-teaser">Mieterhöhung, Kündigung, Nebenkosten und Mängel – Berliner Mietrecht mit seinen Besonderheiten.</p>
-              <span class="a-plus" aria-hidden="true"></span>
-            </summary>
-            <div class="area-body">
-              <div>
-                <p>[Platzhalter] Der Berliner Wohnungsmarkt ist angespannt – umso wichtiger ist es, die eigenen Rechte zu kennen. Ich prüfe Mieterhöhungen, Kündigungen und Abrechnungen und setze Ansprüche durch.</p>
-                <ul>
-                  <li>Mieterhöhung &amp; Mietpreisbremse</li>
-                  <li>Kündigung &amp; Eigenbedarf</li>
-                  <li>Betriebskostenabrechnung</li>
-                  <li>Mängel &amp; Mietminderung</li>
-                  <li>Mietkaution</li>
-                  <li>Gewerbemietverträge</li>
-                </ul>
-                <p class="small">Text folgt – wird individuell ergänzt.</p>
-              </div>
-            </div>
-          </details>
-
-          <details class="area reveal">
-            <summary>
-              <span class="a-num">04</span>
-              <h3>Migrationsrecht</h3>
-              <p class="a-teaser">Aufenthaltstitel, Blaue Karte, Familiennachzug und Einbürgerung – auch auf Englisch und Persisch.</p>
-              <span class="a-plus" aria-hidden="true"></span>
-            </summary>
-            <div class="area-body">
-              <div>
-                <p>[Platzhalter] Ob Visum, Aufenthaltserlaubnis oder Einbürgerung: Ich begleite Sie im Verfahren vor dem Landesamt für Einwanderung Berlin, kümmere mich um vollständige Anträge und gehe bei Untätigkeit oder Ablehnung gerichtlich vor.</p>
-                <ul>
-                  <li>Aufenthaltserlaubnis &amp; Niederlassung</li>
-                  <li>Blaue Karte EU &amp; Fachkräfte</li>
-                  <li>Familiennachzug</li>
-                  <li>Einbürgerung</li>
-                  <li>Visumverfahren</li>
-                  <li>Widerspruch &amp; Klage</li>
-                </ul>
-                <p class="small">Text folgt – wird individuell ergänzt.</p>
-              </div>
-            </div>
-          </details>
-
-          <details class="area reveal">
-            <summary>
-              <span class="a-num">05</span>
-              <h3>Vertragsrecht</h3>
-              <p class="a-teaser">Verträge prüfen, gestalten und durchsetzen – für Privatpersonen, Selbstständige und Gründer:innen.</p>
-              <span class="a-plus" aria-hidden="true"></span>
-            </summary>
-            <div class="area-body">
-              <div>
-                <p>[Platzhalter] Ein guter Vertrag verhindert Streit, bevor er entsteht. Ich prüfe und entwerfe Verträge verständlich und praxisnah – und helfe Ihnen, wenn eine Gegenseite ihre Pflichten nicht erfüllt.</p>
-                <ul>
-                  <li>Vertragsprüfung &amp; -gestaltung</li>
-                  <li>AGB für Selbstständige</li>
-                  <li>Forderungsdurchsetzung</li>
-                  <li>Kauf- &amp; Werkverträge</li>
-                  <li>Schadensersatz</li>
-                  <li>Außergerichtliche Einigung</li>
-                </ul>
-                <p class="small">Text folgt – wird individuell ergänzt.</p>
-              </div>
-            </div>
-          </details>
+            <h3>Verkehrsrecht</h3>
+            <p>[Platzhalter] Bußgeldbescheid, drohendes Fahrverbot oder ein Unfall: Ich prüfe Messung, Akte und Fristen genau, kämpfe um Ihren Führerschein und setze Ihre Ansprüche gegenüber Versicherungen durch.</p>
+            <ul class="topics">
+              <li>Bußgeldbescheid &amp; Punkte</li>
+              <li>Fahrverbot</li>
+              <li>Führerscheinentzug &amp; MPU</li>
+              <li>Alkohol &amp; Drogen am Steuer</li>
+              <li>Unfallflucht</li>
+              <li>Verkehrsunfall &amp; Schadensregulierung</li>
+            </ul>
+          </article>
         </div>
       </div>
     </section>
@@ -233,32 +154,16 @@
       <div class="container">
         <div class="section-head">
           <div>
-            <div class="eyebrow"><span class="num">02</span> Ablauf</div>
-            <h2 class="reveal">Vier Schritte. <em>Kein</em> Labyrinth.</h2>
+            <div class="eyebrow reveal"><span class="num">02</span> Ablauf</div>
+            <h2 class="reveal">Vier Schritte. <em>Klarer</em> Weg.</h2>
           </div>
           <p class="lead reveal">Sie sollen jederzeit wissen, wo Ihr Anliegen steht, was als Nächstes passiert und welche Kosten entstehen.</p>
         </div>
         <ol class="steps">
-          <li class="step reveal">
-            <span class="s-num" aria-hidden="true">1</span>
-            <h3>Anfrage</h3>
-            <p>Sie schildern Ihr Anliegen kurz über das Formular oder telefonisch. Ich melde mich in der Regel innerhalb von 24 Stunden.</p>
-          </li>
-          <li class="step reveal">
-            <span class="s-num" aria-hidden="true">2</span>
-            <h3>Erstberatung</h3>
-            <p>Im ersten Gespräch klären wir den Sachverhalt, Ihre Ziele und die Erfolgsaussichten – mit transparenten Kosten.</p>
-          </li>
-          <li class="step reveal">
-            <span class="s-num" aria-hidden="true">3</span>
-            <h3>Strategie</h3>
-            <p>Gemeinsam legen wir das Vorgehen fest: außergerichtliche Einigung, Verhandlung oder gerichtliches Verfahren.</p>
-          </li>
-          <li class="step reveal">
-            <span class="s-num" aria-hidden="true">4</span>
-            <h3>Vertretung</h3>
-            <p>Ich setze Ihre Interessen durch und halte Sie auf dem Laufenden – bis zum Abschluss Ihres Falls.</p>
-          </li>
+          <li class="step reveal"><span class="s-num" aria-hidden="true">1</span><h3>Kontakt</h3><p>Sie melden sich per Formular oder Telefon. Laufende Fristen sichere ich sofort.</p></li>
+          <li class="step reveal"><span class="s-num" aria-hidden="true">2</span><h3>Akteneinsicht</h3><p>Ich fordere die Ermittlungs- bzw. Bußgeldakte an und prüfe sie gründlich.</p></li>
+          <li class="step reveal"><span class="s-num" aria-hidden="true">3</span><h3>Strategie</h3><p>Wir besprechen Chancen, Risiken und Kosten – und entscheiden gemeinsam über das Vorgehen.</p></li>
+          <li class="step reveal"><span class="s-num" aria-hidden="true">4</span><h3>Verteidigung</h3><p>Ich vertrete Sie gegenüber Behörden und vor Gericht und halte Sie stets auf dem Laufenden.</p></li>
         </ol>
       </div>
     </section>
@@ -266,7 +171,7 @@
     <!-- ============ ÜBER MICH ============ -->
     <section class="section" id="ueber">
       <div class="container">
-        <div class="eyebrow"><span class="num">03</span> Über mich</div>
+        <div class="eyebrow reveal"><span class="num">03</span> Über mich</div>
         <div class="about-grid">
           <figure class="portrait reveal">
             <div class="portrait-frame">
@@ -286,7 +191,7 @@
             <h2 class="reveal" style="margin-bottom:32px">Max <em>Mustermann</em></h2>
             <p class="big reveal">[Platzhalter] Ich bin Rechtsanwalt aus Überzeugung: Recht soll nicht einschüchtern, sondern schützen. Deshalb erkläre ich verständlich, was Sache ist – ohne Juristendeutsch.</p>
             <p class="reveal">[Platzhalter] Nach dem Studium der Rechtswissenschaften an der [Universität] und dem Referendariat am Kammergericht Berlin habe ich in einer [Art der Kanzlei] gearbeitet, bevor ich meine eigene Kanzlei in Berlin-Mitte gegründet habe. Meine Mandantinnen und Mandanten schätzen vor allem meine Erreichbarkeit und meinen klaren Blick auf das Wesentliche.</p>
-            <p class="reveal">[Platzhalter] Da ich selbst mehrsprachig aufgewachsen bin, berate ich auch auf Englisch und Persisch – besonders hilfreich im Migrations- und Familienrecht.</p>
+            <p class="reveal">[Platzhalter] Mein Schwerpunkt liegt bewusst auf zwei Gebieten: Strafverteidigung und Verkehrsrecht. Ich berate auf Deutsch, Englisch und Persisch.</p>
 
             <ul class="cv reveal">
               <li><span class="y">20XX</span><span>Gründung der Kanzlei in Berlin</span></li>
@@ -311,7 +216,7 @@
       <div class="container">
         <div class="section-head">
           <div>
-            <div class="eyebrow"><span class="num">04</span> Kosten</div>
+            <div class="eyebrow reveal"><span class="num">04</span> Kosten</div>
             <h2 class="reveal">Transparent <em>von Anfang an</em></h2>
           </div>
           <p class="lead reveal">Bevor Kosten entstehen, sprechen wir darüber. Keine Überraschungen – versprochen.</p>
@@ -325,12 +230,12 @@
           <article class="fee reveal">
             <span class="f-label">Rechtsschutz</span>
             <div class="f-big">Deckungsanfrage</div>
-            <p>Sind Sie rechtsschutzversichert, übernehme ich die Korrespondenz mit Ihrer Versicherung und kläre die Kostenübernahme für Sie.</p>
+            <p>Eine Verkehrsrechtsschutzversicherung übernimmt häufig die Kosten in Bußgeld- und Verkehrsstrafsachen. Ich kläre das direkt mit Ihrer Versicherung.</p>
           </article>
           <article class="fee reveal">
-            <span class="f-label">Vertretung</span>
+            <span class="f-label">Vergütung</span>
             <div class="f-big">RVG oder Vereinbarung</div>
-            <p>Abrechnung nach dem Rechtsanwaltsvergütungsgesetz oder nach individueller Vereinbarung. Beratungs- und Prozesskostenhilfe sind möglich.</p>
+            <p>Abrechnung nach dem Rechtsanwaltsvergütungsgesetz oder nach individueller Vereinbarung. In den gesetzlichen Fällen auch als Pflichtverteidiger.</p>
           </article>
         </div>
         <p class="note">Alle Angaben ohne Gewähr; die konkreten Kosten hängen vom Einzelfall ab. Ein Mandat kommt erst nach ausdrücklicher Bestätigung zustande.</p>
@@ -341,30 +246,30 @@
     <section class="section" id="faq">
       <div class="container faq-grid">
         <div>
-          <div class="eyebrow"><span class="num">05</span> Häufige Fragen</div>
+          <div class="eyebrow reveal"><span class="num">05</span> Häufige Fragen</div>
           <h2 class="reveal">Gut zu <em>wissen</em></h2>
           <p class="lead reveal" style="margin-top:22px">Ihre Frage ist nicht dabei? Schreiben Sie mir einfach.</p>
         </div>
         <div class="faq reveal">
           <details>
-            <summary>Ich habe eine Kündigung erhalten – was jetzt?</summary>
-            <p>Handeln Sie zügig: Eine Kündigungsschutzklage muss innerhalb von drei Wochen nach Zugang der Kündigung beim Arbeitsgericht eingehen. Melden Sie sich am besten sofort telefonisch.</p>
+            <summary>Ich habe einen Bußgeldbescheid bekommen – was jetzt?</summary>
+            <p>Gegen den Bescheid können Sie innerhalb von zwei Wochen nach Zustellung Einspruch einlegen. Danach wird er rechtskräftig. Melden Sie sich daher möglichst sofort – ich prüfe Messung und Akte.</p>
           </details>
           <details>
-            <summary>Was soll ich zum ersten Termin mitbringen?</summary>
-            <p>Alle Unterlagen, die mit Ihrem Anliegen zu tun haben – zum Beispiel Verträge, Schreiben, Bescheide und Ihren Ausweis. Eine kurze chronologische Notiz hilft ebenfalls sehr.</p>
+            <summary>Ich habe eine Vorladung von der Polizei. Muss ich hingehen?</summary>
+            <p>Als Beschuldigte:r müssen Sie einer polizeilichen Vorladung nicht folgen und nichts zur Sache sagen. Sagen Sie den Termin ab und lassen Sie zuerst über mich Akteneinsicht nehmen.</p>
+          </details>
+          <details>
+            <summary>Ich habe einen Strafbefehl erhalten.</summary>
+            <p>Gegen einen Strafbefehl ist innerhalb von zwei Wochen nach Zustellung Einspruch möglich. Ohne Einspruch steht er einem rechtskräftigen Urteil gleich – handeln Sie bitte schnell.</p>
+          </details>
+          <details>
+            <summary>Was tun bei Durchsuchung oder Festnahme?</summary>
+            <p>Ruhe bewahren, keinen Widerstand leisten, keine Angaben zur Sache machen und nichts unterschreiben. Rufen Sie sofort Ihren Verteidiger an – auch außerhalb der Bürozeiten unter der Notfallnummer.</p>
           </details>
           <details>
             <summary>Übernimmt meine Rechtsschutzversicherung die Kosten?</summary>
-            <p>Häufig ja – abhängig von Ihrem Vertrag und dem Rechtsgebiet. Ich stelle die Deckungsanfrage gern für Sie.</p>
-          </details>
-          <details>
-            <summary>Ist eine Beratung auch online möglich?</summary>
-            <p>Ja. Termine sind in der Kanzlei, telefonisch oder per Videocall möglich – ganz wie es für Sie am besten passt.</p>
-          </details>
-          <details>
-            <summary>Wie schnell bekomme ich einen Termin?</summary>
-            <p>In der Regel innerhalb weniger Tage. Bei Fristsachen bemühe ich mich um einen Termin am selben oder nächsten Werktag. [Platzhalter]</p>
+            <p>Im Verkehrsrecht sehr häufig, im Strafrecht abhängig vom Vorwurf und Ihrem Vertrag. Ich stelle die Deckungsanfrage für Sie.</p>
           </details>
         </div>
       </div>
@@ -376,7 +281,7 @@
        <div class="contact-card">
         <div class="contact-grid">
           <div>
-            <div class="eyebrow"><span class="num">06</span> Kontakt</div>
+            <div class="eyebrow reveal"><span class="num">06</span> Kontakt</div>
             <h2 class="reveal">Erzählen Sie mir, <em>worum es geht.</em></h2>
             <p class="lead reveal" style="margin:22px 0 48px">Eine kurze Nachricht genügt. Ich melde mich in der Regel innerhalb von 24 Stunden bei Ihnen.</p>
 
@@ -399,11 +304,8 @@
                 <label for="f-area">Rechtsgebiet</label>
                 <select id="f-area" name="area">
                   <option value="">Bitte wählen</option>
-                  <option>Arbeitsrecht</option>
-                  <option>Familienrecht</option>
-                  <option>Mietrecht</option>
-                  <option>Migrationsrecht</option>
-                  <option>Vertragsrecht</option>
+                  <option>Strafrecht</option>
+                  <option>Verkehrsrecht</option>
                   <option>Sonstiges</option>
                 </select>
               </div>
@@ -424,7 +326,7 @@
                 <label for="f-web">Website</label>
                 <input id="f-web" name="website" type="text" tabindex="-1" autocomplete="off">
               </div>
-              <p class="form-hint">Bitte senden Sie zunächst keine Unterlagen. Läuft eine Frist (z. B. nach einer Kündigung oder einem Bescheid), rufen Sie bitte direkt an. Durch die Anfrage kommt noch kein Mandat zustande.</p>
+              <p class="form-hint">Bitte senden Sie zunächst keine Unterlagen. Läuft eine Frist (z. B. nach einem Bußgeldbescheid oder Strafbefehl), rufen Sie bitte direkt an. Durch die Anfrage kommt noch kein Mandat zustande.</p>
               <div class="field field--full">
                 <label class="check"><input type="checkbox" name="privacy" required> <span>Ich habe die <a href="datenschutz.html">Datenschutzhinweise</a> gelesen. Meine Angaben werden ausschließlich zur Bearbeitung meiner Anfrage verwendet. *</span></label>
                 <span class="err" aria-live="polite"></span>
@@ -458,6 +360,12 @@
                 Musterstraße 1<br>
                 10117 Berlin-Mitte
               </address>
+            </div>
+
+            <div class="emergency">
+              <span class="em-label">Strafrechtlicher Notfall</span>
+              <a href="tel:+491700000000">0170 000 00 00</a>
+              <span class="em-sub">Festnahme oder Durchsuchung – rund um die Uhr [Platzhalter]</span>
             </div>
 
             <div class="direct">

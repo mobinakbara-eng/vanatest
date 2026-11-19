@@ -16,6 +16,14 @@
      ------------------------------------------------------------------ */
   requestAnimationFrame(() => root.classList.add('is-loaded'));
 
+  // Weiches Scrollen (Lenis, lokal eingebunden). Bei „Bewegung reduzieren“ aus.
+  if (window.Lenis && !reduceMotion) {
+    const lenis = new window.Lenis({ lerp: 0.085, smoothWheel: true, anchors: { offset: -80 } });
+    const loop = (t) => { lenis.raf(t); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+    window.lenis = lenis;
+  }
+
   const header = document.querySelector('[data-header]');
   let lastY = window.scrollY;
   window.addEventListener('scroll', () => {
@@ -78,9 +86,10 @@
     const copy = sceneEl.querySelector('.hero-copy');
     const side = sceneEl.querySelector('[data-side]');
     const badges = sceneEl.querySelector('[data-badges]');
-    const posterEl = sceneEl.querySelector('[data-poster]');
+    const layer = document.querySelector('[data-statue-layer]') || sticky;
+    const posterEl = layer.querySelector('[data-poster]');
     const textEl = sceneEl.querySelector('[data-scene-text]');
-    const lines = [...sceneEl.querySelectorAll('[data-line]')];
+    const lines = [...layer.querySelectorAll('[data-line]')];
     const lineData = lines.map((l) => ({ l, a: l.dataset.from.split(' ').map(Number), b: l.dataset.to.split(' ').map(Number) }));
 
     // Wörter einzeln einfärbbar machen
@@ -126,27 +135,32 @@
       return { t: mix(t0, vw < 760 ? 0.1 : 0.05, k), h: mix(h0, h1, k) };
     };
 
-    const state = { p: 0, layout };
+    const state = { p: 0, q: 0, layout };
     window.sceneState = state;
 
-    let target = 0, cur = 0, raf = 0;
+    // p: Fortschritt innerhalb der Szene, q: Übergang zum unscharfen Hintergrund danach
+    let target = 0, cur = 0, targetQ = 0, curQ = 0, raf = 0;
     const readScroll = () => {
       const r = sceneEl.getBoundingClientRect();
       const total = sceneEl.offsetHeight - vh;
       target = clamp(-r.top / Math.max(1, total));
+      targetQ = clamp((-r.top - total) / (vh * 0.7));
     };
 
     const apply = () => {
-      const p = cur; state.p = p;
-      const st = sticky.style;
+      const p = cur, q = curQ; state.p = p; state.q = q;
+      const st = sticky.style, ls = layer.style;
       const k = ease(seg(p, 0, 0.5));
       st.setProperty('--copy-op', String(1 - seg(p, 0.02, 0.24)));
       st.setProperty('--copy-y', (-90 * ease(seg(p, 0, 0.3))).toFixed(1) + 'px');
       st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
-      st.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5))).toFixed(3));
-      st.setProperty('--bw-scale', mix(0.9, 1, ease(seg(p, 0.1, 0.6))).toFixed(3));
-      st.setProperty('--fade-a', mix(86, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
-      st.setProperty('--fade-b', mix(100, vw < 760 ? 70 : 76, k).toFixed(1) + '%');
+      ls.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5)) * (1 - q)).toFixed(3));
+      ls.setProperty('--lines-op', String(1 - q));
+      ls.setProperty('--blur', (16 * ease(q)).toFixed(2) + 'px');
+      ls.setProperty('--statue-op', (1 - 0.68 * ease(q)).toFixed(3));
+      ls.setProperty('--bw-scale', mix(0.9, 1, ease(seg(p, 0.1, 0.6))).toFixed(3));
+      ls.setProperty('--fade-a', mix(86, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
+      ls.setProperty('--fade-b', mix(100, vw < 760 ? 70 : 76, k).toFixed(1) + '%');
       const lp = ease(seg(p, 0.18, 0.62));
       lineData.forEach(({ l, a, b }) => {
         l.setAttribute('x2', (a[0] + (b[0] - a[0]) * lp).toFixed(2) + '%');
@@ -172,15 +186,17 @@
       }
     };
 
+    const follow = window.Lenis && !reduceMotion ? 0.35 : 0.16;   // mit Lenis ist das Scrollen schon weich
     const tick = () => {
-      const d = target - cur;
-      cur = Math.abs(d) < 0.0005 ? target : cur + d * 0.14;   // weiches Nachziehen
+      const d = target - cur, dq = targetQ - curQ;
+      cur = Math.abs(d) < 0.0005 ? target : cur + d * follow;
+      curQ = Math.abs(dq) < 0.001 ? targetQ : curQ + dq * follow;
       apply();
-      raf = cur !== target ? requestAnimationFrame(tick) : 0;
+      raf = cur !== target || curQ !== targetQ ? requestAnimationFrame(tick) : 0;
     };
     const onScroll = () => { readScroll(); if (!raf) raf = requestAnimationFrame(tick); };
 
-    measure(); readScroll(); cur = target; apply();
+    measure(); readScroll(); cur = target; curQ = targetQ; apply();
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', () => { measure(); readScroll(); apply(); });
     document.fonts && document.fonts.ready.then(() => { measure(); apply(); });

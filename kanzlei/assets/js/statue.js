@@ -78,32 +78,38 @@ function init() {
   }
   window.addEventListener('resize', resize);
 
-  // Sichtbarkeit: außerhalb der Szene nicht rendern
-  let visible = true;
-  const sceneEl = document.querySelector('[data-scene]');
-  if (sceneEl && 'IntersectionObserver' in window) {
-    new IntersectionObserver((e) => { visible = e[0].isIntersecting; if (visible) start(); }, { rootMargin: '100px' }).observe(sceneEl);
-  }
+  // Die Ebene ist fest im Hintergrund; Rendern stoppt automatisch, wenn nichts mehr passiert.
+  const visible = true;
 
   let rot = null, idle = 0, last = performance.now(), running = false, tiltX = 0, tiltTarget = 0;
   window.addEventListener('pointermove', (e) => { tiltTarget = ((e.clientY / window.innerHeight) - 0.5) * 0.06; }, { passive: true });
+  window.addEventListener('scroll', () => start(), { passive: true });
 
   function start() { if (!running && spinner.children.length) { running = true; last = performance.now(); requestAnimationFrame(frame); } }
 
+  let settled = 0;
   function frame(now) {
     if (!visible) { running = false; return; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const st = window.sceneState;
     const p = st ? st.p : 0;
+    const q = st ? st.q : 0;
 
-    // Drehung: Scroll bestimmt den Großteil, dazu langsame Eigendrehung
-    if (!reduce) idle += dt * 0.12;
-    const target = -0.38 + p * Math.PI * 1.65 + idle;
+    // Drehung: über die ganze Szene eine halbe Umdrehung, dazu eine sehr langsame
+    // Eigendrehung – die stoppt, sobald die Statue als unscharfer Hintergrund steht.
+    if (!reduce && q < 0.98) idle += dt * 0.06 * (1 - q);
+    const target = -0.38 + p * Math.PI + idle;
     if (rot === null) rot = target;
-    rot += (target - rot) * (1 - Math.pow(0.0015, dt));   // framerate-unabhängige Dämpfung
+    const before = rot;
+    rot += (target - rot) * (1 - Math.pow(0.004, dt));   // weich, framerate-unabhängig
     spinner.rotation.y = rot;
     tiltX += (tiltTarget - tiltX) * 0.05;
-    spinner.rotation.x = tiltX;
+    spinner.rotation.x = tiltX * (1 - q);
+
+    // Im Hintergrund-Zustand nur rendern, solange sich noch etwas bewegt
+    if (q >= 0.98 && Math.abs(rot - before) < 1e-5) {
+      if (++settled > 30) { running = false; return; }
+    } else settled = 0;
 
     // Position/Größe aus dem Layout der Szene (Anteile der Viewporthöhe)
     if (st) {
