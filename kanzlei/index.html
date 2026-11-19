@@ -283,7 +283,8 @@
             <h2 class="reveal">Erzählen Sie mir, <em>worum es geht.</em></h2>
             <p class="lead reveal" style="margin:22px 0 48px">Eine kurze Nachricht genügt. Ich melde mich in der Regel innerhalb von 24 Stunden bei Ihnen.</p>
 
-            <form class="form" action="kontakt.php" method="post" novalidate data-form>
+            <form class="form" name="kontakt" action="kontakt.php" method="post" novalidate data-form data-netlify="true" netlify-honeypot="website">
+              <input type="hidden" name="form-name" value="kontakt">
               <div class="field">
                 <label for="f-name">Name *</label>
                 <input id="f-name" name="name" type="text" autocomplete="name" required>
