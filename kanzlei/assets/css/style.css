@@ -4,6 +4,8 @@
    große Versal-Headlines, Bronze als einziger Akzent.
    ========================================================================== */
 
+/* Ersatzschrift mit angepassten Maßen: kein Springen des Layouts, wenn Poppins nachlädt */
+@font-face { font-family: "Poppins Fallback"; src: local("Arial"), local("Helvetica Neue"), local("Helvetica"); size-adjust: 112.5%; ascent-override: 93%; descent-override: 31%; line-gap-override: 9%; }
 @font-face { font-family: "Poppins"; src: url("../fonts/poppins-latin-300-normal.woff2") format("woff2"); font-weight: 300; font-display: swap; }
 @font-face { font-family: "Poppins"; src: url("../fonts/poppins-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "Poppins"; src: url("../fonts/poppins-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; }
@@ -24,7 +26,7 @@
   --bronze-2: #9a7048;
   --focus: #1f5fbf;
 
-  --sans: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --sans: "Poppins", "Poppins Fallback", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --max: 1240px;
   --gutter: clamp(20px, 4.5vw, 56px);
   --radius: 18px;
@@ -127,7 +129,7 @@ main, .site-footer { position: relative; z-index: 1; }
    Nach der Szene bleibt die Statue unscharf als Hintergrund stehen. */
 .statue-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .statue-layer .statue-canvas, .statue-layer .statue-poster {
-  filter: blur(var(--blur, 0px)); opacity: var(--statue-op, 1);
+  filter: var(--blur-f, none); opacity: var(--statue-op, 1);
 }
 .scene-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 
@@ -161,8 +163,10 @@ main, .site-footer { position: relative; z-index: 1; }
   -webkit-mask-image: linear-gradient(to bottom, #000 var(--fade-a, 100%), transparent var(--fade-b, 100%));
           mask-image: linear-gradient(to bottom, #000 var(--fade-a, 100%), transparent var(--fade-b, 100%)); }
 .statue-canvas.is-ready { visibility: visible; }
-.statue-poster { left: 50%; width: auto; transform: translateX(-50%); transition: opacity .8s ease;
+/* Positionierung nur per transform (kein Layout-Shift); sichtbar erst nach dem Platzieren */
+.statue-poster { left: 50%; top: 0; height: 100vh; width: auto; transform-origin: 50% 0; transform: translateX(-50%); transition: opacity .6s ease; opacity: 0; visibility: hidden;
   -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%); mask-image: linear-gradient(to bottom, #000 70%, transparent 100%); }
+.statue-poster.is-placed { opacity: 1; visibility: visible; }
 .statue-poster.is-hidden { opacity: 0; }
 
 .scene-text {
@@ -350,7 +354,7 @@ fieldset.field { border: 0; padding: 0; margin: 0; }
 .map .ring { fill: none; stroke: #5a544c; stroke-width: 2; stroke-dasharray: 1 6; stroke-linecap: round; }
 .map .spree { fill: none; stroke: #3b4652; stroke-width: 3; stroke-linecap: round; }
 .map .pin { fill: var(--bronze-2); }
-.map .pin-halo { fill: rgba(154, 112, 72, .35); transform-box: fill-box; transform-origin: center; animation: halo 2.6s var(--ease) infinite; }
+.map .pin-halo { fill: rgba(154, 112, 72, .35); transform-box: fill-box; transform-origin: center; animation: halo 2.6s var(--ease) 4; }
 @keyframes halo { 0% { transform: scale(.6); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
 .map text { fill: #8a837a; font: 10.5px var(--sans); letter-spacing: .12em; text-transform: uppercase; }
 .map-label { position: absolute; left: 18px; bottom: 12px; font-size: 12.5px; }

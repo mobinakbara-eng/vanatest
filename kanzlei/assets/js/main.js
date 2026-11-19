@@ -19,8 +19,18 @@
   // Weiches Scrollen (Lenis, lokal eingebunden). Bei „Bewegung reduzieren“ aus.
   if (window.Lenis && !reduceMotion) {
     const lenis = new window.Lenis({ lerp: 0.085, smoothWheel: true, anchors: { offset: -80 } });
-    const loop = (t) => { lenis.raf(t); requestAnimationFrame(loop); };
-    requestAnimationFrame(loop);
+    // Die Schleife läuft nur, solange gescrollt wird – sonst ruht die Seite komplett
+    let looping = false, quiet = 0;
+    const loop = (t) => {
+      lenis.raf(t);
+      quiet = lenis.isScrolling ? 0 : quiet + 1;
+      if (quiet > 20) { looping = false; return; }
+      requestAnimationFrame(loop);
+    };
+    const wake = () => { quiet = 0; if (!looping) { looping = true; requestAnimationFrame(loop); } };
+    ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach((ev) => window.addEventListener(ev, wake, { passive: true }));
+    document.addEventListener('click', (e) => { if (e.target.closest('a[href^="#"]')) wake(); });
+    wake();
     window.lenis = lenis;
   }
 
@@ -156,7 +166,7 @@
       st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
       ls.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5)) * (1 - q)).toFixed(3));
       ls.setProperty('--lines-op', String(1 - q));
-      ls.setProperty('--blur', (16 * ease(q)).toFixed(2) + 'px');
+      ls.setProperty('--blur-f', q > 0.001 ? 'blur(' + (16 * ease(q)).toFixed(2) + 'px)' : 'none');
       ls.setProperty('--statue-op', (1 - 0.68 * ease(q)).toFixed(3));
       ls.setProperty('--bw-scale', mix(0.9, 1, ease(seg(p, 0.1, 0.6))).toFixed(3));
       ls.setProperty('--fade-a', mix(86, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
@@ -174,8 +184,9 @@
       if (badges) badges.style.top = ((L0.t + 0.2) * vh) + 'px';
       // Poster (Bild bis das 3D-Modell bereit ist / ohne WebGL)
       if (posterEl && !posterEl.classList.contains('is-hidden')) {
-        posterEl.style.top = (L.t * vh) + 'px';
-        posterEl.style.height = (L.h * vh) + 'px';
+        if (posterEl.dataset.vh !== String(vh)) { posterEl.style.height = vh + 'px'; posterEl.dataset.vh = vh; }
+        posterEl.style.transform = 'translate(-50%,' + (L.t * vh).toFixed(1) + 'px) scale(' + L.h.toFixed(4) + ')';
+        posterEl.classList.add('is-placed');
       }
       // Text unter der Statue + Wort für Wort einfärben
       if (textEl) {
@@ -200,6 +211,24 @@
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', () => { measure(); readScroll(); apply(); });
     document.fonts && document.fonts.ready.then(() => { measure(); apply(); });
+  }
+
+  // 3D-Statue erst nachladen, wenn die Seite fertig ist (blockiert den Seitenaufbau nicht)
+  if (!window.STATUE_INLINE && document.querySelector('[data-canvas]')) {
+    // Start bei der ersten Interaktion (Scrollen, Tippen, Maus) oder spätestens nach 3,5 s –
+    // bis dahin zeigt das identische Standbild die Statue.
+    const loadStatue = () => {
+      let done = false;
+      const evs = ['scroll', 'wheel', 'touchstart', 'pointermove', 'keydown'];
+      const go = () => {
+        if (done) return; done = true;
+        evs.forEach((e) => window.removeEventListener(e, go));
+        import('./statue.js').catch(() => { /* Standbild bleibt */ });
+      };
+      evs.forEach((e) => window.addEventListener(e, go, { passive: true, once: true }));
+      setTimeout(go, 3500);
+    };
+    document.readyState === 'complete' ? loadStatue() : window.addEventListener('load', loadStatue, { once: true });
   }
 
   const year = document.querySelector('[data-year]');

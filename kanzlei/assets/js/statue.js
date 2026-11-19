@@ -1,30 +1,43 @@
 /* ==========================================================================
    Justitia – 3D-Statue (three.js), gesteuert durch die Scroll-Szene in main.js
    - Bronze-Material mit Umgebungsreflexionen
-   - Drehung folgt dem Scrollen, weich gedämpft, dazu eine langsame Eigendrehung
-   - Rendert nur, solange die Szene sichtbar ist
+   - Drehung folgt dem Scrollen, weich gedämpft
+   - Lädt erst nach dem Seitenaufbau, rendert nur bei Bewegung
    Modell: "Lady Justice" von Kenny Maguire Studio, CC BY 4.0
-   (vereinfacht und quantisiert, ohne Meshopt-Kompression → läuft auch bei strenger CSP)
+   (vereinfacht, quantisiert und mit Meshopt komprimiert: 1,1 MB bzw. 0,56 MB fürs Handy)
    ========================================================================== */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const canvas = document.querySelector('[data-canvas]');
 const poster = document.querySelector('[data-poster]');
-const MODEL_URL = (window.STATUE_MODEL_URL || 'assets/models/lady-justice.glb');
+// Leichteres Modell für Handys bzw. Geräte mit wenig Speicher
+const SMALL = window.innerWidth < 760 || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+const MODEL_URL = window.STATUE_MODEL_URL || (SMALL ? 'assets/models/lady-justice-mobile.glb' : 'assets/models/lady-justice.glb');
+
+// Bei „Datensparmodus“ oder sehr langsamer Verbindung bleibt es beim Standbild
+const conn = navigator.connection || {};
+const SKIP_3D = conn.saveData || /(^|-)2g$/.test(conn.effectiveType || '');
 
 function webglOK() {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); }
   catch (e) { return false; }
 }
 
-if (canvas && webglOK()) init();
+// 3D erst laden, wenn die Seite fertig ist und der Browser Luft hat – das Standbild ist sofort da
+function whenIdle(fn) {
+  const go = () => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 200));
+  if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true });
+}
+if (canvas && !SKIP_3D && webglOK()) whenIdle(init);
 
 function init() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const dpr = Math.min(window.devicePixelRatio || 1, SMALL ? 1.5 : 2);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, alpha: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(dpr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.95;
@@ -50,6 +63,7 @@ function init() {
   const bronze = new THREE.MeshStandardMaterial({ color: 0x6a4527, metalness: 0.85, roughness: 0.5, envMapIntensity: 1.0 });
 
   const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
   loader.load(MODEL_URL, (gltf) => {
     const model = gltf.scene;
     // Normalen werden hier berechnet (spart Dateigröße, kein WebAssembly-Decoder nötig)
@@ -76,7 +90,7 @@ function init() {
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => { resize(); start(); });
 
   // Die Ebene ist fest im Hintergrund; Rendern stoppt automatisch, wenn nichts mehr passiert.
   const visible = true;
@@ -87,7 +101,7 @@ function init() {
 
   function start() { if (!running && spinner.children.length) { running = true; last = performance.now(); requestAnimationFrame(frame); } }
 
-  let settled = 0;
+  let settled = 0, lastKey = '';
   function frame(now) {
     if (!visible) { running = false; return; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -95,9 +109,7 @@ function init() {
     const p = st ? st.p : 0;
     const q = st ? st.q : 0;
 
-    // Drehung: über die ganze Szene eine halbe Umdrehung, dazu eine sehr langsame
-    // Eigendrehung – die stoppt, sobald die Statue als unscharfer Hintergrund steht.
-    if (!reduce && q < 0.98) idle += dt * 0.06 * (1 - q);
+    // Drehung: über die ganze Szene eine halbe Umdrehung, weich gedämpft
     const target = -0.38 + p * Math.PI + idle;
     if (rot === null) rot = target;
     const before = rot;
@@ -106,10 +118,13 @@ function init() {
     tiltX += (tiltTarget - tiltX) * 0.05;
     spinner.rotation.x = tiltX * (1 - q);
 
-    // Im Hintergrund-Zustand nur rendern, solange sich noch etwas bewegt
-    if (q >= 0.98 && Math.abs(rot - before) < 1e-5) {
-      if (++settled > 30) { running = false; return; }
+    // Nur rendern, solange sich etwas bewegt – danach schläft die Schleife bis zum nächsten Scrollen
+    const L0 = st ? st.layout(p) : null;
+    const key = L0 ? L0.t.toFixed(4) + L0.h.toFixed(4) : '';
+    if (Math.abs(rot - before) < 1e-5 && key === lastKey) {
+      if (++settled > 2) { running = false; return; }
     } else settled = 0;
+    lastKey = key;
 
     // Position/Größe aus dem Layout der Szene (Anteile der Viewporthöhe)
     if (st) {

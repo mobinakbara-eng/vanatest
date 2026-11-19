@@ -10,7 +10,9 @@ Statische, schnelle Website für eine Anwaltskanzlei in Berlin. Kein Framework, 
 | `impressum.html` | Impressum nach § 5 DDG inkl. berufsrechtlicher Angaben |
 | `datenschutz.html` | Datenschutzerklärung (Entwurf) |
 | `kontakt.php` | Versand des Kontaktformulars per E-Mail (PHP-Hosting nötig) |
-| `assets/css/style.css` | Gestaltung (Farben oben unter `:root`) |
+| `assets/css/style.css` | Gestaltung (Farben oben unter `:root`) – Quelle, wird per Build eingebettet |
+| `assets/dist/` | Erzeugte, minifizierte Dateien (`npm run build`) |
+| `.htaccess` | Komprimierung, Cache, HTTPS (Apache-Hosting) |
 | `assets/js/main.js` | Scroll-Szene, Einblendungen, Formular |
 | `assets/js/statue.js` | 3D-Justitia (three.js) |
 | `assets/fonts/` | Lokal eingebundene Schrift Poppins (SIL OFL) |
@@ -44,6 +46,27 @@ Solange die Dateien fehlen, wird automatisch ein Platzhalter angezeigt.
 
 Diese Vorlage ersetzt keine rechtliche Prüfung der Pflichtangaben.
 
+## Geschwindigkeit
+
+Lighthouse (lokal, Mobil): **97/100**, Desktop **100/100** (vorher 17). Maßnahmen:
+
+- 3D-Modell vereinfacht und mit Meshopt komprimiert: 4 MB → 1,1 MB (Handy: 0,56 MB).
+- three.js und die 3D-Szene laden **erst bei der ersten Interaktion** (Scrollen/Tippen) oder nach 3,5 s; bis dahin zeigt ein identisches Standbild die Statue. Bei Datensparmodus/2G bleibt es beim Standbild.
+- Gerendert wird nur, solange sich etwas bewegt; die Scroll-Schleife (Lenis) schläft, wenn nicht gescrollt wird.
+- CSS ist in `index.html` eingebettet, Schriften werden vorgeladen, Ersatzschrift mit angepassten Maßen → kein Springen (CLS 0).
+- Statue-Standbild wird per `transform` positioniert (kein Layout-Shift), fürs Handy in 540 px.
+- `.htaccess`: Brotli/gzip (auch für `.glb`), Browser-Cache, HTTPS-Weiterleitung.
+
+### Nach Änderungen an CSS/JS
+
+```bash
+cd kanzlei
+npm install      # einmalig
+npm run build    # erzeugt assets/dist/ und bettet das CSS in index.html ein
+```
+
+Bearbeitet werden nur `assets/css/style.css` und `assets/js/*.js`; `assets/dist/` und der `<style>`-Block in `index.html` werden erzeugt.
+
 ## Lokal ansehen
 
 ```bash
@@ -65,7 +88,7 @@ Oben auf der Startseite ist eine „gepinnte“ Szene (`.scene`, 240 % Bildschir
 Die ganze Seite scrollt weich mit Trägheit (Lenis, lokal in `assets/vendor/lenis/`); bei „Bewegung reduzieren“ ist das aus.
 
 Dateien: `assets/js/main.js` (Zeitachse, Layout), `assets/js/statue.js` (3D), `assets/models/lady-justice.glb` (Modell),
-`assets/img/justitia-poster.webp` (Standbild, solange das Modell lädt bzw. ohne WebGL), `assets/vendor/three/` (three.js, lokal).
+`assets/models/lady-justice-mobile.glb` (Handy), `assets/img/justitia-poster*.webp` (Standbild), three.js wird per `npm run build` gebündelt.
 
 Stellschrauben: Szenenlänge in `style.css` (`.scene { height: 240vh }`), Drehung in `statue.js` (`p * Math.PI`), Unschärfe in `main.js` (`--blur`),
 Bronze-Farbe in `statue.js` (`color: 0x6a4527`), großes Wort in `index.html` (`.bigword`).

@@ -1,0 +1,51 @@
+# ==========================================================================
+# Performance-Einstellungen für Apache-Hosting (z. B. Strato, IONOS, all-inkl)
+# ==========================================================================
+
+# Immer HTTPS
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Richtige Dateitypen
+<IfModule mod_mime.c>
+  AddType model/gltf-binary .glb
+  AddType font/woff2 .woff2
+  AddType image/webp .webp
+</IfModule>
+
+# Komprimierung (Brotli, sonst gzip) – auch für das 3D-Modell
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/css application/javascript text/javascript application/json image/svg+xml model/gltf-binary
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json image/svg+xml model/gltf-binary
+</IfModule>
+
+# Browser-Cache: große, selten geänderte Dateien lange; HTML immer frisch
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 week"
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType model/gltf-binary "access plus 1 month"
+  ExpiresByType image/webp "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType text/css "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+  ExpiresByType text/javascript "access plus 1 week"
+</IfModule>
+
+# Sicherheits-Header
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
+# Quellcode-/Build-Dateien nicht ausliefern
+<FilesMatch "^(package(-lock)?\.json|build\.mjs|README\.md|\.gitignore)$">
+  Require all denied
+</FilesMatch>
