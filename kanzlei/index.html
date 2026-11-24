@@ -184,13 +184,6 @@
               <li><span class="y">Diskret</span><span>Anwaltliche Schweigepflicht: Ihre Angelegenheit bleibt vertraulich – auch gegenüber Arbeitgeber und Familie.</span></li>
               <li><span class="y">Persönlich</span><span>Sie sprechen immer direkt mit Ihrem Anwalt, nicht mit wechselnden Ansprechpartnern.</span></li>
             </ul>
-
-            <div class="tags reveal">
-              <span class="tag">Strafverteidigung</span>
-              <span class="tag">Verkehrsrecht</span>
-              <span class="tag">Verkehrsstrafrecht</span>
-              <span class="tag">Termine auch per Video</span>
-            </div>
           </div>
         </div>
       </div>
@@ -290,19 +283,18 @@
                 <input id="f-email" name="email" type="email" autocomplete="email" required>
                 <span class="err" aria-live="polite"></span>
               </div>
-              <div class="field">
+              <div class="field field--full">
                 <label for="f-phone">Telefon</label>
                 <input id="f-phone" name="phone" type="tel" autocomplete="tel">
               </div>
-              <div class="field">
-                <label for="f-area">Rechtsgebiet</label>
-                <select id="f-area" name="area">
-                  <option value="">Bitte wählen</option>
-                  <option>Strafrecht</option>
-                  <option>Verkehrsrecht</option>
-                  <option>Sonstiges</option>
-                </select>
-              </div>
+              <fieldset class="field field--full">
+                <legend>Rechtsgebiet</legend>
+                <div class="radios">
+                  <label><input type="radio" name="area" value="Strafrecht"><span>Strafrecht</span></label>
+                  <label><input type="radio" name="area" value="Verkehrsrecht"><span>Verkehrsrecht</span></label>
+                  <label><input type="radio" name="area" value="Sonstiges"><span>Sonstiges</span></label>
+                </div>
+              </fieldset>
               <fieldset class="field field--full">
                 <legend>Bevorzugter Rückweg</legend>
                 <div class="radios">
