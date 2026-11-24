@@ -125,7 +125,7 @@ p { margin: 0 0 1em; }
 /* ==========================================================================
    Scroll-Szene mit der Justitia
    ========================================================================== */
-.scene { position: relative; height: 240vh; }
+.scene { position: relative; height: 300vh; }
 main, .site-footer { position: relative; z-index: 1; }
 
 /* Feste Ebene hinter der ganzen Seite: Statue, großes Wort, Linien.
@@ -192,7 +192,7 @@ main > section:not(.scene) { pointer-events: auto; }
 @media (max-width: 760px) {
   .side-note, .badges, .scroll-hint { display: none; }
   .hero-copy { top: 112px; }
-  .scene { height: 220vh; }
+  .scene { height: 270vh; }
 }
 @media (prefers-reduced-motion: reduce) {
   .scroll-hint i::after, .logo-mark .lm-arch { animation: none; stroke-dashoffset: 0; }
@@ -379,15 +379,26 @@ fieldset.field { border: 0; padding: 0; margin: 0; }
 .no-js .reveal { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
-/* Rechtstexte */
-.legal { padding: 140px 0 100px; }
-.legal .container { max-width: 820px; }
-.legal h1 { font-size: clamp(36px, 5vw, 60px); margin-bottom: 40px; }
-.legal h2 { font-size: 20px; margin: 44px 0 12px; text-transform: none; letter-spacing: -.01em; }
-.legal p, .legal li { color: var(--ink-2); font-size: 15.5px; }
-.legal .todo { background: #fff1b8; color: #5b4a00; padding: 0 4px; border-radius: 3px; }
-.legal .back { margin-top: 40px; }
+/* Rechtstexte – gleiche Sprache wie die Startseite */
+.legal-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: grid; place-items: center; }
+.legal-bg img { height: 88vh; width: auto; filter: blur(16px); opacity: .32; }
+.legal, .legal + .site-footer { position: relative; z-index: 1; }
+.legal { padding: 150px 0 90px; }
+.legal .container { max-width: 1040px; }
+.legal-head { margin-bottom: clamp(44px, 6vw, 80px); }
+.legal-head h1 { font-size: clamp(36px, 5.4vw, 72px); text-transform: uppercase; }
+.legal-head .lead { margin-top: 20px; }
+.lrow { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.6fr); gap: 16px 48px; padding: 26px 0; border-top: 1px solid var(--hair); }
+.lrow:last-of-type { border-bottom: 1px solid var(--hair); }
+.lrow h2 { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink); line-height: 1.5; }
+.lrow-body p, .lrow-body li { color: var(--ink-2); font-size: 15.5px; }
+.lrow-body p:last-child, .lrow-body ul:last-child { margin-bottom: 0; }
+.lrow-body ul { padding-left: 18px; margin: 0 0 1em; }
+.lrow-body a { color: var(--bronze); }
+.legal .todo { background: rgba(154, 112, 72, .14); color: var(--bronze); padding: 0 4px; border-radius: 3px; }
+.legal-back { display: inline-block; margin-top: 48px; }
 .legal-header .header-inner { grid-template-columns: 1fr auto; }
+@media (max-width: 760px) { .lrow { grid-template-columns: 1fr; gap: 10px; } }
 @media (max-width: 520px) { .brand-sub { display: none; } }
 
 

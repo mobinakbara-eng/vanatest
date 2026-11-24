@@ -179,9 +179,11 @@
       if (copyBtn) copyBtn.style.visibility = p > 0.12 ? 'hidden' : 'visible';
       st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
       ls.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5)) * (1 - q)).toFixed(3));
-      ls.setProperty('--lines-op', String(1 - q));
-      ls.setProperty('--blur-f', q > 0.001 ? 'blur(' + (16 * ease(q)).toFixed(2) + 'px)' : 'none');
-      ls.setProperty('--statue-op', (1 - 0.68 * ease(q)).toFixed(3));
+      // Sobald die Drehung fertig ist, tritt die Statue unscharf in den Hintergrund
+      const bk = Math.max(ease(seg(p, 0.56, 0.8)), ease(q));
+      ls.setProperty('--lines-op', String(1 - bk));
+      ls.setProperty('--blur-f', bk > 0.001 ? 'blur(' + (16 * bk).toFixed(2) + 'px)' : 'none');
+      ls.setProperty('--statue-op', (1 - 0.68 * bk).toFixed(3));
       ls.setProperty('--bw-scale', mix(0.9, 1, ease(seg(p, 0.1, 0.6))).toFixed(3));
       ls.setProperty('--fade-a', mix(86, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
       ls.setProperty('--fade-b', mix(100, vw < 760 ? 70 : 76, k).toFixed(1) + '%');
@@ -204,9 +206,13 @@
       }
       // Text unter der Statue + Wort für Wort einfärben
       if (textEl) {
-        textEl.style.top = ((vw < 760 ? 0.6 : 0.62) * vh) + 'px';
+        // Text erscheint unten, wandert mit dem Unscharfwerden der Statue in die Bildmitte
+        // und färbt sich erst dort Wort für Wort ein
+        const tStart = (vw < 760 ? 0.6 : 0.62) * vh;
+        const tMid = (vh - textEl.offsetHeight) / 2;
+        textEl.style.top = mix(tStart, tMid, ease(seg(p, 0.56, 0.8))).toFixed(1) + 'px';
         textEl.style.opacity = String(seg(p, 0.38, 0.5));
-        const n = Math.round(seg(p, 0.48, 0.9) * words.length);
+        const n = Math.round(seg(p, 0.8, 0.98) * words.length);
         words.forEach((w, i) => w.classList.toggle('on', i < n));
       }
     };
