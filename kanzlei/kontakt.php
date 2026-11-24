@@ -7,8 +7,8 @@
  * ANPASSEN: Empfängeradresse und Absenderadresse (muss zur eigenen Domain gehören).
  */
 
-const MAIL_TO   = 'kontakt@kanzlei-mustermann.de';
-const MAIL_FROM = 'website@kanzlei-mustermann.de';
+const MAIL_TO   = 'kontakt@ra-erkan.example';
+const MAIL_FROM = 'website@ra-erkan.example';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');

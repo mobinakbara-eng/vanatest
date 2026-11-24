@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 52" width="80" height="104">
-  <!-- Logo-Zeichen: Portalbogen (Gericht/Kanzleitür) + Initiale + Akzentpunkt.
-       Initiale bei Bedarf ändern; für den Druck Text in Pfade umwandeln (Schrift: Fraunces). -->
-  <path d="M2 51V20a18 18 0 0 1 36 0v31" fill="none" stroke="#17181c" stroke-width="1.6"/>
-  <path d="M0 51h40" fill="none" stroke="#17181c" stroke-width="1.6"/>
-  <text x="20" y="44" text-anchor="middle" font-family="Poppins, Arial, sans-serif" font-size="22" font-weight="500" fill="#17181c">M</text>
-  <circle cx="20" cy="12" r="2.2" fill="#b8322a"/>
-</svg>

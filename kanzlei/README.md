@@ -16,7 +16,7 @@ Statische, schnelle Website für eine Anwaltskanzlei in Berlin. Kein Framework, 
 | `assets/js/main.js` | Scroll-Szene, Einblendungen, Formular |
 | `assets/js/statue.js` | 3D-Justitia (three.js) |
 | `assets/fonts/` | Lokal eingebundene Schrift Poppins (SIL OFL) |
-| `assets/logo/` | Logo als SVG (hell/dunkel, Zeichen) |
+| `assets/logo/` | Logo (quer/gestapelt, hell/dunkel), Justitia-Zeichen, Favicon – Text als Pfade, Justitia aus dem 3D-Modell abgeleitet |
 | `assets/img/` | Hier die Fotos ablegen |
 
 ## Fotos einfügen
@@ -27,7 +27,7 @@ Solange die Dateien fehlen, wird automatisch ein Platzhalter angezeigt.
 
 ## Vor dem Livegang ersetzen
 
-- Name „Max Mustermann“ / „Kanzlei Mustermann“, Adresse, Telefon, E-Mail (Suche nach `Mustermann`, `Musterstraße`, `030 123`)
+- Adresse, Telefon, E-Mail – die E-Mail `kontakt@ra-erkan.example` ist ein **Platzhalter** (Suche nach `ra-erkan.example`, `Musterstraße`, `030 123`), auch in `kontakt.php`
 - Alle Texte mit `[Platzhalter]` und alle gelb markierten Stellen im Impressum/Datenschutz
 - Rechtsgebiete Strafrecht und Verkehrsrecht (Texte in `index.html`), Notfallnummer im Kontaktbereich
 - Sprachen, Werdegang, Öffnungszeiten, Anfahrt, Position des Pins auf der Karte

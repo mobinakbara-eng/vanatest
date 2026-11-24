@@ -283,7 +283,7 @@
         status.textContent = 'Vielen Dank! Ihre Anfrage ist eingegangen. Ich melde mich in Kürze bei Ihnen.';
       } catch (err) {
         status.classList.add('bad');
-        status.innerHTML = 'Die Nachricht konnte leider nicht gesendet werden. Bitte schreiben Sie direkt an <a href="mailto:kontakt@kanzlei-mustermann.de">kontakt@kanzlei-mustermann.de</a> oder rufen Sie an.';
+        status.innerHTML = 'Die Nachricht konnte leider nicht gesendet werden. Bitte schreiben Sie direkt an <a href="mailto:kontakt@ra-erkan.example">kontakt@ra-erkan.example</a> oder rufen Sie an.';
       } finally {
         btn.disabled = false;
       }
