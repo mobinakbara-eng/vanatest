@@ -110,7 +110,7 @@ function init() {
     const q = st ? st.q : 0;
 
     // Drehung: über die ganze Szene eine halbe Umdrehung, weich gedämpft
-    const target = -0.38 + Math.min(1, p / 0.72) * Math.PI + idle;   // halbe Drehung bis ~72 % der Szene
+    const target = -0.38 + Math.min(1, p / 0.8) * Math.PI + idle;   // halbe Drehung bis ~80 % der Szene
     if (rot === null) rot = target;
     const before = rot;
     rot += (target - rot) * (1 - Math.pow(0.004, dt));   // weich, framerate-unabhängig

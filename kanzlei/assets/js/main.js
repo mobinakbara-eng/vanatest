@@ -180,7 +180,7 @@
       st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
       ls.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5)) * (1 - q)).toFixed(3));
       // Sobald die Drehung fertig ist, tritt die Statue unscharf in den Hintergrund
-      const bk = Math.max(ease(seg(p, 0.56, 0.8)), ease(q));
+      const bk = Math.max(ease(seg(p, 0.45, 0.8)), ease(q));
       ls.setProperty('--lines-op', String(1 - bk));
       ls.setProperty('--blur-f', bk > 0.001 ? 'blur(' + (16 * bk).toFixed(2) + 'px)' : 'none');
       ls.setProperty('--statue-op', (1 - 0.68 * bk).toFixed(3));
@@ -210,8 +210,10 @@
         // und färbt sich erst dort Wort für Wort ein
         const tStart = (vw < 760 ? 0.6 : 0.62) * vh;
         const tMid = (vh - textEl.offsetHeight) / 2;
-        textEl.style.top = mix(tStart, tMid, ease(seg(p, 0.56, 0.8))).toFixed(1) + 'px';
-        textEl.style.opacity = String(seg(p, 0.38, 0.5));
+        // Bewegung beginnt sofort mit dem Erscheinen und läuft gleichmäßig bis zur Mitte (kein Halt unten)
+        const mv = seg(p, 0.42, 0.8);
+        textEl.style.top = mix(tStart, tMid, 1 - Math.pow(1 - mv, 1.6)).toFixed(1) + 'px';
+        textEl.style.opacity = String(seg(p, 0.42, 0.52));
         const n = Math.round(seg(p, 0.8, 0.98) * words.length);
         words.forEach((w, i) => w.classList.toggle('on', i < n));
       }
