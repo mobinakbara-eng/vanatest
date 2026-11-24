@@ -93,7 +93,8 @@
   const sceneEl = document.querySelector('[data-scene]');
   if (sceneEl) {
     const sticky = sceneEl.querySelector('[data-scene-sticky]');
-    const copy = sceneEl.querySelector('.hero-copy');
+    const copy = document.querySelector('[data-hero-copy]');
+    const copyBtn = copy && copy.querySelector('.btn');
     const side = sceneEl.querySelector('[data-side]');
     const badges = sceneEl.querySelector('[data-badges]');
     const layer = document.querySelector('[data-statue-layer]') || sticky;
@@ -128,12 +129,12 @@
     const mix = (a, b, t) => a + (b - a) * t;
     const ASPECT = 0.74; // Breite/Höhe der Statue (ungefähr, inkl. Waage)
 
-    let vw = innerWidth, vh = sticky.clientHeight, t0 = 0.5;
+    let vw = innerWidth, vh = sticky.clientHeight, t0 = 0.5, copyTop = 0, copyH = 0;
     const measure = () => {
       vw = innerWidth; vh = sticky.clientHeight;
-      const cb = copy.getBoundingClientRect();
-      const sb = sticky.getBoundingClientRect();
-      t0 = clamp((cb.bottom - sb.top) / vh + 0.04, 0.3, 0.75);
+      // offsetTop/-Height sind unabhängig von der laufenden transform-Animation
+      copyTop = copy.offsetTop; copyH = copy.offsetHeight;
+      t0 = clamp((copyTop + copyH) / vh + 0.04, 0.3, 0.75);
     };
 
     // Statue: Oberkante t und Höhe h als Anteil der Viewporthöhe
@@ -161,8 +162,18 @@
       const p = cur, q = curQ; state.p = p; state.q = q;
       const st = sticky.style, ls = layer.style;
       const k = ease(seg(p, 0, 0.5));
-      st.setProperty('--copy-op', String(1 - seg(p, 0.02, 0.24)));
-      st.setProperty('--copy-y', (-90 * ease(seg(p, 0, 0.3))).toFixed(1) + 'px');
+      // Headline: bleibt mittig, sinkt in die Tiefe (kleiner, unscharf), liegt hinter der Statue
+      // und verschwindet, sobald der nächste Text beginnt.
+      const kd = ease(seg(p, 0, 0.42));
+      const dy = (vh * (vw < 760 ? 0.36 : 0.4) - (copyTop + copyH / 2)) * kd;
+      const fadeOut = 1 - ease(seg(p, 0.4, 0.52));
+      const cop = (1 - 0.5 * kd) * fadeOut * (1 - q);
+      copy.style.transform = 'translate3d(0,' + dy.toFixed(1) + 'px,0) scale(' + (1 - 0.3 * kd).toFixed(4) + ')';
+      copy.style.filter = kd > 0.002 ? 'blur(' + (7 * kd).toFixed(2) + 'px)' : 'none';
+      copy.style.opacity = cop.toFixed(3);
+      copy.style.visibility = cop < 0.01 ? 'hidden' : 'visible';
+      copy.style.setProperty('--sub-op', String(1 - seg(p, 0, 0.12)));
+      if (copyBtn) copyBtn.style.visibility = p > 0.12 ? 'hidden' : 'visible';
       st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
       ls.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5)) * (1 - q)).toFixed(3));
       ls.setProperty('--lines-op', String(1 - q));
