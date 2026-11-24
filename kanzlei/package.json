@@ -1,0 +1,12 @@
+{
+  "name": "kanzlei-website",
+  "private": true,
+  "description": "Build: minifiziert CSS/JS und bündelt three.js (nur benötigte Teile) nach assets/dist/",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0",
+    "three": "0.160.0"
+  }
+}
