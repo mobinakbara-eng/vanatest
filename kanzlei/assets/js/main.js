@@ -245,6 +245,97 @@
     document.readyState === 'complete' ? loadStatue() : window.addEventListener('load', loadStatue, { once: true });
   }
 
+  /* ------------------------------------------------------------------
+     Textbewegungen beim Scrollen
+     - Überschriften steigen Wort für Wort aus einer Maske
+     - große Titel der Rechtsgebiete Buchstabe für Buchstabe
+     - Listen: Linie zeichnet sich, Text gleitet herein
+     - großer Satz in „Über mich" färbt sich beim Scrollen
+     - Zeitleiste zeichnet sich in Bronze, Porträt zoomt sanft
+     ------------------------------------------------------------------ */
+  if (!reduceMotion && 'IntersectionObserver' in window) {
+    const seen = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in-view'); seen.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 });
+
+    // Überschriften
+    document.querySelectorAll('main h2').forEach((h) => {
+      h.classList.remove('reveal'); h.classList.add('split');
+      let i = 0;
+      const mask = (node) => {
+        const m = document.createElement('span'); m.className = 'wm';
+        const inner = document.createElement('span'); inner.className = 'wi'; inner.style.setProperty('--i', i++);
+        inner.appendChild(node); m.appendChild(inner); return m;
+      };
+      [...h.childNodes].forEach((c) => {
+        if (c.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          c.textContent.split(/(\s+)/).forEach((part) => {
+            if (!part) return;
+            frag.appendChild(/^\s+$/.test(part) ? document.createTextNode(' ') : mask(document.createTextNode(part)));
+          });
+          c.replaceWith(frag);
+        } else if (c.nodeType === 1) {
+          const ph = document.createComment(''); c.replaceWith(ph); ph.replaceWith(mask(c));
+        }
+      });
+      seen.observe(h);
+    });
+
+    // Titel der Rechtsgebiete: Buchstaben
+    document.querySelectorAll('.area-card h3').forEach((h) => {
+      const t = h.textContent; h.textContent = ''; h.classList.add('chars'); h.setAttribute('aria-label', t);
+      [...t].forEach((ch, i) => {
+        const sp = document.createElement('span'); sp.className = 'ch'; sp.setAttribute('aria-hidden', 'true');
+        sp.style.setProperty('--i', i); sp.textContent = ch === ' ' ? ' ' : ch; h.appendChild(sp);
+      });
+      seen.observe(h);
+    });
+
+    // Listen mit Linien
+    document.querySelectorAll('.topics li, .cv li, .faq details, .office > *').forEach((el) => {
+      el.parentElement.classList.remove('reveal');
+      if (!el.children.length) { const sp = document.createElement('span'); sp.textContent = el.textContent; el.textContent = ''; el.appendChild(sp); }
+      el.classList.add('lr');
+      el.style.setProperty('--i', [...el.parentElement.children].indexOf(el) % 8);
+      seen.observe(el);
+    });
+
+    // großer Satz: Wörter
+    const fill = document.querySelector('[data-fill]');
+    const fillWords = [];
+    if (fill) {
+      fill.innerHTML = fill.textContent.trim().split(/\s+/).map((w) => '<span class="fw">' + w + '</span>').join(' ');
+      fillWords.push(...fill.querySelectorAll('.fw'));
+    }
+    const steps = document.querySelector('.steps');
+    const pimg = document.querySelector('.portrait-frame img');
+
+    let ticking = false;
+    const onScrollText = () => {
+      ticking = false;
+      const vh = window.innerHeight;
+      if (fill) {
+        const r = fill.getBoundingClientRect();
+        const k = Math.min(1, Math.max(0, (vh * 0.85 - r.top) / (vh * 0.5)));
+        const n = Math.round(k * fillWords.length);
+        fillWords.forEach((w, i) => w.classList.toggle('on', i < n));
+      }
+      if (steps) {
+        const r = steps.getBoundingClientRect();
+        const k = Math.min(1, Math.max(0, (vh * 0.85 - r.top) / (vh * 0.45 + r.height * 0.4)));
+        steps.style.setProperty('--prog', k.toFixed(3));
+      }
+      if (pimg) {
+        const r = pimg.getBoundingClientRect();
+        const k = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.8)));
+        pimg.style.setProperty('--pz', (1.08 - 0.08 * k).toFixed(4));
+      }
+    };
+    window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScrollText); } }, { passive: true });
+    onScrollText();
+  }
+
   const year = document.querySelector('[data-year]');
   if (year) year.textContent = new Date().getFullYear();
 
