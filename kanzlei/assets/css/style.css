@@ -100,7 +100,7 @@ p { margin: 0 0 1em; }
 .site-nav a { text-decoration: none; font-size: 13.5px; font-weight: 500; color: var(--ink-2); padding: 9px 18px; border-radius: 999px; background: var(--pill); transition: background .25s, color .25s; }
 .site-nav a:hover, .site-nav a.is-active { background: var(--ink); color: var(--bg); }
 /* gleiche Pille wie die Navigation */
-.header-cta { justify-self: end; text-decoration: none; font-size: 13.5px; font-weight: 500; color: var(--ink-2); padding: 9px 18px; border-radius: 999px; background: var(--pill); transition: background .25s, color .25s; }
+.header-cta { justify-self: end; text-decoration: none; font-size: 13.5px; font-weight: 500; color: var(--ink-2); padding: 8px 17px; border-radius: 999px; background: var(--pill); border: 1px solid var(--ink); transition: background .25s, color .25s; }
 .header-cta:hover { background: var(--ink); color: var(--bg); }
 .nav-mobile-cta { display: none; }
 .nav-toggle { display: none; background: var(--pill); border: 0; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; color: var(--ink); justify-self: end; }
