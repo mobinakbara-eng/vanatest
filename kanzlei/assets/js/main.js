@@ -41,7 +41,10 @@
     if (!header) return;
     header.classList.toggle('is-scrolled', y > 20);
     const navOpen = document.body.classList.contains('nav-open');
-    header.classList.toggle('is-hidden', !navOpen && y > lastY && y > 400);
+    // Schon nach wenigen Pixeln nach unten ausblenden, nur beim Hochscrollen wieder zeigen
+    if (navOpen || y < 24) header.classList.remove('is-hidden');
+    else if (y > lastY + 2) header.classList.add('is-hidden');
+    else if (y < lastY - 6) header.classList.remove('is-hidden');
     lastY = y;
   }, { passive: true });
 
