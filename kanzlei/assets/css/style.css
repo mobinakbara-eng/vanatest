@@ -33,7 +33,8 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-padding-top: 90px; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 90px; overflow-x: hidden; overflow-x: clip; }
+body { overflow-x: hidden; overflow-x: clip; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font-family: var(--sans); font-size: 16px; line-height: 1.65; font-weight: 400;
@@ -50,7 +51,8 @@ a { color: inherit; text-underline-offset: 3px; }
 h1, h2, h3 { margin: 0; font-weight: 400; line-height: 1.15; letter-spacing: 0; text-wrap: balance; }
 h1, h2 { text-transform: uppercase; }
 h1 { font-size: clamp(32px, 4.6vw, 62px); }
-h2 { font-size: clamp(30px, 4vw, 54px); }
+h2 { font-size: clamp(24px, 4vw, 54px); }
+@media (max-width: 600px) { h2 { font-size: min(30px, 7.4vw); } h1 { font-size: min(32px, 8.4vw); } .area-card h3 { font-size: min(28px, 7.6vw); } }
 h3 { font-size: clamp(19px, 1.7vw, 23px); letter-spacing: -.01em; }
 /* hervorgehobenes Wort in einer Pille – wie im Vorbild */
 h1 em, h2 em {
@@ -321,7 +323,8 @@ main > section:not(.scene) { pointer-events: auto; }
 fieldset.field { border: 0; padding: 0; margin: 0; }
 .radios { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .radios label { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--ink); }
-.radios input { position: absolute; opacity: 0; pointer-events: none; }
+.radios label { position: relative; }
+.radios input { position: absolute; inset: 0; width: 100% !important; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
 .radios span { display: inline-block; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--hair); cursor: pointer; transition: all .25s; }
 .radios input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .radios input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
