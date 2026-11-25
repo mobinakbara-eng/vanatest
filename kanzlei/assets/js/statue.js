@@ -35,7 +35,7 @@ if (canvas && !SKIP_3D && webglOK()) whenIdle(init);
 
 function init() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const dpr = Math.min(window.devicePixelRatio || 1, SMALL ? 1.5 : 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, SMALL ? 1.25 : 2);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(dpr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -87,7 +87,7 @@ function init() {
       placePivot(); renderer.render(scene, camera);
       requestAnimationFrame(() => {
         canvas.classList.add('is-ready');
-        if (poster) poster.classList.add('is-hidden');
+        if (poster) { poster.classList.add('is-hidden'); poster.style.opacity = '0'; }
         start();
       });
     });
