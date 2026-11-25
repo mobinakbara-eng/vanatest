@@ -69,19 +69,37 @@ function init() {
     // Normalen werden hier berechnet (spart Dateigröße, kein WebAssembly-Decoder nötig)
     model.traverse((o) => { if (o.isMesh) { if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.material = bronze; } });
     // auf Höhe 1 normieren, Fuß auf y = 0, mittig um die Drehachse
-    const box = new THREE.Box3().setFromObject(model);
+    // exakte Hülle (precise) – identisch zur Berechnung des Standbilds, damit beim Wechsel nichts springt
+    const box = new THREE.Box3().setFromObject(model, true);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const s = 1 / size.y;
     model.scale.setScalar(s);
     model.position.set(-center.x * s, -box.min.y * s, -center.z * s);
     spinner.add(model);
+    spinner.rotation.y = -0.38;
     resize();
+    placePivot();
+    // Shader vorab kompilieren, dann unsichtbar zwei Bilder rendern und erst danach einblenden
+    if (renderer.compile) renderer.compile(scene, camera);
     renderer.render(scene, camera);
-    canvas.classList.add('is-ready');
-    if (poster) poster.classList.add('is-hidden');
-    start();
+    requestAnimationFrame(() => {
+      placePivot(); renderer.render(scene, camera);
+      requestAnimationFrame(() => {
+        canvas.classList.add('is-ready');
+        if (poster) poster.classList.add('is-hidden');
+        start();
+      });
+    });
   }, undefined, () => { /* Modell nicht geladen: Poster bleibt sichtbar */ });
+
+  function placePivot() {
+    const st = window.sceneState;
+    if (!st) return;
+    const L = st.layout(st.p);
+    pivot.scale.setScalar(L.h * VIS_H);
+    pivot.position.y = (0.5 - (L.t + L.h)) * VIS_H;
+  }
 
   let w = 0, h = 0;
   function resize() {

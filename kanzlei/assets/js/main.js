@@ -237,18 +237,11 @@
 
   // 3D-Statue erst nachladen, wenn die Seite fertig ist (blockiert den Seitenaufbau nicht)
   if (!window.STATUE_INLINE && document.querySelector('[data-canvas]')) {
-    // Start bei der ersten Interaktion (Scrollen, Tippen, Maus) oder spätestens nach 3,5 s –
-    // bis dahin zeigt das identische Standbild die Statue.
+    // Sofort nach dem Seitenaufbau im Leerlauf laden – fertig, bevor man zu scrollen beginnt.
+    // Bis dahin zeigt das deckungsgleiche Standbild die Statue.
     const loadStatue = () => {
-      let done = false;
-      const evs = ['scroll', 'wheel', 'touchstart', 'pointermove', 'keydown'];
-      const go = () => {
-        if (done) return; done = true;
-        evs.forEach((e) => window.removeEventListener(e, go));
-        import('./statue.js').catch(() => { /* Standbild bleibt */ });
-      };
-      evs.forEach((e) => window.addEventListener(e, go, { passive: true, once: true }));
-      setTimeout(go, 3500);
+      const go = () => import('./statue.js').catch(() => { /* Standbild bleibt */ });
+      'requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 600 }) : setTimeout(go, 100);
     };
     document.readyState === 'complete' ? loadStatue() : window.addEventListener('load', loadStatue, { once: true });
   }
