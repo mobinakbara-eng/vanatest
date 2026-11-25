@@ -135,6 +135,7 @@
     let vw = innerWidth, vh = sticky.clientHeight, t0 = 0.5, copyTop = 0, copyH = 0;
     const measure = () => {
       vw = innerWidth; vh = sticky.clientHeight;
+      if (window.sceneState) window.sceneState.vh = vh;
       // offsetTop/-Height sind unabhängig von der laufenden transform-Animation
       copyTop = copy.offsetTop; copyH = copy.offsetHeight;
       t0 = clamp((copyTop + copyH) / vh + 0.04, 0.3, 0.75);
@@ -149,8 +150,9 @@
       return { t: mix(t0, vw < 760 ? 0.1 : 0.05, k), h: mix(h0, h1, k) };
     };
 
-    const state = { p: 0, q: 0, layout };
+    const state = { p: 0, q: 0, layout, vh: 0 };
     window.sceneState = state;
+    state.vh = vh;
 
     // p: Fortschritt innerhalb der Szene, q: Übergang zum unscharfen Hintergrund danach
     let target = 0, cur = 0, targetQ = 0, curQ = 0, raf = 0;

@@ -131,7 +131,7 @@ main, .site-footer { position: relative; z-index: 1; }
 
 /* Feste Ebene hinter der ganzen Seite: Statue, großes Wort, Linien.
    Nach der Szene bleibt die Statue unscharf als Hintergrund stehen. */
-.statue-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.statue-layer { position: fixed; left: 0; right: 0; top: 0; height: 100vh; height: 100lvh; z-index: 0; pointer-events: none; overflow: hidden; }
 .statue-layer .statue-canvas, .statue-layer .statue-poster {
   filter: var(--blur-f, none); opacity: var(--statue-op, 1);
 }

@@ -93,12 +93,21 @@ function init() {
     });
   }, undefined, () => { /* Modell nicht geladen: Poster bleibt sichtbar */ });
 
+  // Layout-Anteile beziehen sich auf die feste Höhe (svh) – in Canvas-Pixel umrechnen,
+  // damit die Statue nicht mitwackelt, wenn die Adressleiste im Handy-Browser ein-/ausfährt.
+  function applyLayout(L) {
+    const st = window.sceneState;
+    const ch = canvas.clientHeight || window.innerHeight;
+    const k = (st && st.vh ? st.vh : ch) / ch;
+    pivot.scale.setScalar(L.h * k * VIS_H);
+    pivot.position.y = (0.5 - (L.t + L.h) * k) * VIS_H;
+  }
+
   function placePivot() {
     const st = window.sceneState;
     if (!st) return;
     const L = st.layout(st.p);
-    pivot.scale.setScalar(L.h * VIS_H);
-    pivot.position.y = (0.5 - (L.t + L.h)) * VIS_H;
+    applyLayout(L);
   }
 
   let w = 0, h = 0;
@@ -147,9 +156,7 @@ function init() {
     // Position/Größe aus dem Layout der Szene (Anteile der Viewporthöhe)
     if (st) {
       const L = st.layout(p);
-      const sc = L.h * VIS_H;
-      pivot.scale.setScalar(sc);
-      pivot.position.y = (0.5 - (L.t + L.h)) * VIS_H;
+      applyLayout(L);
     }
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
