@@ -17,7 +17,8 @@
   requestAnimationFrame(() => root.classList.add('is-loaded'));
 
   // Weiches Scrollen (Lenis, lokal eingebunden). Bei „Bewegung reduzieren“ aus.
-  if (window.Lenis && !reduceMotion) {
+  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (window.Lenis && !reduceMotion && finePointer) {
     const lenis = new window.Lenis({ lerp: 0.085, smoothWheel: true, anchors: { offset: -80 } });
     // Die Schleife läuft nur, solange gescrollt wird – sonst ruht die Seite komplett
     let looping = false, quiet = 0;
@@ -102,6 +103,11 @@
     const badges = sceneEl.querySelector('[data-badges]');
     const layer = document.querySelector('[data-statue-layer]') || sticky;
     const posterEl = layer.querySelector('[data-poster]');
+    const canvasEl = layer.querySelector('[data-canvas]');
+    const blurEl = layer.querySelector('[data-blur]');
+    const fadeEl = layer.querySelector('[data-fade]');
+    const touch = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    let textH = 0;
     const textEl = sceneEl.querySelector('[data-scene-text]');
     const lines = [...layer.querySelectorAll('[data-line]')];
     const lineData = lines.map((l) => ({ l, a: l.dataset.from.split(' ').map(Number), b: l.dataset.to.split(' ').map(Number) }));
@@ -138,6 +144,7 @@
       if (window.sceneState) window.sceneState.vh = vh;
       // offsetTop/-Height sind unabhängig von der laufenden transform-Animation
       copyTop = copy.offsetTop; copyH = copy.offsetHeight;
+      if (textEl) textH = textEl.offsetHeight;   // einmal messen statt bei jedem Bild
       t0 = clamp((copyTop + copyH) / vh + 0.04, 0.3, 0.75);
     };
 
@@ -174,21 +181,29 @@
       const fadeOut = 1 - ease(seg(p, 0.4, 0.52));
       const cop = (1 - 0.5 * kd) * fadeOut * (1 - q);
       copy.style.transform = 'translate3d(0,' + dy.toFixed(1) + 'px,0) scale(' + (1 - 0.3 * kd).toFixed(4) + ')';
-      copy.style.filter = kd > 0.002 ? 'blur(' + (7 * kd).toFixed(2) + 'px)' : 'none';
+      copy.style.filter = kd > 0.002 ? 'blur(' + ((touch ? 4 : 7) * kd).toFixed(2) + 'px)' : 'none';
       copy.style.opacity = cop.toFixed(3);
       copy.style.visibility = cop < 0.01 ? 'hidden' : 'visible';
       copy.style.setProperty('--sub-op', String(1 - seg(p, 0, 0.12)));
       if (copyBtn) copyBtn.style.visibility = p > 0.12 ? 'hidden' : 'visible';
       st.setProperty('--deco-op', String(1 - seg(p, 0.02, 0.22)));
-      ls.setProperty('--bw-op', (0.075 * ease(seg(p, 0.12, 0.5)) * (1 - q)).toFixed(3));
       // Sobald die Drehung fertig ist, tritt die Statue unscharf in den Hintergrund
       const bk = Math.max(ease(seg(p, 0.45, 0.8)), ease(q));
       ls.setProperty('--lines-op', String(1 - bk));
-      ls.setProperty('--blur-f', bk > 0.001 ? 'blur(' + (16 * bk).toFixed(2) + 'px)' : 'none');
-      ls.setProperty('--statue-op', (1 - 0.68 * bk).toFixed(3));
-      ls.setProperty('--bw-scale', mix(0.9, 1, ease(seg(p, 0.1, 0.6))).toFixed(3));
-      ls.setProperty('--fade-a', mix(86, vw < 760 ? 46 : 50, k).toFixed(1) + '%');
-      ls.setProperty('--fade-b', mix(100, vw < 760 ? 70 : 76, k).toFixed(1) + '%');
+      // statt Live-Unschärfe: scharfe Statue blendet aus, vorab unscharfes Bild blendet ein (nur Deckkraft = billig)
+      const sharpOp = 1 - bk;
+      if (canvasEl) { canvasEl.style.opacity = sharpOp.toFixed(3); canvasEl.style.visibility = sharpOp < 0.005 ? 'hidden' : ''; }
+      if (blurEl) {
+        const L1 = layout(1), P = 0.25;
+        if (blurEl.dataset.vh !== String(vh)) { blurEl.style.height = (vh * (1 + 2 * P)) + 'px'; blurEl.dataset.vh = vh; }
+        blurEl.style.transform = 'translate3d(-50%,' + ((L1.t - P * L1.h) * vh).toFixed(1) + 'px,0) scale(' + L1.h.toFixed(4) + ')';
+        blurEl.style.opacity = (0.42 * bk).toFixed(3);
+      }
+      // weicher Rand unten: nur verschieben (transform), keine neu berechnete Maske
+      if (fadeEl) {
+        const fa = mix(0.86, vw < 760 ? 0.46 : 0.5, k);
+        fadeEl.style.transform = 'translate3d(0,' + (fa * vh).toFixed(1) + 'px,0)';
+      }
       const lp = ease(seg(p, 0.18, 0.62));
       lineData.forEach(({ l, a, b }) => {
         l.setAttribute('x2', (a[0] + (b[0] - a[0]) * lp).toFixed(2) + '%');
@@ -205,23 +220,24 @@
         if (posterEl.dataset.vh !== String(vh)) { posterEl.style.height = vh + 'px'; posterEl.dataset.vh = vh; }
         posterEl.style.transform = 'translate(-50%,' + (L.t * vh).toFixed(1) + 'px) scale(' + L.h.toFixed(4) + ')';
         posterEl.classList.add('is-placed');
+        posterEl.style.opacity = sharpOp.toFixed(3);
       }
       // Text unter der Statue + Wort für Wort einfärben
       if (textEl) {
         // Text erscheint unten, wandert mit dem Unscharfwerden der Statue in die Bildmitte
         // und färbt sich erst dort Wort für Wort ein
         const tStart = (vw < 760 ? 0.6 : 0.62) * vh;
-        const tMid = (vh - textEl.offsetHeight) / 2;
+        const tMid = (vh - textH) / 2;
         // Bewegung beginnt sofort mit dem Erscheinen und läuft gleichmäßig bis zur Mitte (kein Halt unten)
         const mv = seg(p, 0.42, 0.8);
-        textEl.style.top = mix(tStart, tMid, 1 - Math.pow(1 - mv, 1.6)).toFixed(1) + 'px';
+        textEl.style.transform = 'translate3d(-50%,' + mix(tStart, tMid, 1 - Math.pow(1 - mv, 1.6)).toFixed(1) + 'px,0)';
         textEl.style.opacity = String(seg(p, 0.42, 0.52));
         const n = Math.round(seg(p, 0.8, 0.98) * words.length);
         words.forEach((w, i) => w.classList.toggle('on', i < n));
       }
     };
 
-    const follow = window.Lenis && !reduceMotion ? 0.35 : 0.16;   // mit Lenis ist das Scrollen schon weich
+    const follow = window.lenis ? 0.35 : 0.5;   // ohne Lenis (Handy): eng am Finger, nur leicht geglättet   // mit Lenis ist das Scrollen schon weich
     const tick = () => {
       const d = target - cur, dq = targetQ - curQ;
       cur = Math.abs(d) < 0.0005 ? target : cur + d * follow;
