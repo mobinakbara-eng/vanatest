@@ -404,7 +404,9 @@ fieldset.field { border: 0; padding: 0; margin: 0; }
 .legal .todo { background: rgba(154, 112, 72, .14); color: var(--bronze); padding: 0 4px; border-radius: 3px; }
 .legal-back { display: inline-block; margin-top: 48px; }
 .legal-header .header-inner { grid-template-columns: 1fr auto; }
-@media (max-width: 760px) { .lrow { grid-template-columns: 1fr; gap: 10px; } }
+@media (max-width: 760px) { .lrow { grid-template-columns: minmax(0, 1fr); gap: 10px; } }
+.lrow h2, .lrow-body { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.legal-head h1 { overflow-wrap: anywhere; }
 @media (max-width: 520px) { .brand-sub { display: none; } }
 
 
