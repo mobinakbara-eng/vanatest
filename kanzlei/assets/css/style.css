@@ -224,9 +224,12 @@ main > section:not(.scene) { pointer-events: auto; }
 .area-card p { color: var(--ink-2); font-size: 15.5px; margin: 0; max-width: 34em; }
 .topics { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid var(--hair); }
 .topics li { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--hair); font-size: 15px; color: var(--ink); transition: padding .4s var(--ease), color .3s; }
-.topics li::after { content: "↗"; font-size: 13px; color: var(--ink-3); transition: transform .4s var(--ease), color .3s; }
+.topics li::after { content: ""; flex: 0 0 auto; width: 11px; height: 11px; background: var(--ink-3);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 9l6-6M4.5 3H9v4.5'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 9l6-6M4.5 3H9v4.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform .4s var(--ease), background .3s; }
 .topics li:hover { padding-left: 8px; color: var(--bronze); }
-.topics li:hover::after { transform: translate(2px, -2px); color: var(--bronze); }
+.topics li:hover::after { transform: translate(2px, -2px); background: var(--bronze); }
 @media (max-width: 820px) {
   .areas { grid-template-columns: 1fr; }
   .area-card, .area-card + .area-card { padding: 30px 0 34px; border-left: 0; }
