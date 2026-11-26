@@ -19,7 +19,7 @@
   // Weiches Scrollen (Lenis, lokal eingebunden). Bei „Bewegung reduzieren“ aus.
   const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   if (window.Lenis && !reduceMotion && finePointer) {
-    const lenis = new window.Lenis({ lerp: 0.085, smoothWheel: true, anchors: { offset: -80 } });
+    const lenis = new window.Lenis({ lerp: 0.085, smoothWheel: true });
     // Die Schleife läuft nur, solange gescrollt wird – sonst ruht die Seite komplett
     let looping = false, quiet = 0;
     const loop = (t) => {
@@ -30,10 +30,24 @@
     };
     const wake = () => { quiet = 0; if (!looping) { looping = true; requestAnimationFrame(loop); } };
     ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach((ev) => window.addEventListener(ev, wake, { passive: true }));
-    document.addEventListener('click', (e) => { if (e.target.closest('a[href^="#"]')) wake(); });
+    window.lenisWake = wake;
     wake();
     window.lenis = lenis;
   }
+
+  // Sprungmarken (Menü, Buttons): eigener, zuverlässiger Handler – mit und ohne Lenis
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey) return;
+    const id = a.getAttribute('href');
+    const target = id.length > 1 ? document.querySelector(id) : null;
+    if (!target && id !== '#top' && id !== '#') return;
+    e.preventDefault();
+    const y = target && id !== '#top' ? Math.max(0, target.getBoundingClientRect().top + window.scrollY - 80) : 0;
+    if (window.lenis) { if (window.lenisWake) window.lenisWake(); window.lenis.scrollTo(y, { duration: 1.2, force: true }); }
+    else window.scrollTo({ top: y, behavior: reduceMotion ? 'auto' : 'smooth' });
+    if (history.replaceState) history.replaceState(null, '', id);
+  });
 
   const header = document.querySelector('[data-header]');
   let lastY = window.scrollY;
