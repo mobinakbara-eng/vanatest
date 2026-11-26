@@ -1,0 +1,4 @@
+data/
+config/brands.yaml
+.env
+__pycache__/

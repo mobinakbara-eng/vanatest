@@ -1,0 +1,54 @@
+# Copy to config/brands.yaml and fill in. One entry per business.
+#
+# Every satellite page must say it belongs to the brand (bio_disclosure).
+# The engine refuses to plan posts for a satellite without one.
+
+brands:
+  - id: cafe_demo
+    name: "Demo Cafe"
+    language: fa            # fa | en | ...
+    market: IR              # used for trend geo
+    audience: "۲۰ تا ۳۵ ساله‌های شهری، عاشق قهوه و فضاهای دنج"
+    voice: "صمیمی، شوخ، کوتاه"
+    topics: [coffee, cafe, latte art, breakfast, study spot]
+    subreddits: [Coffee, espresso, cafe]
+
+    main:
+      handle_instagram: "democafe"
+      handle_tiktok: "democafe"
+      postiz_integration_ids:            # from Postiz > integrations
+        instagram: "REPLACE"
+        tiktok: "REPLACE"
+      ig_user_id: "REPLACE"              # for analytics (Instagram Graph API)
+
+    satellites:
+      - id: democafe_recipes
+        angle: "دستور نوشیدنی‌ها و آموزش لاته آرت"
+        handle_instagram: "democafe.recipes"
+        bio_disclosure: "پیج رسمی آموزش‌های @democafe ☕"
+        postiz_integration_ids: { instagram: "REPLACE" }
+        ig_user_id: "REPLACE"
+      - id: democafe_behind
+        angle: "پشت صحنه، باریستاها، روز کاری"
+        handle_tiktok: "democafe.behind"
+        bio_disclosure: "پشت صحنه‌ی @democafe — بخشی از خانواده‌ی Demo Cafe"
+        postiz_integration_ids: { tiktok: "REPLACE" }
+      - id: democafe_tehran
+        angle: "پیج شهری: رویدادها و پیشنهادهای محله"
+        handle_instagram: "democafe.tehran"
+        bio_disclosure: "شعبه‌ی تهران @democafe"
+        postiz_integration_ids: { instagram: "REPLACE" }
+
+# Scheduling rules (conservative defaults)
+schedule:
+  timezone: "Asia/Tehran"
+  main_post_hour: 19                 # overridden by analytics once data exists
+  satellite_delay_hours: [2, 30]     # satellites post between 2h and 30h after main
+  min_gap_minutes_between_pages: 90  # never two brand pages within 90 min
+  quiet_hours: [1, 8]                # no posts 01:00-08:00
+  max_posts_per_page_per_day: 2
+  max_satellites_per_post: 3         # not every satellite reposts every post
+
+publishing:
+  provider: dryrun                   # dryrun | postiz
+  postiz_base_url: "https://api.postiz.com/public/v1"   # or your self-hosted URL
