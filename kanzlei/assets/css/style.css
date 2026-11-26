@@ -150,8 +150,8 @@ main, .site-footer { position: relative; z-index: 1; }
 }
 .hero-copy .lead, .hero-copy .btn { opacity: var(--sub-op, 1); }
 /* Die Szene selbst lässt Klicks zur Headline-Ebene durch */
-main, .scene, .scene-sticky { pointer-events: none; }
-main > section:not(.scene) { pointer-events: auto; }
+main#inhalt, .scene, .scene-sticky { pointer-events: none; }
+main#inhalt > section:not(.scene) { pointer-events: auto; }
 .hero-copy h1 { max-width: 19em; margin: 0 auto; }
 .hero-copy .lead { margin: 18px auto 24px; max-width: 30em; font-size: 15px; }
 
