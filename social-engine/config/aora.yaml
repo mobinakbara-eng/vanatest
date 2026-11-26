@@ -1,0 +1,52 @@
+# AORA — Frontline Operations OS for multi-location foodservice (Berlin beachhead).
+# Source: AORA Business Model Canvas (Google Drive, 2026-09-16).
+# Handles are placeholders until the real accounts exist.
+
+brands:
+  - id: aora
+    name: "AORA"
+    language: de
+    market: DE
+    audience: >
+      Inhaber:innen, Betriebsleiter:innen und Schichtleiter:innen von Berliner Gastro-Betrieben mit
+      2-10 Standorten und 20-150 Mitarbeitenden (Restaurant, Café/Coffee, Fast-Casual, Bakery-Café).
+      Schmerz: Dienstplan > Zeiterfassung > Lohn (DATEV), Schichttausch per WhatsApp,
+      fehlender Überblick über Standorte, fragmentierter Einkauf.
+    voice: "direkt, ehrlich, Gastro-Insider, leicht humorvoll, keine Fake-ROI-Versprechen"
+    topics: [Dienstplan, Schichtplanung, Zeiterfassung, Gastro Personal, Gastronomie Berlin,
+             DATEV Lohn, Fachkräftemangel Gastro, Multi-Standort Management, Wareneinsatz, Einkauf Gastro]
+    subreddits: [KitchenConfidential, restaurateur, berlin]
+
+    main:
+      handle_instagram: "aora.plattform"
+      handle_tiktok: "aora.plattform"
+      postiz_integration_ids: { instagram: "REPLACE", tiktok: "REPLACE" }
+
+    satellites:
+      - id: aora_gastro_tipps
+        angle: "Kurze Management-Tipps für Gastro-Betreiber: Dienstplan, Personal, Kosten, Recht (Arbeitszeit)"
+        handle_instagram: "aora.gastrotipps"
+        bio_disclosure: "Gastro-Management-Tipps von @aora.plattform"
+        postiz_integration_ids: { instagram: "REPLACE" }
+      - id: aora_schichtalltag
+        angle: "Humor und Alltag hinter der Theke: Schichttausch-Chaos, Rush Hour, Teamkultur (für Frontline-Teams)"
+        handle_tiktok: "aora.schichtalltag"
+        bio_disclosure: "Schichtalltag in der Gastro — ein Kanal von @aora.plattform"
+        postiz_integration_ids: { tiktok: "REPLACE" }
+      - id: aora_berlin_gastro
+        angle: "Berliner Gastro-Szene: Betreiber-Stories, Kiez-Spots, Zahlen und News für Berliner Gastronomie"
+        handle_instagram: "aora.berlingastro"
+        bio_disclosure: "Berliner Gastro-Szene, präsentiert von @aora.plattform"
+        postiz_integration_ids: { instagram: "REPLACE" }
+
+schedule:
+  timezone: "Europe/Berlin"
+  main_post_hour: 15            # Gastro-Betreiber: Nachmittagsloch zwischen Lunch und Dinner
+  satellite_delay_hours: [2, 30]
+  min_gap_minutes_between_pages: 90
+  quiet_hours: [0, 7]
+  max_posts_per_page_per_day: 2
+  max_satellites_per_post: 3
+
+publishing:
+  provider: dryrun
