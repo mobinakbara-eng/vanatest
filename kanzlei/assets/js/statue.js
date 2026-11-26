@@ -62,12 +62,41 @@ function init() {
 
   const bronze = new THREE.MeshStandardMaterial({ color: 0x6a4527, metalness: 0.85, roughness: 0.5, envMapIntensity: 1.0 });
 
+  // Leistung ohne Qualitätsverlust: Kamera und Licht sind fest, nur die Statue dreht sich.
+  // Darum lässt sich das Bronze-Aussehen einmal auf eine Kugel rendern ("Matcap") und danach
+  // per Textur nachschlagen – gleiches Bild, aber ein Bruchteil der Rechenarbeit pro Pixel.
+  function bakeMatcap() {
+    const N = 512;
+    const off = document.createElement('canvas'); off.width = off.height = N;
+    const r2 = new THREE.WebGLRenderer({ canvas: off, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r2.setPixelRatio(1); r2.setSize(N, N, false);
+    r2.outputColorSpace = renderer.outputColorSpace; r2.toneMapping = renderer.toneMapping; r2.toneMappingExposure = renderer.toneMappingExposure;
+    const s2 = new THREE.Scene();
+    const pm2 = new THREE.PMREMGenerator(r2);
+    s2.environment = pm2.fromScene(new RoomEnvironment(r2), 0.04).texture;
+    scene.children.filter((o) => o.isLight).forEach((l) => { const c = l.clone(); s2.add(c); if (c.target) { c.target.position.copy(l.target.position); s2.add(c.target); } });
+    s2.add(new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), bronze));
+    // Blickrichtung wie bei der Szenenkamera (fast orthografisch, FOV 14°)
+    const cam2 = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100); cam2.position.set(0, 0, DIST); cam2.lookAt(0, 0, 0);
+    r2.render(s2, cam2);
+    const tex = new THREE.CanvasTexture(off); tex.colorSpace = THREE.SRGBColorSpace;
+    pm2.dispose();
+    return { tex, dispose: () => r2.dispose() };
+  }
+  let surface = bronze;
+  try {
+    const mc = bakeMatcap();
+    surface = new THREE.MeshMatcapMaterial({ matcap: mc.tex });
+    surface.toneMapped = false;   // Tonemapping steckt bereits in der Matcap
+    setTimeout(mc.dispose, 0);
+  } catch (e) { surface = bronze; }
+
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   loader.load(MODEL_URL, (gltf) => {
     const model = gltf.scene;
     // Normalen werden hier berechnet (spart Dateigröße, kein WebAssembly-Decoder nötig)
-    model.traverse((o) => { if (o.isMesh) { if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.material = bronze; } });
+    model.traverse((o) => { if (o.isMesh) { if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.material = surface; } });
     // auf Höhe 1 normieren, Fuß auf y = 0, mittig um die Drehachse
     // exakte Hülle (precise) – identisch zur Berechnung des Standbilds, damit beim Wechsel nichts springt
     const box = new THREE.Box3().setFromObject(model, true);
@@ -158,6 +187,8 @@ function init() {
       const L = st.layout(p);
       applyLayout(L);
     }
+    // Unsichtbar (ausgeblendet hinter der unscharfen Version)? Dann gar nicht erst zeichnen.
+    if (canvas.style.visibility === 'hidden' || parseFloat(canvas.style.opacity || '1') < 0.01) { running = false; return; }
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
