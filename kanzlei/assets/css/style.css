@@ -443,3 +443,22 @@ fieldset.field { border: 0; padding: 0; margin: 0; }
   .reveal { filter: none; }
   [data-fill] .fw { color: inherit; }
 }
+
+
+/* Datenschutz-Hinweis beim ersten Besuch */
+.privacy-note {
+  position: fixed; z-index: 60; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  width: min(420px, calc(100% - 32px)); display: flex; align-items: center; gap: 16px;
+  padding: 16px 16px 16px 20px; background: var(--card-solid); border: 1px solid var(--hair, rgba(28,26,24,.14)); border-radius: 18px;
+  box-shadow: 0 18px 40px -18px rgba(28, 26, 24, .35);
+  opacity: 0; transform: translateY(16px); transition: opacity .5s var(--ease), transform .5s var(--ease);
+}
+.privacy-note.is-in { opacity: 1; transform: none; }
+.privacy-note[hidden] { display: none; }
+.privacy-note p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.privacy-note strong { color: var(--ink); font-weight: 700; display: block; margin-bottom: 2px; }
+.privacy-note a { color: var(--bronze); }
+.privacy-ok { flex: 0 0 auto; font: 400 13.5px/1 var(--sans); color: #f6efe7; background: var(--bronze); border: 0; border-radius: 999px; padding: 11px 18px; cursor: pointer; transition: background .25s; }
+.privacy-ok:hover { background: #5a3d23; }
+@media (max-width: 520px) { .privacy-note { flex-direction: column; align-items: stretch; gap: 12px; } .privacy-ok { padding: 12px; } }
+@media (prefers-reduced-motion: reduce) { .privacy-note { transition: none; } }

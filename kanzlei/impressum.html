@@ -105,5 +105,26 @@
     </div>
   </footer>
   <script>document.querySelectorAll('.reveal').forEach(function(el,i){if(!('IntersectionObserver' in window)){el.classList.add('in-view');return;}var io=new IntersectionObserver(function(e){if(e[0].isIntersecting){el.classList.add('in-view');io.disconnect();}},{rootMargin:'0px 0px -8% 0px'});io.observe(el);});</script>
+  <!-- Datenschutz-Hinweis beim ersten Besuch (kein Consent-Banner nötig: keine Cookies, kein Tracking) -->
+  <div class="privacy-note" data-privacy-note role="region" aria-label="Datenschutzhinweis" hidden>
+    <p><strong>Ihre Privatsphäre zählt.</strong> Diese Website setzt keine Cookies und verwendet kein Tracking. <a href="datenschutz.html">Mehr erfahren</a></p>
+    <button type="button" class="privacy-ok" data-privacy-ok>Verstanden</button>
+  </div>
+  <script>
+  (function () {
+    var KEY = 'privacy-note-ok', el = document.querySelector('[data-privacy-note]');
+    if (!el) return;
+    var seen = false;
+    try { seen = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    if (seen) return;
+    el.hidden = false;
+    setTimeout(function () { el.classList.add('is-in'); }, 900);
+    el.querySelector('[data-privacy-ok]').addEventListener('click', function () {
+      try { localStorage.setItem(KEY, '1'); } catch (e) {}
+      el.classList.remove('is-in');
+      setTimeout(function () { el.hidden = true; }, 500);
+    });
+  })();
+  </script>
 </body>
 </html>
