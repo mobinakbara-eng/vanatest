@@ -15,7 +15,7 @@ Statische, schnelle Website für eine Anwaltskanzlei in Berlin. Kein Framework, 
 | `.htaccess` | Komprimierung, Cache, HTTPS (Apache-Hosting) |
 | `assets/js/main.js` | Scroll-Szene, Einblendungen, Formular |
 | `assets/js/statue.js` | 3D-Justitia (three.js) |
-| `assets/fonts/` | Lokal eingebundene Schrift Poppins (SIL OFL) |
+| `assets/fonts/` | Lokal eingebundene Schrift Libre Baskerville (SIL OFL) |
 | `assets/logo/` | Logo (quer/gestapelt, hell/dunkel), Justitia-Zeichen, Favicon – Text als Pfade, Justitia aus dem 3D-Modell abgeleitet |
 | `assets/img/` | Hier die Fotos ablegen |
 
