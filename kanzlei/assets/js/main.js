@@ -145,7 +145,7 @@
       // offsetTop/-Height sind unabhängig von der laufenden transform-Animation
       copyTop = copy.offsetTop; copyH = copy.offsetHeight;
       if (textEl) textH = textEl.offsetHeight;   // einmal messen statt bei jedem Bild
-      t0 = clamp((copyTop + copyH) / vh + 0.04, 0.3, 0.75);
+      t0 = clamp((copyTop + copyH + Math.max(28, 0.04 * vh)) / vh, 0.3, 0.8);   // Mindestabstand zum Button
     };
 
     // Statue: Oberkante t und Höhe h als Anteil der Viewporthöhe
@@ -390,14 +390,18 @@
       const btn = form.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
-        // Auf Netlify: Netlify Forms (Anfragen erscheinen im Netlify-Dashboard), sonst kontakt.php
+        // Netlify: Netlify Forms · Vercel: /api/kontakt · sonst (PHP-Hosting): kontakt.php
         const onNetlify = /\.netlify\.app$/.test(location.hostname) || document.documentElement.dataset.host === 'netlify';
+        const fd = new FormData(form);
         let ok = false;
         if (onNetlify) {
-          const res = await fetch('/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(new FormData(form)).toString() });
+          const res = await fetch('/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fd).toString() });
           ok = res.ok;
         } else {
-          const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
+          let res = await fetch('/api/kontakt', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: new URLSearchParams(fd).toString() }).catch(() => null);
+          if (!res || res.status === 404 || res.status === 405 || res.status === 501) {
+            res = await fetch(form.action, { method: 'POST', body: fd, headers: { Accept: 'application/json' } });
+          }
           const data = await res.json().catch(() => ({}));
           ok = res.ok && data.ok;
         }
